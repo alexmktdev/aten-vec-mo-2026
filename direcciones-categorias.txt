@@ -1,0 +1,198 @@
+Direcciones municipales y categorias
+===================================
+
+1) Administracion Municipal
+- Consultas generales
+- Reclamos de atencion
+- Felicitaciones
+- Sugerencias
+- Transparencia y acceso a la informacion
+- Solicitud de audiencia
+- Derivacion a direccion competente
+- Atencion presencial y tiempos de espera
+- Orientacion de tramites municipales
+- Seguimiento de solicitudes administrativas
+
+2) Direccion de Inspeccion
+- Comercio ilegal
+- Ruidos molestos
+- Fiscalizacion
+- Denuncias municipales
+- Ocupacion de bien nacional de uso publico
+- Publicidad y letreros sin autorizacion
+- Incumplimiento de horarios comerciales
+- Fiscalizacion de ferias y mercados
+- Tenencia irresponsable en via publica
+- Incumplimiento de ordenanzas municipales
+
+3) Direccion de Innovacion y Desarrollo Tecnologico
+- Problemas plataforma web
+- Soporte tecnologico
+- Tramites online
+- Problemas de acceso a cuenta
+- Error en formularios digitales
+- Actualizacion de datos en plataforma
+- Problemas de carga de documentos
+- Interoperabilidad con otros sistemas
+- Sugerencias de mejora digital
+- Reportes de caidas o lentitud del sistema
+
+4) Secretaria Municipal
+- Solicitud de documentos
+- Informacion municipal
+- Consultas administrativas
+- Actas y acuerdos del concejo
+- Certificados municipales
+- Ingresos por oficina de partes
+- Convocatorias y citaciones
+- Registro de organizaciones comunitarias
+- Solicitudes de ministros de fe
+- Consultas por ordenanzas vigentes
+
+5) Juzgado de Policia Local
+- Multas
+- Partes
+- Infracciones
+- Citaciones
+- Estado de causa
+- Reprogramacion de audiencia
+- Pago y convenio de multas
+- Infracciones de transito
+- Infracciones de comercio
+- Consultas de notificaciones judiciales
+
+6) Direccion de Control
+- Reclamos administrativos
+- Control interno
+- Observaciones
+- Denuncias sobre probidad
+- Revision de procedimientos internos
+- Seguimiento de observaciones de auditoria
+- Consultas sobre cumplimiento normativo
+- Reportes de irregularidades administrativas
+
+7) Direccion de Administracion y Finanzas
+- Permiso de circulacion
+- Patentes comerciales
+- Pagos municipales
+- Patente de alcoholes
+- Deudas y convenios de pago
+- Cobros duplicados o errores de cobro
+- Exenciones y rebajas
+- Tesoreria municipal
+- Certificados de no deuda
+- Actualizacion de datos de contribuyente
+
+8) Direccion de Secretaria Comunal de Planificacion
+- Pavimentacion
+- Infraestructura
+- Proyectos comunales
+- Postulacion a fondos concursables
+- Consultas plan regulador
+- Priorizacion de proyectos barriales
+- Diseno y factibilidad de proyectos
+- Seguimiento de obras en ejecucion
+- Mejoramiento de espacios publicos
+- Participacion ciudadana en planificacion
+
+9) Direccion de Desarrollo Comunitario
+- Ayuda social
+- Subsidios
+- Becas
+- Adulto mayor
+- Discapacidad
+- Registro social de hogares
+- Programas de empleabilidad
+- Programas de ninez y juventud
+- Organizaciones comunitarias
+- Asistencia social de emergencia
+- Apoyo psicosocial
+- Orientacion en beneficios estatales
+
+10) Direccion de Asesoria Juridica
+- Consultas legales
+- Asesoria juridica
+- Denuncias formales
+- Revision de contratos y convenios
+- Orientacion sobre reclamaciones administrativas
+- Mediacion y conflictos vecinales
+- Cumplimiento de ordenanzas
+- Requerimientos por responsabilidad municipal
+
+11) Direccion de Transito
+- Semaforos
+- Senalizacion
+- Licencia de conducir
+- Congestion vehicular
+- Demarcacion vial
+- Paraderos y transporte publico
+- Estacionamientos reservados
+- Sentidos de transito
+- Cruces peatonales
+- Educacion vial
+- Permisos temporales de transito
+
+12) Direccion de Obras
+- Construcciones irregulares
+- Veredas danadas
+- Permisos de obra
+- Recepcion final de obras
+- Loteos y subdivisiones
+- Filtraciones y aguas lluvias urbanas
+- Accesibilidad universal en infraestructura
+- Cierres perimetrales y deslindes
+- Fiscalizacion de faenas
+- Danos estructurales en inmuebles
+
+13) Direccion de las Personas
+- Consultas laborales
+- Funcionarios municipales
+- Procesos de seleccion
+- Capacitaciones
+- Bienestar del personal
+- Acoso laboral o maltrato
+- Certificados laborales
+- Gestion de licencias y permisos
+
+14) Direccion de Seguridad Publica
+- Seguridad ciudadana
+- Patrullaje
+- Vehiculos abandonados
+- Emergencias
+- Iluminacion insegura en barrios
+- Puntos de riesgo delictual
+- Violencia intrafamiliar (derivacion)
+- Coordinacion con carabineros
+- Camaras de televigilancia
+- Alarmas comunitarias
+- Incivilidades en espacios publicos
+
+15) Direccion de Medioambiente, Energia y Sustentabilidad
+- Areas verdes
+- Animales
+- Reciclaje
+- Contaminacion
+- Poda y mantencion de arbolado
+- Microbasurales
+- Control de vectores y plagas
+- Tenencia responsable de mascotas
+- Ruido ambiental
+- Eficiencia energetica
+- Educacion ambiental
+- Denuncias por quema de residuos
+
+16) Direccion de Operaciones
+- Alumbrado publico
+- Basura
+- Baches
+- Retiro de escombros
+- Agua y alcantarillado
+- Limpieza de calles
+- Mantencion de plazas
+- Reparacion de mobiliario urbano
+- Senaletica danada
+- Despeje de ramas y obstaculos
+- Anegamientos en via publica
+- Mantencion de canales y sumideros
+- Contenedores de residuos
+- Operativos de limpieza especiales

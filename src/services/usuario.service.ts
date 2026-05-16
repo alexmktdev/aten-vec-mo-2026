@@ -1,0 +1,161 @@
+import { adminAuth } from "@/lib/firebase/admin";
+import { usuarioRepository } from "@/repositories/usuario.repository";
+import { Usuario, UsuarioDTO, UsuarioCreateInput, RolUsuario } from "@/types/usuario.types";
+import { UsuarioUpdateInput } from "@/lib/validations/usuario.schema";
+import { getDireccionLabel } from "@/constants/direcciones";
+import logger from "@/lib/logger";
+import { Timestamp } from "firebase-admin/firestore";
+import { invalidateCacheByPrefix } from "@/lib/server-cache";
+
+type DateLike = Timestamp | Date | string | undefined;
+
+function toUsuarioDTO(user: Usuario): UsuarioDTO {
+  const formatTime = (time: DateLike) => {
+    if (!time) return new Date().toISOString();
+    if (typeof time === "string") return time;
+    if (time instanceof Date) return time.toISOString();
+    if (typeof time.toDate === "function") return time.toDate().toISOString();
+    return new Date().toISOString();
+  };
+
+  const direcciones = user.direccionAsignadas && user.direccionAsignadas.length > 0
+    ? user.direccionAsignadas
+    : user.direccionAsignada
+      ? [user.direccionAsignada]
+      : [];
+
+  return {
+    id: user.id,
+    nombre: user.nombre,
+    email: user.email,
+    rol: user.rol,
+    direccionAsignada: direcciones[0],
+    direccionAsignadaLabel: direcciones[0] ? getDireccionLabel(direcciones[0]) : undefined,
+    direccionAsignadas: direcciones,
+    direccionAsignadasLabel: direcciones.map((d) => getDireccionLabel(d)),
+    activo: user.activo,
+    creadoEn: formatTime(user.creadoEn),
+    actualizadoEn: formatTime(user.actualizadoEn),
+  };
+}
+
+export const usuarioService = {
+  /**
+   * Create a new user — Firebase Auth + Firestore + Custom Claims
+   */
+  async create(input: UsuarioCreateInput): Promise<UsuarioDTO> {
+    // 1. Create Firebase Auth user
+    const authUser = await adminAuth.createUser({
+      email: input.email,
+      password: input.password,
+      displayName: input.nombre,
+    });
+
+    // 2. Set Custom Claims
+    const direcciones = input.direccionAsignadas && input.direccionAsignadas.length > 0
+      ? input.direccionAsignadas
+      : input.direccionAsignada
+        ? [input.direccionAsignada]
+        : [];
+    const claims: Record<string, unknown> = { rol: input.rol };
+    if (direcciones.length > 0) {
+      claims.direccionAsignada = direcciones[0];
+      claims.direccionAsignadas = direcciones;
+    }
+    await adminAuth.setCustomUserClaims(authUser.uid, claims);
+
+    // 3. Create Firestore document
+    await usuarioRepository.create(authUser.uid, {
+      nombre: input.nombre,
+      email: input.email,
+      rol: input.rol,
+      direccionAsignada: direcciones[0],
+      direccionAsignadas: direcciones,
+      activo: true,
+    });
+
+    logger.info({ uid: authUser.uid, email: input.email, rol: input.rol }, "User created");
+    invalidateCacheByPrefix("usuarios:");
+
+    const user = await usuarioRepository.getById(authUser.uid);
+    return toUsuarioDTO(user!);
+  },
+
+  /**
+   * Get user by ID
+   */
+  async getById(uid: string): Promise<UsuarioDTO | null> {
+    const user = await usuarioRepository.getById(uid);
+    if (!user) return null;
+    return toUsuarioDTO(user);
+  },
+
+  /**
+   * List all users
+   */
+  async list(): Promise<UsuarioDTO[]> {
+    const users = await usuarioRepository.list();
+    return users.map(toUsuarioDTO);
+  },
+
+  /**
+   * Get user by email (for derivation)
+   */
+  async getByEmail(email: string): Promise<UsuarioDTO | null> {
+    const user = await usuarioRepository.getByEmail(email);
+    if (!user) return null;
+    return toUsuarioDTO(user);
+  },
+
+  /**
+   * Get users assigned to a specific direction
+   */
+  async getByDireccion(direccion: string): Promise<UsuarioDTO[]> {
+    const users = await usuarioRepository.getByDireccion(direccion);
+    return users.map(toUsuarioDTO);
+  },
+
+  async update(uid: string, input: UsuarioUpdateInput): Promise<UsuarioDTO | null> {
+    const existing = await usuarioRepository.getById(uid);
+    if (!existing) return null;
+
+    const direcciones = input.direccionAsignadas && input.direccionAsignadas.length > 0
+      ? input.direccionAsignadas
+      : input.direccionAsignada
+        ? [input.direccionAsignada]
+        : [];
+    const claims: Record<string, unknown> = { rol: input.rol };
+    if (direcciones.length > 0) {
+      claims.direccionAsignada = direcciones[0];
+      claims.direccionAsignadas = direcciones;
+    }
+    await adminAuth.setCustomUserClaims(uid, claims);
+
+    const authUpdates: { displayName?: string; email?: string; password?: string } = {
+      displayName: input.nombre,
+      email: input.email,
+      password: input.password,
+    };
+    await adminAuth.updateUser(uid, authUpdates);
+
+    await usuarioRepository.update(uid, {
+      nombre: input.nombre,
+      email: input.email,
+      rol: input.rol as RolUsuario,
+      direccionAsignada: direcciones[0],
+      direccionAsignadas: direcciones,
+    });
+
+    const updated = await usuarioRepository.getById(uid);
+    logger.info({ uid, rol: input.rol }, "User updated");
+    invalidateCacheByPrefix("usuarios:");
+    return updated ? toUsuarioDTO(updated) : null;
+  },
+
+  async delete(uid: string): Promise<void> {
+    await adminAuth.deleteUser(uid);
+    await usuarioRepository.delete(uid);
+    logger.info({ uid }, "User deleted permanently");
+    invalidateCacheByPrefix("usuarios:");
+  },
+};

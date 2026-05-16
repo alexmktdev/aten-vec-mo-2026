@@ -1,0 +1,136 @@
+"use client";
+
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { seguimientoSchema, type SeguimientoInput } from "@/lib/validations/seguimiento.schema";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Alert } from "@/components/ui/Alert";
+import { Badge } from "@/components/ui/Badge";
+import { ESTADO_LABELS, ESTADO_COLORS, EstadoRequerimiento } from "@/types/requerimiento.types";
+import { formatRut } from "@/lib/utils/rut";
+import { Search, Calendar, MapPin, Tag, Clock, FileText } from "lucide-react";
+
+interface SeguimientoResult {
+  numeroSeguimiento: string;
+  estado: EstadoRequerimiento;
+  tipoRequerimiento: string;
+  direccionMunicipalLabel: string;
+  categoria: string;
+  descripcion: string;
+  fechaIngreso: string;
+  fechaLimite: string;
+  diasHabilesRestantes?: number;
+  vencido?: boolean;
+}
+
+export function SeguimientoForm() {
+  const [result, setResult] = useState<SeguimientoResult | null>(null);
+  const [searchError, setSearchError] = useState("");
+
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<SeguimientoInput>({
+    resolver: zodResolver(seguimientoSchema),
+  });
+
+  const onSubmit = async (data: SeguimientoInput) => {
+    setSearchError("");
+    setResult(null);
+    try {
+      const params = new URLSearchParams({ numero: data.numero, rut: data.rut });
+      const res = await fetch(`/api/seguimiento?${params}`);
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      setResult(json.data);
+    } catch (err) {
+      setSearchError(err instanceof Error ? err.message : "Error al consultar");
+    }
+  };
+
+  const estadoColor = result ? (ESTADO_COLORS[result.estado] as "yellow" | "blue" | "orange" | "green" | "red") : "default";
+
+  return (
+    <div className="space-y-8">
+      <Card className="border-blue-100 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-slate-800">Consultar estado de requerimiento</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input label="Número de Seguimiento" placeholder="REQ-2024-000123" required {...register("numero")} error={errors.numero?.message} />
+              <Input
+                label="RUT"
+                placeholder="12.345.678-9"
+                required
+                {...register("rut", {
+                  onChange: (event) => {
+                    event.target.value = formatRut(event.target.value);
+                  },
+                })}
+                error={errors.rut?.message}
+              />
+            </div>
+            <Button type="submit" loading={isSubmitting} className="bg-[#1e3a8a] hover:bg-[#1e40af]">
+              <Search className="h-4 w-4 mr-2" />Consultar
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {searchError && <Alert variant="error">{searchError}</Alert>}
+
+      {result && (
+        <Card className="border-blue-100 shadow-sm">
+          <CardHeader>
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div>
+                <p className="text-sm text-slate-500">Requerimiento</p>
+                <CardTitle className="text-blue-600">{result.numeroSeguimiento}</CardTitle>
+              </div>
+              <Badge variant={estadoColor} className="text-sm px-4 py-1.5">
+                {ESTADO_LABELS[result.estado]}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div className="flex items-center gap-2 text-slate-600">
+                <Calendar className="h-4 w-4 text-slate-400" />
+                <span className="font-medium">Fecha ingreso:</span>
+                <span>{new Date(result.fechaIngreso).toLocaleDateString("es-CL")}</span>
+              </div>
+              <div className="flex items-center gap-2 text-slate-600">
+                <MapPin className="h-4 w-4 text-slate-400" />
+                <span className="font-medium">Dirección:</span>
+                <span>{result.direccionMunicipalLabel}</span>
+              </div>
+              <div className="flex items-center gap-2 text-slate-600">
+                <Tag className="h-4 w-4 text-slate-400" />
+                <span className="font-medium">Categoría:</span>
+                <span>{result.categoria}</span>
+              </div>
+              <div className="flex items-center gap-2 text-slate-600">
+                <FileText className="h-4 w-4 text-slate-400" />
+                <span className="font-medium">Tipo:</span>
+                <span>{result.tipoRequerimiento}</span>
+              </div>
+              <div className="flex items-center gap-2 text-slate-600 sm:col-span-2">
+                <Clock className="h-4 w-4 text-slate-400" />
+                <span className="font-medium">Días hábiles restantes:</span>
+                <span className={result.vencido ? "text-red-600 font-bold" : result.diasHabilesRestantes !== undefined && result.diasHabilesRestantes <= 3 ? "text-amber-600 font-bold" : ""}>
+                  {result.vencido ? `Vencido (${Math.abs(result.diasHabilesRestantes || 0)} días)` : `${result.diasHabilesRestantes} días`}
+                </span>
+              </div>
+            </div>
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <p className="text-sm font-medium text-slate-700 mb-1">Descripción:</p>
+              <p className="text-sm text-slate-600">{result.descripcion}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}

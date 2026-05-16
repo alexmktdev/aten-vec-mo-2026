@@ -23,12 +23,21 @@
 # misc
 .DS_Store
 *.pem
+*firebase-adminsdk*.json
 
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
+
+# IDE/editor
+.vscode/
+.idea/
+
+# Windows
+Thumbs.db
 
 # env files (can opt-in for committing if needed)
 .env*

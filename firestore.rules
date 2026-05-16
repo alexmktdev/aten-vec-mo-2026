@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // All access denied by default.
+    // The frontend NEVER accesses Firestore directly.
+    // All access goes through the backend with Admin SDK.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    match /requerimientos/{id} {
+      allow read, write: if false;
+    }
+
+    match /usuarios/{id} {
+      allow read, write: if false;
+    }
+
+    match /contadores/{id} {
+      allow read, write: if false;
+    }
+  }
+}
