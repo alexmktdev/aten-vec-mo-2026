@@ -1,4 +1,5 @@
 import { MAIL_LOGO_CID } from "@/lib/mail/mailer";
+import { mailAttr, mailMessageParagraphs, mailText } from "@/lib/mail/templates/utils";
 import { VecinoData } from "@/types/requerimiento.types";
 
 interface RespuestaVecinoTemplateParams {
@@ -10,15 +11,6 @@ interface RespuestaVecinoTemplateParams {
   categoria: string;
 }
 
-function formatMessageAsHtml(message: string): string {
-  return message
-    .split(/\n+/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => `<p style="margin:0 0 10px;color:#334155;font-size:14px;line-height:1.65;">${line}</p>`)
-    .join("");
-}
-
 export function getRespuestaVecinoTemplate(params: RespuestaVecinoTemplateParams): {
   subject: string;
   html: string;
@@ -26,6 +18,7 @@ export function getRespuestaVecinoTemplate(params: RespuestaVecinoTemplateParams
   const { numeroSeguimiento, vecino, asunto, mensaje, direccionMunicipalLabel, categoria } = params;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const seguimientoUrl = `${appUrl.replace(/\/$/, "")}/seguimiento`;
+  const nombreCompleto = mailText(`${vecino.nombre} ${vecino.primerApellido}`);
 
   const html = `
     <!DOCTYPE html>
@@ -33,7 +26,7 @@ export function getRespuestaVecinoTemplate(params: RespuestaVecinoTemplateParams
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${asunto}</title>
+      <title>${mailText(asunto)}</title>
     </head>
     <body style="margin:0;padding:0;background:#eef0f5;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef0f5;padding:18px 12px;">
@@ -61,7 +54,7 @@ export function getRespuestaVecinoTemplate(params: RespuestaVecinoTemplateParams
               <tr>
                 <td style="padding:14px 32px 0;">
                   <p style="margin:0;color:#334155;font-size:14px;line-height:1.65;">
-                    Estimado/a <strong>${vecino.nombre} ${vecino.primerApellido}</strong>, a continuación compartimos la respuesta asociada a su requerimiento <strong>${numeroSeguimiento}</strong>.
+                    Estimado/a <strong>${nombreCompleto}</strong>, a continuación compartimos la respuesta asociada a su requerimiento <strong>${mailText(numeroSeguimiento)}</strong>.
                   </p>
                 </td>
               </tr>
@@ -69,7 +62,7 @@ export function getRespuestaVecinoTemplate(params: RespuestaVecinoTemplateParams
                 <td style="padding:16px 32px 0;">
                   <div style="background:#f8fafc;border:1px solid #dbeafe;border-radius:14px;padding:18px 18px 8px;">
                     <p style="margin:0 0 10px;color:#1e3a8a;font-size:11px;letter-spacing:0.9px;text-transform:uppercase;font-weight:700;">Mensaje enviado</p>
-                    ${formatMessageAsHtml(mensaje)}
+                    ${mailMessageParagraphs(mensaje)}
                   </div>
                 </td>
               </tr>
@@ -78,22 +71,22 @@ export function getRespuestaVecinoTemplate(params: RespuestaVecinoTemplateParams
                   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
                     <tr>
                       <td style="padding:9px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:13px;font-weight:700;width:38%;">Número de seguimiento</td>
-                      <td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${numeroSeguimiento}</td>
+                      <td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${mailText(numeroSeguimiento)}</td>
                     </tr>
                     <tr>
                       <td style="padding:9px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:13px;font-weight:700;">Dirección municipal</td>
-                      <td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${direccionMunicipalLabel}</td>
+                      <td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${mailText(direccionMunicipalLabel)}</td>
                     </tr>
                     <tr>
                       <td style="padding:9px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:13px;font-weight:700;">Categoría</td>
-                      <td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${categoria}</td>
+                      <td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${mailText(categoria)}</td>
                     </tr>
                   </table>
                 </td>
               </tr>
               <tr>
                 <td style="padding:16px 32px 0;text-align:center;">
-                  <a href="${seguimientoUrl}" style="display:inline-block;background:#1e3a8a;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:10px 18px;border-radius:10px;">
+                  <a href="${mailAttr(seguimientoUrl)}" style="display:inline-block;background:#1e3a8a;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:10px 18px;border-radius:10px;">
                     Revisar seguimiento
                   </a>
                 </td>
@@ -113,5 +106,5 @@ export function getRespuestaVecinoTemplate(params: RespuestaVecinoTemplateParams
     </html>
   `;
 
-  return { subject: asunto, html };
+  return { subject: mailText(asunto), html };
 }

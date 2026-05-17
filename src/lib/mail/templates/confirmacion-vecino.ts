@@ -1,4 +1,5 @@
 import { MAIL_LOGO_CID } from "@/lib/mail/mailer";
+import { mailAttr, mailText } from "@/lib/mail/templates/utils";
 import { VecinoData } from "@/types/requerimiento.types";
 
 interface ConfirmacionVecinoParams {
@@ -26,8 +27,12 @@ export function getConfirmacionVecinoTemplate(params: ConfirmacionVecinoParams):
   } = params;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const seguimientoUrl = `${appUrl.replace(/\/$/, "")}/seguimiento`;
+  const nombreCompleto = mailText(`${vecino.nombre} ${vecino.primerApellido}`);
+  const descripcionCorta = mailText(
+    `${descripcion.substring(0, 200)}${descripcion.length > 200 ? "..." : ""}`
+  );
 
-  const subject = `Confirmación de requerimiento ${numeroSeguimiento} — Municipalidad`;
+  const subject = `Confirmación de requerimiento ${numeroSeguimiento} - Municipalidad`;
 
   const html = `
     <!DOCTYPE html>
@@ -65,7 +70,7 @@ export function getConfirmacionVecinoTemplate(params: ConfirmacionVecinoParams):
               <tr>
                 <td style="padding:14px 32px 0;">
                   <p style="margin:0;color:#334155;font-size:14px;line-height:1.65;">
-                    Estimado/a <strong>${vecino.nombre} ${vecino.primerApellido}</strong>, su requerimiento ha sido ingresado correctamente.
+                    Estimado/a <strong>${nombreCompleto}</strong>, su requerimiento ha sido ingresado correctamente.
                   </p>
                 </td>
               </tr>
@@ -73,7 +78,7 @@ export function getConfirmacionVecinoTemplate(params: ConfirmacionVecinoParams):
                 <td style="padding:16px 32px 0;">
                   <div style="background:#eff6ff;border:2px solid #2563eb;border-radius:12px;padding:20px;text-align:center;">
                     <p style="margin:0;color:#64748b;font-size:11px;letter-spacing:0.9px;text-transform:uppercase;font-weight:700;">Número de seguimiento</p>
-                    <p style="margin:8px 0 0;color:#1e3a8a;font-size:28px;font-weight:800;letter-spacing:1.2px;">${numeroSeguimiento}</p>
+                    <p style="margin:8px 0 0;color:#1e3a8a;font-size:28px;font-weight:800;letter-spacing:1.2px;">${mailText(numeroSeguimiento)}</p>
                   </div>
                 </td>
               </tr>
@@ -82,23 +87,23 @@ export function getConfirmacionVecinoTemplate(params: ConfirmacionVecinoParams):
                   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
                     <tr>
                       <td style="padding:9px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:13px;font-weight:700;width:38%;">Fecha de ingreso</td>
-                      <td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${fechaIngreso}</td>
+                      <td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${mailText(fechaIngreso)}</td>
                     </tr>
                     <tr>
                       <td style="padding:9px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:13px;font-weight:700;">Tipo de requerimiento</td>
-                      <td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${tipoRequerimiento}</td>
+                      <td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${mailText(tipoRequerimiento)}</td>
                     </tr>
                     <tr>
                       <td style="padding:9px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:13px;font-weight:700;">Dirección municipal</td>
-                      <td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${direccionMunicipalLabel}</td>
+                      <td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${mailText(direccionMunicipalLabel)}</td>
                     </tr>
                     <tr>
                       <td style="padding:9px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:13px;font-weight:700;">Categoría</td>
-                      <td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${categoria}</td>
+                      <td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${mailText(categoria)}</td>
                     </tr>
                     <tr>
                       <td style="padding:9px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:13px;font-weight:700;">Descripción</td>
-                      <td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${descripcion.substring(0, 200)}${descripcion.length > 200 ? "..." : ""}</td>
+                      <td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${descripcionCorta}</td>
                     </tr>
                   </table>
                 </td>
@@ -112,7 +117,7 @@ export function getConfirmacionVecinoTemplate(params: ConfirmacionVecinoParams):
               </tr>
               <tr>
                 <td style="padding:14px 32px 0;text-align:center;">
-                  <a href="${seguimientoUrl}" style="display:inline-block;background:#1e3a8a;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:10px 18px;border-radius:10px;box-shadow:0 8px 16px rgba(30,58,138,0.28);">
+                  <a href="${mailAttr(seguimientoUrl)}" style="display:inline-block;background:#1e3a8a;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:10px 18px;border-radius:10px;box-shadow:0 8px 16px rgba(30,58,138,0.28);">
                     Ir a Seguimiento
                   </a>
                 </td>

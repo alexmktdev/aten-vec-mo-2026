@@ -30,7 +30,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     if (!sessionCookie) return null;
 
     const cookieHash = createHash("sha1").update(sessionCookie).digest("hex");
-    return cached(`session:user:${cookieHash}`, 60_000, async () => {
+    return cached(`session:user:${cookieHash}`, 300_000, async () => {
       const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
       const userRecord = await adminAuth.getUser(decoded.uid);
       const claims = userRecord.customClaims || {};

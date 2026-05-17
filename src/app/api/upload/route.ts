@@ -10,6 +10,13 @@ const log = createRouteLogger("/api/upload");
 const PUBLIC_EXT_TO_MIME: Record<string, string> = {
   pdf: "application/pdf",
 };
+const ADMIN_EXT_TO_MIME: Record<string, string> = {
+  pdf: "application/pdf",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+};
 
 /**
  * POST /api/upload — Generate presigned URL for file upload to R2
@@ -28,24 +35,21 @@ export async function POST(request: NextRequest) {
       return createErrorResponse(400, "Datos inválidos", parsed.error.issues);
     }
 
-    const ext = getFileExtension(parsed.data.fileName);
-    if (!ext || !(ext in PUBLIC_EXT_TO_MIME)) {
-      return createErrorResponse(400, "Extensión de archivo no permitida");
-    }
-
-    if (parsed.data.isPublic) {
-      const expectedMime = PUBLIC_EXT_TO_MIME[ext];
-      if (parsed.data.contentType !== expectedMime) {
-        return createErrorResponse(400, "Tipo MIME inválido para la extensión del archivo");
-      }
-    }
-
-    // If not public (admin upload), require authentication
     let isAdmin = false;
     if (!parsed.data.isPublic) {
       const authResult = await requireAuth();
       if (authResult.error) return authResult.error;
       isAdmin = true;
+    }
+
+    const ext = getFileExtension(parsed.data.fileName);
+    const allowedMap = isAdmin ? ADMIN_EXT_TO_MIME : PUBLIC_EXT_TO_MIME;
+    const expectedMime = allowedMap[ext];
+    if (!ext || !expectedMime) {
+      return createErrorResponse(400, "Extensión de archivo no permitida");
+    }
+    if (parsed.data.contentType !== expectedMime) {
+      return createErrorResponse(400, "Tipo MIME inválido para la extensión del archivo");
     }
 
     const result = await r2Service.generatePresignedUrl(
@@ -58,7 +62,15 @@ export async function POST(request: NextRequest) {
     return createSuccessResponse(result);
   } catch (error) {
     log.error({ error }, "Error generating upload URL");
-    const message = error instanceof Error ? error.message : "Error al generar URL de subida";
-    return createErrorResponse(400, message);
+    if (error instanceof Error) {
+      const allowedMessages = new Set([
+        "Tipo de archivo no permitido",
+        "Tipo MIME inválido para la extensión del archivo",
+      ]);
+      if (allowedMessages.has(error.message) || error.message.includes("tamaño máximo")) {
+        return createErrorResponse(400, error.message);
+      }
+    }
+    return createErrorResponse(500, "No fue posible preparar la carga del archivo");
   }
 }

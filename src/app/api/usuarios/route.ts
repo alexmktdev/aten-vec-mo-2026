@@ -13,12 +13,20 @@ const log = createRouteLogger("/api/usuarios");
  * GET /api/usuarios — List all users
  * Roles: superadmin, admin, administradora-municipal
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const authResult = await requireRole("superadmin", "admin", "administradora-municipal");
     if (authResult.error) return authResult.error;
 
-    const users = await cached("usuarios:list", 60_000, () => usuarioService.list());
+    const { searchParams } = new URL(request.url);
+    const page = Math.max(1, Number(searchParams.get("page") || "1"));
+    const limit = Math.min(50, Math.max(1, Number(searchParams.get("limit") || "10")));
+    const search = sanitizeText(searchParams.get("search") || "");
+    const cacheKey = `usuarios:list:${authResult.user.uid}:${authResult.user.rol}:${page}:${limit}:${search || "all"}`;
+
+    const users = await cached(cacheKey, 180_000, () =>
+      usuarioService.listPaginated({ page, limit, search })
+    );
     return createSuccessResponse(users);
   } catch (error) {
     log.error({ error }, "Error listing users");

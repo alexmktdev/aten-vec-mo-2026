@@ -1,4 +1,5 @@
 import { MAIL_LOGO_CID } from "@/lib/mail/mailer";
+import { mailAttr } from "@/lib/mail/templates/utils";
 
 interface RecuperacionContrasenaParams {
   resetUrl: string;
@@ -44,7 +45,7 @@ export function getRecuperacionContrasenaTemplate(
               </tr>
               <tr>
                 <td style="padding:20px 32px 8px;text-align:center;">
-                  <a href="${params.resetUrl}" style="display:inline-block;background:#1e3a8a;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:10px 20px;border-radius:10px;box-shadow:0 8px 16px rgba(30,58,138,0.35);">
+                  <a href="${mailAttr(params.resetUrl)}" style="display:inline-block;background:#1e3a8a;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:10px 20px;border-radius:10px;box-shadow:0 8px 16px rgba(30,58,138,0.35);">
                     Restablecer contraseña
                   </a>
                 </td>

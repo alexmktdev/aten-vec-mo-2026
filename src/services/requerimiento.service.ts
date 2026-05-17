@@ -148,6 +148,7 @@ export const requerimientoService = {
     }
 
     logger.info({ id, numeroSeguimiento }, "Requerimiento created successfully");
+    invalidateCacheByPrefix("requerimientos:list:");
     invalidateCacheByPrefix("dashboard:stats:");
     invalidateCacheByPrefix("dashboard:highlights:");
     return { id, numeroSeguimiento };
@@ -204,6 +205,7 @@ export const requerimientoService = {
     await requerimientoRepository.addEstadoToHistorial(id, estado, usuarioId, nota);
     await dashboardMetricsService.onEstadoChange(current, estado);
     logger.info({ id, estado, usuarioId }, "Requerimiento status updated");
+    invalidateCacheByPrefix("requerimientos:list:");
     invalidateCacheByPrefix("dashboard:stats:");
     invalidateCacheByPrefix("dashboard:highlights:");
   },
@@ -214,6 +216,7 @@ export const requerimientoService = {
   async addNota(id: string, contenido: string, usuarioId: string): Promise<void> {
     await requerimientoRepository.addNota(id, { contenido, usuarioId });
     logger.info({ id, usuarioId }, "Note added to requerimiento");
+    invalidateCacheByPrefix("requerimientos:list:");
     invalidateCacheByPrefix("dashboard:highlights:");
   },
 
@@ -249,6 +252,7 @@ export const requerimientoService = {
     );
 
     logger.info({ id }, "Requerimiento data updated");
+    invalidateCacheByPrefix("requerimientos:list:");
     invalidateCacheByPrefix("dashboard:stats:");
     invalidateCacheByPrefix("dashboard:highlights:");
   },
@@ -284,6 +288,7 @@ export const requerimientoService = {
       }
     );
 
+    invalidateCacheByPrefix("requerimientos:list:");
     invalidateCacheByPrefix("dashboard:stats:");
     invalidateCacheByPrefix("dashboard:highlights:");
   },
@@ -299,6 +304,9 @@ export const requerimientoService = {
     }
     if (current.estado !== "completado" && current.estado !== "rechazado") {
       throw new Error("Solo se puede enviar respuesta al vecino cuando el requerimiento está completado o rechazado");
+    }
+    if ((current.respuestasVecino?.length || 0) > 0) {
+      throw new Error("Ya existe una respuesta enviada al vecino para este requerimiento");
     }
 
     await notificacionService.enviarRespuestaVecino(input.emailDestino, {
@@ -318,6 +326,7 @@ export const requerimientoService = {
     });
 
     logger.info({ id, usuarioId, emailDestino: input.emailDestino }, "Citizen response registered");
+    invalidateCacheByPrefix("requerimientos:list:");
   },
 
   /**
@@ -329,6 +338,7 @@ export const requerimientoService = {
     await requerimientoRepository.delete(id);
     await dashboardMetricsService.onDelete(current);
     logger.info({ id }, "Requerimiento deleted");
+    invalidateCacheByPrefix("requerimientos:list:");
     invalidateCacheByPrefix("dashboard:stats:");
     invalidateCacheByPrefix("dashboard:highlights:");
   },

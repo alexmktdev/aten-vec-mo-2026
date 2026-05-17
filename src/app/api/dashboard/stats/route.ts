@@ -15,7 +15,7 @@ export async function GET() {
     const authResult = await requireAuth();
     if (authResult.error) return authResult.error;
 
-    const stats = await cached("dashboard:stats:all", 60_000, () =>
+    const stats = await cached("dashboard:stats:all", 180_000, () =>
       requerimientoService.getStats()
     );
 

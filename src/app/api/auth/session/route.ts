@@ -4,6 +4,7 @@ import { createSuccessResponse, createErrorResponse } from "@/lib/utils/response
 import { cookies } from "next/headers";
 import logger from "@/lib/logger";
 import { sanitizeText } from "@/lib/utils/sanitize";
+import { requireAuth } from "@/lib/auth-guard";
 
 /**
  * POST /api/auth/session — Create session cookie from Firebase ID Token
@@ -57,6 +58,15 @@ export async function POST(request: NextRequest) {
     logger.error({ error }, "Failed to create session");
     return createErrorResponse(401, "Token inválido o expirado");
   }
+}
+
+export async function GET() {
+  const authResult = await requireAuth();
+  if (authResult.error) {
+    return createErrorResponse(401, "Sesión inválida");
+  }
+
+  return createSuccessResponse(authResult.user);
 }
 
 /**

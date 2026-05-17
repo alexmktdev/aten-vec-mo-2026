@@ -52,19 +52,22 @@ async function fetchRequerimientos(params: ListParams) {
   return fetchJson<{ data: RequerimientoDTO[]; nextCursor?: string; total?: number }>(`/api/requerimientos?${searchParams}`);
 }
 
+export function getRequerimientosQueryOptions(params: ListParams = {}) {
+  return {
+    queryKey: ["requerimientos", params] as const,
+    queryFn: () => fetchRequerimientos(params),
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
+  };
+}
+
 async function fetchRequerimiento(id: string) {
   return fetchJson<RequerimientoDTO>(`/api/requerimientos/${id}`);
 }
 
 export function useRequerimientos(params: ListParams = {}) {
-  return useQuery({
-    queryKey: ["requerimientos", params],
-    queryFn: () => fetchRequerimientos(params),
-    placeholderData: keepPreviousData,
-    staleTime: 60_000,
-    gcTime: 5 * 60_000,
-    refetchOnWindowFocus: false,
-  });
+  return useQuery(getRequerimientosQueryOptions(params));
 }
 
 export function useRequerimiento(id: string) {
@@ -72,6 +75,8 @@ export function useRequerimiento(id: string) {
     queryKey: ["requerimiento", id],
     queryFn: () => fetchRequerimiento(id),
     enabled: !!id,
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
   });
 }
 
@@ -85,7 +90,21 @@ export function useUpdateRequerimiento() {
         body: JSON.stringify({ estado, nota }),
       });
     },
-    onSuccess: () => {
+    onMutate: async ({ id, estado }) => {
+      if (!estado) return;
+      await queryClient.cancelQueries({ queryKey: ["requerimiento", id] });
+      const prevDetail = queryClient.getQueryData<RequerimientoDTO>(["requerimiento", id]);
+      if (prevDetail) {
+        queryClient.setQueryData<RequerimientoDTO>(["requerimiento", id], { ...prevDetail, estado });
+      }
+      return { prevDetail };
+    },
+    onError: (_err, { id }, context) => {
+      if (context?.prevDetail) {
+        queryClient.setQueryData(["requerimiento", id], context.prevDetail);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
       queryClient.invalidateQueries({ queryKey: ["requerimiento"] });
     },
@@ -142,7 +161,25 @@ export function useDeleteRequerimiento() {
     mutationFn: async (id: string) => {
       return fetchJson(`/api/requerimientos/${id}`, { method: "DELETE" });
     },
-    onSuccess: () => {
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["requerimientos"] });
+      type ListResult = { data: RequerimientoDTO[]; nextCursor?: string; total?: number };
+      const snapshots = queryClient.getQueriesData<ListResult>({ queryKey: ["requerimientos"] });
+      queryClient.setQueriesData<ListResult>(
+        { queryKey: ["requerimientos"] },
+        (old) => {
+          if (!old) return old;
+          return { ...old, data: old.data.filter((r) => r.id !== id), total: old.total ? old.total - 1 : undefined };
+        }
+      );
+      return { snapshots };
+    },
+    onError: (_err, _id, context) => {
+      context?.snapshots?.forEach(([key, data]) => {
+        queryClient.setQueryData(key, data);
+      });
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
     },
   });

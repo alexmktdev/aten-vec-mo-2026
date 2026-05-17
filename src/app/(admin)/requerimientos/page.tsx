@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useRequerimientos, useDeleteRequerimiento } from "@/hooks/useRequerimientos";
+import { useQueryClient } from "@tanstack/react-query";
+import { useRequerimientos, useDeleteRequerimiento, getRequerimientosQueryOptions } from "@/hooks/useRequerimientos";
 import { useAuth } from "@/hooks/useAuth";
 import { DataTable } from "@/components/ui/DataTable";
 import { RequerimientoFilters } from "@/components/features/requerimientos/RequerimientoFilters";
@@ -14,6 +15,7 @@ import { AlertTriangle, History, Pencil, Trash2 } from "lucide-react";
 import { PaginationNumeric } from "@/components/ui/PaginationNumeric";
 import { getBusinessDaysBetween } from "@/lib/utils/dias-habiles";
 import { canDeleteRequerimiento } from "@/lib/requerimiento-permissions";
+import { ConfirmDeleteModal } from "@/components/ui/ConfirmDeleteModal";
 export default function RequerimientosPage() {
   const [estado, setEstado] = useState("");
   const [direccion, setDireccion] = useState("");
@@ -21,10 +23,16 @@ export default function RequerimientosPage() {
   const [sortMode, setSortMode] = useState<"recientes" | "antiguos" | "limite">("recientes");
   const [currentPage, setCurrentPage] = useState(1);
   const [errorMsg, setErrorMsg] = useState("");
+  const [requerimientoToDelete, setRequerimientoToDelete] = useState<RequerimientoDTO | null>(null);
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const deleteMutation = useDeleteRequerimiento();
   const effectivePage = currentPage;
+  const canFilterByDireccion =
+    user?.rol === "superadmin" ||
+    user?.rol === "admin" ||
+    user?.rol === "administradora-municipal";
 
   const { data, isLoading } = useRequerimientos({
     estado: estado || undefined,
@@ -38,6 +46,21 @@ export default function RequerimientosPage() {
   const knownPages = Math.max(1, Math.ceil((data?.total || 0) / 8));
   const search = busqueda.trim().toLowerCase();
   const visiblePage = Math.min(currentPage, knownPages);
+
+  useEffect(() => {
+    if (!data?.total || effectivePage >= knownPages) return;
+    void queryClient.prefetchQuery(
+      getRequerimientosQueryOptions({
+        estado: estado || undefined,
+        direccion: direccion || undefined,
+        page: effectivePage + 1,
+        includeTotal: true,
+        limit: 8,
+        sortBy: sortMode === "limite" ? "fechaLimite" : "fechaIngreso",
+        sortDir: sortMode === "antiguos" ? "asc" : "desc",
+      })
+    );
+  }, [data?.total, knownPages, effectivePage, queryClient, estado, direccion, sortMode]);
 
   const filteredRows = useMemo(() => {
     const rows = data?.data || [];
@@ -55,6 +78,11 @@ export default function RequerimientosPage() {
       return text.includes(search);
     });
   }, [data?.data, search]);
+
+  const goToRequerimiento = (id: string, hash?: string) => {
+    const target = hash ? `/requerimientos/${id}${hash}` : `/requerimientos/${id}`;
+    router.push(target);
+  };
 
   const columns = [
     {
@@ -149,7 +177,7 @@ export default function RequerimientosPage() {
             className="bg-blue-900 hover:bg-blue-950 text-white"
             onClick={(e) => {
               e.stopPropagation();
-              router.push(`/requerimientos/${item.id}`);
+              goToRequerimiento(item.id);
             }}
           >
             <Pencil className="h-3.5 w-3.5 mr-1" /> Editar
@@ -159,7 +187,7 @@ export default function RequerimientosPage() {
             size="sm"
             onClick={(e) => {
               e.stopPropagation();
-              router.push(`/requerimientos/${item.id}#historial-estados`);
+              goToRequerimiento(item.id, "#historial-estados");
             }}
           >
             <History className="h-3.5 w-3.5 mr-1" /> Historial
@@ -172,13 +200,7 @@ export default function RequerimientosPage() {
               onClick={async (e) => {
                 e.stopPropagation();
                 setErrorMsg("");
-                if (!confirm("¿Está seguro de eliminar este requerimiento?")) return;
-                try {
-                  await deleteMutation.mutateAsync(item.id);
-                } catch (error) {
-                  const message = error instanceof Error ? error.message : "Error al eliminar requerimiento";
-                  setErrorMsg(message);
-                }
+                setRequerimientoToDelete(item);
               }}
             >
               <Trash2 className="h-3.5 w-3.5 mr-1" /> Eliminar
@@ -201,6 +223,7 @@ export default function RequerimientosPage() {
           direccion={direccion}
           busqueda={busqueda}
           sortMode={sortMode}
+          showDireccionFilter={canFilterByDireccion}
           onEstadoChange={(v) => {
             setEstado(v);
             setCurrentPage(1);
@@ -228,7 +251,7 @@ export default function RequerimientosPage() {
         keyExtractor={(item) => item.id}
         loading={isLoading}
         emptyMessage="No se encontraron requerimientos"
-        onRowClick={(item) => router.push(`/requerimientos/${item.id}`)}
+        onRowClick={(item) => goToRequerimiento(item.id)}
       />
 
       <PaginationNumeric
@@ -240,6 +263,32 @@ export default function RequerimientosPage() {
         onSelectPage={(page) => {
           if (page >= 1 && page <= knownPages) setCurrentPage(page);
         }}
+      />
+
+      <ConfirmDeleteModal
+        open={Boolean(requerimientoToDelete)}
+        onOpenChange={(open) => {
+          if (!open) setRequerimientoToDelete(null);
+        }}
+        title="Eliminar requerimiento"
+        description={
+          <>
+            ¿Está seguro de eliminar el requerimiento{" "}
+            <span className="font-semibold text-slate-700">{requerimientoToDelete?.numeroSeguimiento}</span>?
+          </>
+        }
+        onConfirm={async () => {
+          if (!requerimientoToDelete) return;
+          setErrorMsg("");
+          try {
+            await deleteMutation.mutateAsync(requerimientoToDelete.id);
+            setRequerimientoToDelete(null);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Error al eliminar requerimiento";
+            setErrorMsg(message);
+          }
+        }}
+        loading={deleteMutation.isPending}
       />
     </div>
   );

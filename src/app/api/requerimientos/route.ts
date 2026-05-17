@@ -6,9 +6,10 @@ import { requireAuth, getDireccionRestriccion } from "@/lib/auth-guard";
 import { createSuccessResponse, createErrorResponse } from "@/lib/utils/response";
 import { createRouteLogger } from "@/lib/logger";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { sanitizeText, sanitizeOptionalText, normalizeEmail } from "@/lib/utils/sanitize";
+import { sanitizeText, sanitizeOptionalText, normalizeEmail, sanitizeMultilineText } from "@/lib/utils/sanitize";
 import { normalizeRut } from "@/lib/utils/rut";
 import { getRequerimientoListFiltersFromRequest } from "@/lib/api/requerimiento-filters-from-request";
+import { cached } from "@/lib/server-cache";
 
 const log = createRouteLogger("/api/requerimientos");
 
@@ -27,7 +28,15 @@ export async function GET(request: NextRequest) {
     }
 
     const direccionRestriccion = getDireccionRestriccion(authResult.user);
-    const result = await requerimientoService.list(parsedFilters.data, direccionRestriccion);
+    const cacheKey = `requerimientos:list:${JSON.stringify({
+      uid: authResult.user.uid,
+      rol: authResult.user.rol,
+      filters: parsedFilters.data,
+      direccionRestriccion: direccionRestriccion || [],
+    })}`;
+    const result = await cached(cacheKey, 180_000, () =>
+      requerimientoService.list(parsedFilters.data, direccionRestriccion)
+    );
 
     return createSuccessResponse(result);
   } catch (error) {
@@ -58,7 +67,7 @@ export async function POST(request: NextRequest) {
       body.vecino.email = normalizeEmail(body.vecino.email || "");
     }
     if (body.descripcion) {
-      body.descripcion = sanitizeText(body.descripcion);
+      body.descripcion = sanitizeMultilineText(body.descripcion);
     }
 
     // Validate with Zod

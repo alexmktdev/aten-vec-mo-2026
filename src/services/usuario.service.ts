@@ -1,6 +1,6 @@
 import { adminAuth } from "@/lib/firebase/admin";
 import { usuarioRepository } from "@/repositories/usuario.repository";
-import { Usuario, UsuarioDTO, UsuarioCreateInput, RolUsuario } from "@/types/usuario.types";
+import { Usuario, UsuarioDTO, UsuarioCreateInput, RolUsuario, PaginatedUsuariosResponse } from "@/types/usuario.types";
 import { UsuarioUpdateInput } from "@/lib/validations/usuario.schema";
 import { getDireccionLabel } from "@/constants/direcciones";
 import logger from "@/lib/logger";
@@ -96,6 +96,46 @@ export const usuarioService = {
   async list(): Promise<UsuarioDTO[]> {
     const users = await usuarioRepository.list();
     return users.map(toUsuarioDTO);
+  },
+
+  async listPaginated({
+    page,
+    limit,
+    search,
+  }: {
+    page: number;
+    limit: number;
+    search?: string;
+  }): Promise<PaginatedUsuariosResponse> {
+    const normalizedSearch = search?.trim().toLowerCase() || "";
+
+    if (normalizedSearch) {
+      const users = (await usuarioRepository.list()).map(toUsuarioDTO);
+      const filtered = users.filter((user) => {
+        const text = [
+          user.nombre,
+          user.email,
+          user.rol,
+          user.direccionAsignadaLabel || "",
+          ...(user.direccionAsignadasLabel || []),
+        ]
+          .join(" ")
+          .toLowerCase();
+        return text.includes(normalizedSearch);
+      });
+
+      const start = (page - 1) * limit;
+      return {
+        data: filtered.slice(start, start + limit),
+        total: filtered.length,
+      };
+    }
+
+    const result = await usuarioRepository.listPage(page, limit);
+    return {
+      data: result.data.map(toUsuarioDTO),
+      total: result.total,
+    };
   },
 
   /**

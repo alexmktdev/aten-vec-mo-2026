@@ -4,7 +4,7 @@ import { requerimientoAdminEditSchema } from "@/lib/validations/requerimiento.sc
 import { requireAuth } from "@/lib/auth-guard";
 import { createErrorResponse, createSuccessResponse } from "@/lib/utils/response";
 import { createRouteLogger } from "@/lib/logger";
-import { normalizeEmail, sanitizeOptionalText, sanitizeText } from "@/lib/utils/sanitize";
+import { normalizeEmail, sanitizeMultilineText, sanitizeOptionalText, sanitizeText } from "@/lib/utils/sanitize";
 import { normalizeRut } from "@/lib/utils/rut";
 import { canEditRequerimientoData } from "@/lib/requerimiento-permissions";
 import {
@@ -43,7 +43,7 @@ export async function PATCH(request: NextRequest, routeParams: RequerimientoRout
     }
 
     if (typeof body.descripcion === "string") {
-      body.descripcion = sanitizeText(body.descripcion);
+      body.descripcion = sanitizeMultilineText(body.descripcion);
     }
 
     const parsed = requerimientoAdminEditSchema.safeParse(body);

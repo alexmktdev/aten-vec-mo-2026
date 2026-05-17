@@ -7,6 +7,12 @@ export const uploadSchema = z.object({
     .string()
     .min(1, "Nombre de archivo requerido")
     .max(255, "Nombre de archivo demasiado largo")
+    .refine((name) => !name.includes("..") && !name.includes("/") && !name.includes("\\"), {
+      message: "El nombre del archivo contiene segmentos no permitidos",
+    })
+    .refine((name) => !name.startsWith("."), {
+      message: "El nombre del archivo no puede comenzar con punto",
+    })
     .refine((name) => FILE_NAME_REGEX.test(name), {
       message: "El nombre del archivo contiene caracteres no permitidos",
     }),

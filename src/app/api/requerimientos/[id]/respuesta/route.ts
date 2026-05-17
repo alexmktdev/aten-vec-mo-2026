@@ -4,7 +4,7 @@ import { requerimientoService } from "@/services/requerimiento.service";
 import { requerimientoRespuestaSchema } from "@/lib/validations/requerimiento.schema";
 import { createErrorResponse, createSuccessResponse } from "@/lib/utils/response";
 import { createRouteLogger } from "@/lib/logger";
-import { normalizeEmail, sanitizeText } from "@/lib/utils/sanitize";
+import { normalizeEmail, sanitizeMultilineText, sanitizeText } from "@/lib/utils/sanitize";
 import { canSendCitizenResponse } from "@/lib/requerimiento-permissions";
 import {
   RequerimientoRouteParams,
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest, routeParams: RequerimientoRoute
       body.asunto = sanitizeText(body.asunto);
     }
     if (typeof body.mensaje === "string") {
-      body.mensaje = sanitizeText(body.mensaje);
+      body.mensaje = sanitizeMultilineText(body.mensaje);
     }
 
     const parsed = requerimientoRespuestaSchema.safeParse(body);
@@ -49,6 +49,12 @@ export async function POST(request: NextRequest, routeParams: RequerimientoRoute
   } catch (error) {
     log.error({ error }, "Error sending citizen response email");
     const message = error instanceof Error ? error.message : "Error al enviar la respuesta al vecino";
-    return createErrorResponse(500, message);
+    if (message === "Ya existe una respuesta enviada al vecino para este requerimiento") {
+      return createErrorResponse(409, message);
+    }
+    if (message === "Solo se puede enviar respuesta al vecino cuando el requerimiento está completado o rechazado") {
+      return createErrorResponse(400, message);
+    }
+    return createErrorResponse(500, "No fue posible enviar la respuesta al vecino");
   }
 }

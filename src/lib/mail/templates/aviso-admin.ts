@@ -1,4 +1,5 @@
 import { MAIL_LOGO_CID } from "@/lib/mail/mailer";
+import { mailText } from "@/lib/mail/templates/utils";
 import { VecinoData } from "@/types/requerimiento.types";
 
 interface AvisoAdminParams {
@@ -24,7 +25,10 @@ export function getAvisoAdminTemplate(params: AvisoAdminParams): {
     descripcion,
     fechaIngreso,
   } = params;
-  const subject = `Nuevo requerimiento ${numeroSeguimiento} — ${tipoRequerimiento}`;
+  const subject = `Nuevo requerimiento ${numeroSeguimiento} - ${tipoRequerimiento}`;
+  const nombreCompleto = mailText(
+    `${vecino.nombre} ${vecino.primerApellido} ${vecino.segundoApellido || ""}`.trim()
+  );
 
   const html = `
     <!DOCTYPE html>
@@ -61,7 +65,7 @@ export function getAvisoAdminTemplate(params: AvisoAdminParams): {
                 <td style="padding:16px 32px 0;">
                   <div style="background:#eff6ff;border:2px solid #2563eb;border-radius:12px;padding:20px;text-align:center;">
                     <p style="margin:0;color:#64748b;font-size:11px;letter-spacing:0.9px;text-transform:uppercase;font-weight:700;">Número de seguimiento</p>
-                    <p style="margin:8px 0 0;color:#1e3a8a;font-size:28px;font-weight:800;letter-spacing:1.2px;">${numeroSeguimiento}</p>
+                    <p style="margin:8px 0 0;color:#1e3a8a;font-size:28px;font-weight:800;letter-spacing:1.2px;">${mailText(numeroSeguimiento)}</p>
                   </div>
                 </td>
               </tr>
@@ -71,19 +75,19 @@ export function getAvisoAdminTemplate(params: AvisoAdminParams): {
                   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
                     <tr>
                       <td style="padding:8px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:13px;font-weight:700;width:35%;">Nombre</td>
-                      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${vecino.nombre} ${vecino.primerApellido} ${vecino.segundoApellido || ""}</td>
+                      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${nombreCompleto}</td>
                     </tr>
                     <tr>
                       <td style="padding:8px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:13px;font-weight:700;">RUT</td>
-                      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${vecino.rut}</td>
+                      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${mailText(vecino.rut)}</td>
                     </tr>
                     <tr>
                       <td style="padding:8px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:13px;font-weight:700;">Email</td>
-                      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${vecino.email}</td>
+                      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${mailText(vecino.email)}</td>
                     </tr>
                     <tr>
                       <td style="padding:8px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:13px;font-weight:700;">Teléfono</td>
-                      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${vecino.telefono}</td>
+                      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${mailText(vecino.telefono)}</td>
                     </tr>
                   </table>
                 </td>
@@ -94,23 +98,23 @@ export function getAvisoAdminTemplate(params: AvisoAdminParams): {
                   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
                     <tr>
                       <td style="padding:8px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:13px;font-weight:700;width:35%;">Fecha</td>
-                      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${fechaIngreso}</td>
+                      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${mailText(fechaIngreso)}</td>
                     </tr>
                     <tr>
                       <td style="padding:8px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:13px;font-weight:700;">Tipo</td>
-                      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${tipoRequerimiento}</td>
+                      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${mailText(tipoRequerimiento)}</td>
                     </tr>
                     <tr>
                       <td style="padding:8px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:13px;font-weight:700;">Dirección Municipal</td>
-                      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${direccionMunicipalLabel}</td>
+                      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${mailText(direccionMunicipalLabel)}</td>
                     </tr>
                     <tr>
                       <td style="padding:8px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:13px;font-weight:700;">Categoría</td>
-                      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${categoria}</td>
+                      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${mailText(categoria)}</td>
                     </tr>
                     <tr>
                       <td style="padding:8px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:13px;font-weight:700;">Descripción</td>
-                      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${descripcion}</td>
+                      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${mailText(descripcion)}</td>
                     </tr>
                   </table>
                 </td>

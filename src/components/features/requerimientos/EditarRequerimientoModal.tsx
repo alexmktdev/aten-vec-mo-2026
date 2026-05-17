@@ -253,7 +253,7 @@ export function EditarRequerimientoModal({ open, requerimiento, onClose, onSubmi
                             </div>
                             <div className="flex items-center gap-2">
                               <a
-                                href={`/api/documentos?key=${encodeURIComponent(doc.nombreR2)}`}
+                                href={`/api/documentos?key=${encodeURIComponent(doc.nombreR2)}&requerimientoId=${encodeURIComponent(requerimiento.id)}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex h-8 items-center rounded-[10px] border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-100"

@@ -55,12 +55,19 @@ export function addBusinessDays(startDate: Date, days: number): Date {
  * Calcula los días hábiles entre dos fechas
  */
 export function getBusinessDaysBetween(startDate: Date, endDate: Date): number {
-  let count = 0;
-  const current = new Date(startDate);
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  start.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
 
-  while (current < endDate) {
+  if (start >= end) return 0;
+
+  let count = 0;
+  const current = new Date(start);
+
+  while (current < end) {
     current.setDate(current.getDate() + 1);
-    if (isBusinessDay(current)) {
+    if (current <= end && isBusinessDay(current)) {
       count++;
     }
   }

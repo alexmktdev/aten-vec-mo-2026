@@ -14,6 +14,31 @@ interface GuardMessages {
   forbidden?: string;
 }
 
+async function loadRequerimientoWithAccess(
+  id: string,
+  user: SessionUser,
+  messages: GuardMessages = {}
+): Promise<
+  | { id: string; user: SessionUser; requerimiento: RequerimientoDTO; error?: never }
+  | { error: NextResponse; id?: never; user?: never; requerimiento?: never }
+> {
+  const requerimiento = await requerimientoService.getById(id);
+  if (!requerimiento) {
+    return { error: createErrorResponse(404, messages.notFound || "Requerimiento no encontrado") };
+  }
+
+  if (!hasDireccionAccess(user, requerimiento.direccionMunicipal)) {
+    return {
+      error: createErrorResponse(
+        403,
+        messages.forbidden || "No tiene permisos para acceder a este requerimiento"
+      ),
+    };
+  }
+
+  return { id, user, requerimiento };
+}
+
 export async function requireRequerimientoWithAccess(
   routeParams: RequerimientoRouteParams,
   messages: GuardMessages = {}
@@ -25,19 +50,17 @@ export async function requireRequerimientoWithAccess(
   if (authResult.error) return { error: authResult.error };
 
   const { id } = await routeParams.params;
-  const requerimiento = await requerimientoService.getById(id);
-  if (!requerimiento) {
-    return { error: createErrorResponse(404, messages.notFound || "Requerimiento no encontrado") };
-  }
+  return loadRequerimientoWithAccess(id, authResult.user, messages);
+}
 
-  if (!hasDireccionAccess(authResult.user, requerimiento.direccionMunicipal)) {
-    return {
-      error: createErrorResponse(
-        403,
-        messages.forbidden || "No tiene permisos para acceder a este requerimiento"
-      ),
-    };
-  }
-
-  return { id, user: authResult.user, requerimiento };
+export async function requireRequerimientoByIdWithAccess(
+  id: string,
+  messages: GuardMessages = {}
+): Promise<
+  | { id: string; user: SessionUser; requerimiento: RequerimientoDTO; error?: never }
+  | { error: NextResponse; id?: never; user?: never; requerimiento?: never }
+> {
+  const authResult = await requireAuth();
+  if (authResult.error) return { error: authResult.error };
+  return loadRequerimientoWithAccess(id, authResult.user, messages);
 }

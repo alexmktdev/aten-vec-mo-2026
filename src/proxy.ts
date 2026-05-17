@@ -4,7 +4,26 @@ import type { NextRequest } from "next/server";
 const PROTECTED_PATHS = ["/dashboard", "/requerimientos", "/usuarios", "/reportes"];
 const AUTH_PATHS = ["/auth/login", "/auth/recuperar-contrasena"];
 
-export function proxy(request: NextRequest) {
+async function hasValidSession(request: NextRequest): Promise<boolean> {
+  const cookieHeader = request.headers.get("cookie");
+  if (!cookieHeader) return false;
+
+  try {
+    const response = await fetch(new URL("/api/auth/session", request.url), {
+      method: "GET",
+      headers: {
+        cookie: cookieHeader,
+        "x-proxy-auth-check": "1",
+      },
+      cache: "no-store",
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionCookie = request.cookies.get("session")?.value;
 
@@ -15,6 +34,23 @@ export function proxy(request: NextRequest) {
     const loginUrl = new URL("/auth/login", request.url);
     loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);
+  }
+
+  if (sessionCookie && (isProtected || isAuthPath)) {
+    const isValid = await hasValidSession(request);
+    if (!isValid) {
+      if (isProtected) {
+        const loginUrl = new URL("/auth/login", request.url);
+        loginUrl.searchParams.set("redirect", pathname);
+        const response = NextResponse.redirect(loginUrl);
+        response.cookies.delete("session");
+        return response;
+      }
+
+      const response = NextResponse.next();
+      response.cookies.delete("session");
+      return response;
+    }
   }
 
   if (isAuthPath && sessionCookie) {

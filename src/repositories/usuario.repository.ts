@@ -5,6 +5,15 @@ import { FieldValue } from "firebase-admin/firestore";
 
 const collection = () => adminDb.collection(COLLECTIONS.USUARIOS);
 
+async function executePageQuery(
+  query: FirebaseFirestore.Query<FirebaseFirestore.DocumentData>,
+  page: number,
+  limit: number
+): Promise<FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>> {
+  const skip = (page - 1) * limit;
+  return query.offset(skip).limit(limit).get();
+}
+
 export const usuarioRepository = {
   /**
    * Create a new usuario document in Firestore
@@ -52,6 +61,22 @@ export const usuarioRepository = {
     return snapshot.docs.map(
       (doc) => ({ id: doc.id, ...doc.data() }) as Usuario
     );
+  },
+
+  async listPage(page: number, limit: number): Promise<{ data: Usuario[]; total: number }> {
+    const baseQuery = collection()
+      .select("nombre", "email", "rol", "direccionAsignada", "direccionAsignadas", "activo", "creadoEn", "actualizadoEn")
+      .orderBy("creadoEn", "desc");
+
+    const [countSnapshot, pageSnapshot] = await Promise.all([
+      baseQuery.count().get(),
+      executePageQuery(baseQuery, page, limit),
+    ]);
+
+    return {
+      data: pageSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Usuario),
+      total: Number(countSnapshot.data().count || 0),
+    };
   },
 
   /**

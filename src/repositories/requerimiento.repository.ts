@@ -70,6 +70,15 @@ function buildFilteredQuery(
   return query;
 }
 
+async function executePageQuery(
+  query: FirebaseFirestore.Query<FirebaseFirestore.DocumentData>,
+  page: number,
+  limit: number
+): Promise<FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>> {
+  const skip = (page - 1) * limit;
+  return query.offset(skip).limit(limit).get();
+}
+
 function applyInMemoryFilters(
   data: Requerimiento[],
   filters: RequerimientoFilters,
@@ -163,7 +172,7 @@ export const requerimientoRepository = {
     const limit = filters.limit || 20;
     const page = filters.page || 1;
     const includeTotal = Boolean(filters.includeTotal);
-    const maxOffsetPage = 200;
+    const maxPage = 200;
 
     try {
       const baseQuery = buildFilteredQuery(filters, direccionRestriccion);
@@ -175,10 +184,9 @@ export const requerimientoRepository = {
 
       let query = baseQuery;
       if (filters.page) {
-        if (page > maxOffsetPage) {
-          throw new Error(`Pagination page exceeds supported maximum (${maxOffsetPage})`);
+        if (page > maxPage) {
+          throw new Error(`Pagination page exceeds supported maximum (${maxPage})`);
         }
-        query = query.offset((page - 1) * limit).limit(limit);
       } else {
         query = query.limit(limit + 1);
         if (filters.cursor) {
@@ -206,7 +214,9 @@ export const requerimientoRepository = {
         );
       }
 
-      const snapshot = await query.get();
+      const snapshot = filters.page
+        ? await executePageQuery(query, page, limit)
+        : await query.get();
       const docs = snapshot.docs.map(
         (doc) => ({ id: doc.id, ...doc.data() }) as Requerimiento
       );

@@ -11,6 +11,7 @@ interface Props {
   direccion: string;
   busqueda: string;
   sortMode: "recientes" | "antiguos" | "limite";
+  showDireccionFilter?: boolean;
   onEstadoChange: (val: string) => void;
   onDireccionChange: (val: string) => void;
   onBusquedaChange: (val: string) => void;
@@ -22,6 +23,7 @@ export function RequerimientoFilters({
   direccion,
   busqueda,
   sortMode,
+  showDireccionFilter = true,
   onEstadoChange,
   onDireccionChange,
   onBusquedaChange,
@@ -50,9 +52,15 @@ export function RequerimientoFilters({
       <div className="w-full sm:w-auto sm:min-w-[220px]">
         <Select options={estadoOptions} value={estado} onChange={(e) => onEstadoChange(e.target.value)} />
       </div>
-      <div className="w-full sm:w-auto sm:min-w-[280px]">
-        <Select options={direccionOptions} value={direccion} onChange={(e) => onDireccionChange(e.target.value)} />
-      </div>
+      {showDireccionFilter && (
+        <div className="w-full sm:w-auto sm:min-w-[280px]">
+          <Select
+            options={direccionOptions}
+            value={direccion}
+            onChange={(e) => onDireccionChange(e.target.value)}
+          />
+        </div>
+      )}
       <div className="w-full flex flex-wrap gap-2">
         <Button
           type="button"

@@ -14,7 +14,7 @@ export async function GET() {
     const authResult = await requireAuth();
     if (authResult.error) return authResult.error;
 
-    const highlights = await cached("dashboard:highlights:all", 60_000, () =>
+    const highlights = await cached("dashboard:highlights:all", 180_000, () =>
       requerimientoService.getDashboardHighlights()
     );
 

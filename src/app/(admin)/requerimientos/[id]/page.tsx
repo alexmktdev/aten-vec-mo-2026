@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useRequerimiento, useUpdateRequerimiento, useUpdateRequerimientoDatos, useDerivarRequerimiento, useDeleteRequerimiento, useEnviarRespuestaVecino } from "@/hooks/useRequerimientos";
@@ -11,14 +12,27 @@ import { Textarea } from "@/components/ui/Textarea";
 import { Alert } from "@/components/ui/Alert";
 import { RequerimientoStatusBadge } from "@/components/features/requerimientos/RequerimientoStatusBadge";
 import { AlertaVencimiento } from "@/components/features/requerimientos/AlertaVencimiento";
-import { DerivacionModal } from "@/components/features/requerimientos/DerivacionModal";
-import { RespuestaVecinoModal } from "@/components/features/requerimientos/RespuestaVecinoModal";
-import { EditarRequerimientoModal } from "@/components/features/requerimientos/EditarRequerimientoModal";
 import { ESTADO_LABELS, ESTADOS_REQUERIMIENTO, EstadoRequerimiento } from "@/types/requerimiento.types";
 import { RequerimientoCreateInput } from "@/lib/validations/requerimiento.schema";
 import { ArrowLeft, Mail, Pencil, Send, Trash2 } from "lucide-react";
 import { canDeleteRequerimiento, canDerivarRequerimiento, canEditRequerimientoData, canSendCitizenResponse, getAllowedNextStates } from "@/lib/requerimiento-permissions";
 import { ApiClientError } from "@/lib/api/fetch-json";
+import { ConfirmDeleteModal } from "@/components/ui/ConfirmDeleteModal";
+
+const DerivacionModal = dynamic(
+  () => import("@/components/features/requerimientos/DerivacionModal").then((mod) => mod.DerivacionModal),
+  { ssr: false }
+);
+
+const RespuestaVecinoModal = dynamic(
+  () => import("@/components/features/requerimientos/RespuestaVecinoModal").then((mod) => mod.RespuestaVecinoModal),
+  { ssr: false }
+);
+
+const EditarRequerimientoModal = dynamic(
+  () => import("@/components/features/requerimientos/EditarRequerimientoModal").then((mod) => mod.EditarRequerimientoModal),
+  { ssr: false }
+);
 
 export default function RequerimientoDetailPage() {
   const params = useParams();
@@ -37,6 +51,7 @@ export default function RequerimientoDetailPage() {
   const [showEditar, setShowEditar] = useState(false);
   const [showDerivar, setShowDerivar] = useState(false);
   const [showRespuesta, setShowRespuesta] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -44,6 +59,7 @@ export default function RequerimientoDetailPage() {
   const canDelete = !!user && canDeleteRequerimiento(user.rol);
   const canResponderVecino = !!user && !!req && canSendCitizenResponse(user.rol) && (req.estado === "completado" || req.estado === "rechazado");
   const canEditarDatos = !!user && canEditRequerimientoData(user.rol);
+  const hasRespuestaVecino = !!req && (req.respuestasVecino?.length || 0) > 0;
 
   const getErrorMessage = (error: unknown): string => {
     if (error instanceof ApiClientError) {
@@ -98,10 +114,9 @@ export default function RequerimientoDetailPage() {
   };
 
   const handleDelete = async () => {
-    if (confirm("¿Está seguro de eliminar este requerimiento?")) {
-      await deleteMutation.mutateAsync(id);
-      router.push("/requerimientos");
-    }
+    await deleteMutation.mutateAsync(id);
+    setShowDeleteConfirm(false);
+    router.push("/requerimientos");
   };
 
   if (isLoading) {
@@ -190,7 +205,7 @@ export default function RequerimientoDetailPage() {
                         </div>
                       </div>
                       <a 
-                        href={`/api/documentos?key=${encodeURIComponent(doc.nombreR2)}`} 
+                        href={`/api/documentos?key=${encodeURIComponent(doc.nombreR2)}&requerimientoId=${encodeURIComponent(req.id)}`} 
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="text-sm text-blue-600 font-medium hover:text-blue-800 px-3 py-1 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
@@ -276,10 +291,21 @@ export default function RequerimientoDetailPage() {
               {canResponderVecino && (
                 <Button
                   size="full"
-                  className="bg-blue-900 hover:bg-blue-950 text-white"
-                  onClick={() => setShowRespuesta(true)}
+                  variant={hasRespuestaVecino ? "secondary" : "default"}
+                  className={
+                    hasRespuestaVecino
+                      ? "cursor-not-allowed bg-slate-200 text-slate-500 hover:bg-slate-200 hover:text-slate-500"
+                      : "bg-blue-900 hover:bg-blue-950 text-white"
+                  }
+                  disabled={hasRespuestaVecino}
+                  onClick={() => {
+                    if (!hasRespuestaVecino) {
+                      setShowRespuesta(true);
+                    }
+                  }}
                 >
-                  <Mail className="h-4 w-4 mr-2" /> Enviar respuesta al vecino
+                  <Mail className="h-4 w-4 mr-2" />
+                  {hasRespuestaVecino ? "Respuesta ya enviada" : "Enviar respuesta al vecino"}
                 </Button>
               )}
 
@@ -287,7 +313,7 @@ export default function RequerimientoDetailPage() {
                 <Button
                   variant="destructive"
                   size="full"
-                  onClick={handleDelete}
+                  onClick={() => setShowDeleteConfirm(true)}
                   loading={deleteMutation.isPending}
                 >
                   <Trash2 className="h-4 w-4 mr-2" /> Eliminar
@@ -337,6 +363,20 @@ export default function RequerimientoDetailPage() {
           )}
         </div>
       </div>
+
+      <ConfirmDeleteModal
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="Eliminar requerimiento"
+        description={
+          <>
+            ¿Está seguro de eliminar el requerimiento{" "}
+            <span className="font-semibold text-slate-700">{req.numeroSeguimiento}</span>?
+          </>
+        }
+        onConfirm={handleDelete}
+        loading={deleteMutation.isPending}
+      />
 
       <DerivacionModal
         key={`derivar-${id}-${showDerivar ? "open" : "closed"}-${req.direccionMunicipal}`}

@@ -1,23 +1,25 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useUsuarios, useUpdateUsuario, useDeleteUsuario } from "@/hooks/useUsuarios";
+import { useDeferredValue, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { getUsuariosQueryOptions, useUsuarios, useUpdateUsuario, useDeleteUsuario } from "@/hooks/useUsuarios";
 import { useAuth } from "@/hooks/useAuth";
 import { DataTable } from "@/components/ui/DataTable";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
 import { Modal, ModalContent, ModalDescription, ModalHeader, ModalTitle } from "@/components/ui/Modal";
-import { UsuarioCreateStyledForm } from "@/components/forms/UsuarioCreateStyledForm";
 import { UsuarioDTO } from "@/types/usuario.types";
 import { UsuarioUpdateInput } from "@/lib/validations/usuario.schema";
 import { Pencil, Trash2 } from "lucide-react";
 import { PaginationNumeric } from "@/components/ui/PaginationNumeric";
 import { Input } from "@/components/ui/Input";
+import { ConfirmDeleteModal } from "@/components/ui/ConfirmDeleteModal";
+import { UsuarioCreateStyledForm } from "@/components/forms/UsuarioCreateStyledForm";
 
 export default function UsuariosPage() {
   const { user } = useAuth();
-  const { data: usuarios, isLoading, error } = useUsuarios();
+  const queryClient = useQueryClient();
   const updateMutation = useUpdateUsuario();
   const deleteMutation = useDeleteUsuario();
   const [selectedUser, setSelectedUser] = useState<UsuarioDTO | null>(null);
@@ -26,7 +28,14 @@ export default function UsuariosPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [userToDelete, setUserToDelete] = useState<UsuarioDTO | null>(null);
   const pageSize = 10;
+  const deferredSearch = useDeferredValue(searchTerm.trim());
+  const { data: usuariosResponse, isLoading, error } = useUsuarios({
+    page: currentPage,
+    limit: pageSize,
+    search: deferredSearch || undefined,
+  });
 
   const canManageUsers = user?.rol === "superadmin" || user?.rol === "administradora-municipal";
 
@@ -46,16 +55,21 @@ export default function UsuariosPage() {
   };
 
   const handleDelete = async (usuario: UsuarioDTO) => {
-    if (!confirm(`¿Está seguro de eliminar definitivamente al usuario ${usuario.nombre}?`)) return;
     setErrorMsg("");
     try {
       await deleteMutation.mutateAsync(usuario.id);
       setSuccessMsg("Usuario eliminado exitosamente");
       setTimeout(() => setSuccessMsg(""), 3000);
+      setUserToDelete(null);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Error al eliminar usuario";
       setErrorMsg(message);
     }
+  };
+
+  const handleOpenEdit = (usuario: UsuarioDTO) => {
+    setSelectedUser(usuario);
+    setShowEdit(true);
   };
 
   const rolColors: Record<string, "purple" | "blue" | "green" | "default"> = {
@@ -94,8 +108,7 @@ export default function UsuariosPage() {
             className="bg-blue-900 hover:bg-blue-950 text-white"
             onClick={(e) => {
               e.stopPropagation();
-              setSelectedUser(item);
-              setShowEdit(true);
+              handleOpenEdit(item);
             }}
             disabled={!canManageUsers}
           >
@@ -106,7 +119,7 @@ export default function UsuariosPage() {
             size="sm"
             onClick={(e) => {
               e.stopPropagation();
-              void handleDelete(item);
+              setUserToDelete(item);
             }}
             disabled={!canManageUsers || deleteMutation.isPending || item.id === user?.uid}
           >
@@ -117,18 +130,20 @@ export default function UsuariosPage() {
     },
   ];
 
-  const usuariosData = useMemo(() => usuarios || [], [usuarios]);
-  const normalizedSearch = searchTerm.trim().toLowerCase();
-  const filteredUsuarios = useMemo(() => {
-    if (!normalizedSearch) return usuariosData;
-    return usuariosData.filter((u) => {
-      const text = [u.nombre, u.email, u.rol, u.direccionAsignadaLabel || "", ...(u.direccionAsignadasLabel || [])].join(" ").toLowerCase();
-      return text.includes(normalizedSearch);
-    });
-  }, [usuariosData, normalizedSearch]);
-  const totalPagesFiltered = Math.max(1, Math.ceil(filteredUsuarios.length / pageSize));
-  const safeCurrentPage = Math.min(currentPage, totalPagesFiltered);
-  const pagedUsuarios = filteredUsuarios.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
+  const usuariosData = usuariosResponse?.data || [];
+  const totalPages = Math.max(1, Math.ceil((usuariosResponse?.total || 0) / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+
+  useEffect(() => {
+    if (!usuariosResponse?.total || safeCurrentPage >= totalPages) return;
+    void queryClient.prefetchQuery(
+      getUsuariosQueryOptions({
+        page: safeCurrentPage + 1,
+        limit: pageSize,
+        search: deferredSearch || undefined,
+      })
+    );
+  }, [usuariosResponse?.total, safeCurrentPage, totalPages, queryClient, deferredSearch]);
 
   return (
     <div>
@@ -153,7 +168,7 @@ export default function UsuariosPage() {
 
       <DataTable
         columns={columns}
-        data={pagedUsuarios}
+        data={usuariosData}
         keyExtractor={(item) => item.id}
         loading={isLoading}
         emptyMessage="No hay usuarios registrados"
@@ -161,10 +176,10 @@ export default function UsuariosPage() {
 
       <PaginationNumeric
         currentPage={safeCurrentPage}
-        knownPages={totalPagesFiltered}
-        hasNext={safeCurrentPage < totalPagesFiltered}
-        onPrev={() => setCurrentPage((p) => Math.max(1, Math.min(totalPagesFiltered, p - 1)))}
-        onNext={() => setCurrentPage((p) => Math.min(totalPagesFiltered, p + 1))}
+        knownPages={totalPages}
+        hasNext={safeCurrentPage < totalPages}
+        onPrev={() => setCurrentPage((p) => Math.max(1, Math.min(totalPages, p - 1)))}
+        onNext={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
         onSelectPage={(page) => setCurrentPage(page)}
       />
 
@@ -200,6 +215,22 @@ export default function UsuariosPage() {
           )}
         </ModalContent>
       </Modal>
+
+      <ConfirmDeleteModal
+        open={Boolean(userToDelete)}
+        onOpenChange={(open) => {
+          if (!open) setUserToDelete(null);
+        }}
+        title="Eliminar usuario"
+        description={
+          <>
+            ¿Está seguro de eliminar definitivamente al usuario{" "}
+            <span className="font-semibold text-slate-700">{userToDelete?.nombre}</span>?
+          </>
+        }
+        onConfirm={() => userToDelete ? handleDelete(userToDelete) : undefined}
+        loading={deleteMutation.isPending}
+      />
     </div>
   );
 }

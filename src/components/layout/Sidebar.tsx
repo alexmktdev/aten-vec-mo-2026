@@ -3,9 +3,14 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useUIStore } from "@/stores/ui.store";
+import { getRequerimientosQueryOptions } from "@/hooks/useRequerimientos";
+import { getUsuariosQueryOptions } from "@/hooks/useUsuarios";
+import { fetchJson } from "@/lib/api/fetch-json";
 import {
   LayoutDashboard,
   FileText,
@@ -26,22 +31,63 @@ const NAV_ITEMS = [
 
 const SECTIONS = ["General", "Administración", "Usuarios"] as const;
 
+function getPrefetchQueries(): { queryKey: readonly unknown[]; queryFn: () => Promise<unknown> }[] {
+  return [
+    getRequerimientosQueryOptions({ page: 1, includeTotal: true, limit: 8, sortBy: "fechaIngreso", sortDir: "desc" }),
+    getUsuariosQueryOptions({ page: 1, limit: 10 }),
+    { queryKey: ["dashboard-stats"] as const, queryFn: () => fetchJson("/api/dashboard/stats") },
+    { queryKey: ["dashboard-highlights"] as const, queryFn: () => fetchJson("/api/dashboard/highlights") },
+  ];
+}
+
+const PREFETCH_MAP: Record<string, () => { queryKey: readonly unknown[]; queryFn: () => Promise<unknown> }[]> = {
+  "/requerimientos": () => [getRequerimientosQueryOptions({ page: 1, includeTotal: true, limit: 8, sortBy: "fechaIngreso", sortDir: "desc" })],
+  "/usuarios": () => [getUsuariosQueryOptions({ page: 1, limit: 10 })],
+  "/dashboard": () => [
+    { queryKey: ["dashboard-stats"] as const, queryFn: () => fetchJson("/api/dashboard/stats") },
+    { queryKey: ["dashboard-highlights"] as const, queryFn: () => fetchJson("/api/dashboard/highlights") },
+  ],
+};
+
 export function Sidebar() {
   const pathname = usePathname();
+  const queryClient = useQueryClient();
   const { user, logout } = useAuth();
   const { sidebarOpen, toggleSidebar, mobileSidebarOpen, setMobileSidebarOpen } = useUIStore();
+  const didPrefetch = useRef(false);
 
-  const filteredNav = NAV_ITEMS.filter((item) => user && item.roles.includes(user.rol));
+  const userRol = user?.rol;
+  const filteredNav = useMemo(
+    () => NAV_ITEMS.filter((item) => userRol && item.roles.includes(userRol)),
+    [userRol]
+  );
   const fullName = user?.nombre?.trim() || "Usuario";
   const nameParts = fullName.split(/\s+/).filter(Boolean);
   const avatarInitials =
     nameParts.length >= 2
       ? `${nameParts[0][0] || ""}${nameParts[1][0] || ""}`.toUpperCase()
       : (nameParts[0]?.slice(0, 2) || "US").toUpperCase();
-  const navBySection = SECTIONS.map((section) => ({
-    section,
-    items: filteredNav.filter((item) => item.section === section),
-  })).filter((group) => group.items.length > 0);
+  const navBySection = useMemo(
+    () => SECTIONS.map((section) => ({
+      section,
+      items: filteredNav.filter((item) => item.section === section),
+    })).filter((group) => group.items.length > 0),
+    [filteredNav]
+  );
+
+  useEffect(() => {
+    if (!user || didPrefetch.current) return;
+    didPrefetch.current = true;
+    const queries = getPrefetchQueries();
+    queries.forEach((q) => void queryClient.prefetchQuery(q));
+  }, [user, queryClient]);
+
+  const handlePrefetchData = useCallback((href: string) => {
+    const factory = PREFETCH_MAP[href];
+    if (factory) {
+      factory().forEach((q) => void queryClient.prefetchQuery(q));
+    }
+  }, [queryClient]);
 
   return (
     <>
@@ -104,6 +150,10 @@ export function Sidebar() {
                   <Link
                     key={item.href}
                     href={item.href}
+                    onMouseEnter={() => handlePrefetchData(item.href)}
+                    onClick={() => {
+                      setMobileSidebarOpen(false);
+                    }}
                     className={cn(
                       "group flex items-center gap-2.5 rounded-2xl px-2.5 py-2 text-xs font-medium transition-all duration-200",
                       isActive

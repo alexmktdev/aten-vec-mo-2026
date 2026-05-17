@@ -41,3 +41,8 @@ export interface UsuarioDTO {
   creadoEn: string;
   actualizadoEn: string;
 }
+
+export interface PaginatedUsuariosResponse {
+  data: UsuarioDTO[];
+  total: number;
+}
