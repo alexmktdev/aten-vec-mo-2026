@@ -1,3 +1,4 @@
+import { unstable_cache, updateTag } from "next/cache";
 import {
   isUpstashEnabled,
   upstashDeleteByPrefix,
@@ -30,11 +31,42 @@ function compactExpiredEntries(store: Map<string, CacheEntry<unknown>>, now: num
   }
 }
 
+function getTagFromKey(key: string): string {
+  return key.split(":")[0];
+}
+
+function localCacheFallback<T>(key: string, ttlMs: number, loader: () => Promise<T>): Promise<T> {
+  const store = getCacheStore();
+  const now = Date.now();
+  compactExpiredEntries(store, now);
+  const current = store.get(key) as CacheEntry<T> | undefined;
+  if (current && current.expiresAt > now) return Promise.resolve(current.value);
+
+  return loader().then((value) => {
+    store.set(key, { value, expiresAt: now + ttlMs });
+    return value;
+  });
+}
+
 export async function cached<T>(
   key: string,
   ttlMs: number,
   loader: () => Promise<T>
 ): Promise<T> {
+  const tag = getTagFromKey(key);
+  const revalidateSeconds = Math.max(1, Math.ceil(ttlMs / 1000));
+
+  try {
+    const getCachedValue = unstable_cache(
+      loader,
+      [key],
+      { revalidate: revalidateSeconds, tags: [tag] }
+    );
+    return await getCachedValue() as T;
+  } catch {
+    // unstable_cache unavailable (edge runtime, tests, etc.) — try Upstash or local
+  }
+
   if (isUpstashEnabled()) {
     try {
       const cachedValue = await upstashGet(key);
@@ -42,29 +74,26 @@ export async function cached<T>(
         return JSON.parse(cachedValue) as T;
       }
       const value = await loader();
-      await upstashSetEx(key, Math.max(1, Math.ceil(ttlMs / 1000)), JSON.stringify(value));
+      await upstashSetEx(key, revalidateSeconds, JSON.stringify(value));
       return value;
     } catch {
       // Fallback to local cache when distributed cache is unavailable.
     }
   }
 
-  const store = getCacheStore();
-  const now = Date.now();
-  compactExpiredEntries(store, now);
-  const current = store.get(key) as CacheEntry<T> | undefined;
-  if (current && current.expiresAt > now) return current.value;
-
-  const value = await loader();
-  store.set(key, { value, expiresAt: now + ttlMs });
-  return value;
+  return localCacheFallback(key, ttlMs, loader);
 }
 
 export function invalidateCacheByPrefix(prefix: string): void {
+  const tag = prefix.replace(/:$/, "");
+  try {
+    updateTag(tag);
+  } catch {
+    // revalidateTag unavailable outside request context
+  }
+
   if (isUpstashEnabled()) {
-    void upstashDeleteByPrefix(prefix).catch(() => {
-      // Fallback keeps running even if remote invalidation fails.
-    });
+    void upstashDeleteByPrefix(prefix).catch(() => {});
   }
 
   const store = getCacheStore();
