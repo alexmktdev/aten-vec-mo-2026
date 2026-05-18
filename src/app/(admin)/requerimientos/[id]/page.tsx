@@ -18,6 +18,14 @@ import { ArrowLeft, Loader2, Mail, Pencil, Send, Trash2 } from "lucide-react";
 import { canDeleteRequerimiento, canDerivarRequerimiento, canEditRequerimientoData, canSendCitizenResponse, getAllowedNextStates } from "@/lib/requerimiento-permissions";
 import { ApiClientError } from "@/lib/api/fetch-json";
 import { ConfirmDeleteModal } from "@/components/ui/ConfirmDeleteModal";
+import {
+  Modal,
+  ModalContent,
+  ModalDescription,
+  ModalFooter,
+  ModalHeader,
+  ModalTitle,
+} from "@/components/ui/Modal";
 
 const DerivacionModal = dynamic(
   () => import("@/components/features/requerimientos/DerivacionModal").then((mod) => mod.DerivacionModal),
@@ -52,12 +60,14 @@ export default function RequerimientoDetailPage() {
   const [showDerivar, setShowDerivar] = useState(false);
   const [showRespuesta, setShowRespuesta] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDerivarCorreoHint, setShowDerivarCorreoHint] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
     setNewEstado("");
     setNota("");
+    setShowDerivarCorreoHint(false);
   }, [id]);
 
   const canDerivar = !!user && !!req && canDerivarRequerimiento(user.rol) && req.estado === "pendiente";
@@ -84,17 +94,28 @@ export default function RequerimientoDetailPage() {
 
   const handleUpdateEstado = async () => {
     if (!newEstado && !nota) return;
+    const estadoEnviar = newEstado ? (newEstado as EstadoRequerimiento) : undefined;
+    const mostrarInstruccionDerivar =
+      !!user &&
+      !!req &&
+      user.rol === "admin" &&
+      req.estado === "pendiente" &&
+      estadoEnviar === "derivado";
+
     setErrorMsg("");
     try {
       await updateMutation.mutateAsync({
         id,
-        estado: newEstado ? (newEstado as EstadoRequerimiento) : undefined,
+        estado: estadoEnviar,
         nota: nota || undefined,
       });
       setSuccessMsg("Requerimiento actualizado");
       setNewEstado("");
       setNota("");
       setTimeout(() => setSuccessMsg(""), 3000);
+      if (mostrarInstruccionDerivar) {
+        setShowDerivarCorreoHint(true);
+      }
     } catch (error) {
       setErrorMsg(getErrorMessage(error));
     }
@@ -398,6 +419,29 @@ export default function RequerimientoDetailPage() {
         onConfirm={handleDelete}
         loading={deleteMutation.isPending}
       />
+
+      <Modal open={showDerivarCorreoHint} onOpenChange={setShowDerivarCorreoHint}>
+        <ModalContent className="max-w-md">
+          <ModalHeader>
+            <ModalTitle>Correo de derivación</ModalTitle>
+            <ModalDescription asChild>
+              <div className="space-y-3 text-sm text-slate-600">
+                <p>
+                  Ahora debe enviar el correo de derivación correspondiente con el botón{" "}
+                  <span className="font-semibold text-slate-800">Derivar</span>.
+                </p>
+                <p>
+                  Ese envío solo se hace desde ahí. Si el estado ya quedó en «Derivado», cámbielo a
+                  «Pendiente», guarde los cambios y luego use <span className="font-semibold text-slate-800">Derivar</span>.
+                </p>
+              </div>
+            </ModalDescription>
+          </ModalHeader>
+          <ModalFooter>
+            <Button onClick={() => setShowDerivarCorreoHint(false)}>Entendido</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
       <DerivacionModal
         key={`derivar-${id}-${showDerivar ? "open" : "closed"}-${req.direccionMunicipal}`}
