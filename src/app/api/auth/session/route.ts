@@ -6,6 +6,8 @@ import logger from "@/lib/logger";
 import { sanitizeText } from "@/lib/utils/sanitize";
 import { requireAuth } from "@/lib/auth-guard";
 
+export const dynamic = "force-dynamic";
+
 /**
  * POST /api/auth/session — Create session cookie from Firebase ID Token
  */

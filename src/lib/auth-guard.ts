@@ -4,8 +4,6 @@ import { SessionUser } from "@/types/auth.types";
 import { RolUsuario } from "@/types/usuario.types";
 import { createErrorResponse } from "@/lib/utils/response";
 import { NextResponse } from "next/server";
-import { cached } from "@/lib/server-cache";
-import { createHash } from "node:crypto";
 
 function normalizeDireccionesFromClaims(claims: Record<string, unknown>): string[] {
   const fromArray = Array.isArray(claims.direccionAsignadas)
@@ -29,22 +27,19 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 
     if (!sessionCookie) return null;
 
-    const cookieHash = createHash("sha1").update(sessionCookie).digest("hex");
-    return cached(`session:user:${cookieHash}`, 300_000, async () => {
-      const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
-      const userRecord = await adminAuth.getUser(decoded.uid);
-      const claims = userRecord.customClaims || {};
-      const direcciones = normalizeDireccionesFromClaims(claims);
+    const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
+    const userRecord = await adminAuth.getUser(decoded.uid);
+    const claims = userRecord.customClaims || {};
+    const direcciones = normalizeDireccionesFromClaims(claims);
 
-      return {
-        uid: decoded.uid,
-        email: decoded.email || "",
-        nombre: userRecord.displayName || "",
-        rol: (claims.rol as RolUsuario) || "director",
-        direccionAsignada: direcciones[0],
-        direccionAsignadas: direcciones,
-      };
-    });
+    return {
+      uid: decoded.uid,
+      email: decoded.email || "",
+      nombre: userRecord.displayName || "",
+      rol: (claims.rol as RolUsuario) || "director",
+      direccionAsignada: direcciones[0],
+      direccionAsignadas: direcciones,
+    };
   } catch {
     return null;
   }
