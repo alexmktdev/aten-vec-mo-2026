@@ -21,7 +21,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <Menu className="h-5 w-5" />
       </button>
       <AdminRefreshButton />
-      <main className={cn("transition-all duration-300 pb-4 px-4 sm:pb-6 sm:px-6 pt-16 sm:pt-20", sidebarOpen ? "lg:ml-64 lg:pt-6" : "lg:ml-20 lg:pt-6")}>
+      <main
+        className={cn(
+          "transition-all duration-300 px-4 pb-4 pt-[10.5rem] sm:px-6 sm:pb-6 sm:pt-44",
+          sidebarOpen ? "lg:ml-64 lg:pt-24" : "lg:ml-20 lg:pt-24"
+        )}
+      >
         {children}
       </main>
     </div>

@@ -24,17 +24,28 @@ export function AdminRefreshButton() {
   };
 
   return (
-    <button
-      type="button"
-      onClick={() => void handleClick()}
-      disabled={refreshing}
-      className="fixed right-4 top-4 z-30 inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 shadow-md transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60"
-      title="Volver a pedir los datos al servidor (requerimientos, panel, usuarios, etc.)"
-      aria-label="Actualizar datos desde el servidor"
-      aria-busy={refreshing || undefined}
+    <div
+      className="fixed right-4 top-4 z-30 w-[calc(100vw-2rem)] max-w-md rounded-xl border border-slate-200 bg-white p-3 shadow-md sm:flex sm:max-w-lg sm:items-center sm:gap-3 sm:p-3.5"
+      role="region"
+      aria-label="Actualización de datos del panel"
     >
-      <RefreshCw className={cn("h-4 w-4 shrink-0", refreshing && "animate-spin")} aria-hidden />
-      <span className="hidden sm:inline">{refreshing ? "Actualizando…" : "Actualizar"}</span>
-    </button>
+      <p className="mb-2 text-xs leading-snug text-slate-600 sm:mb-0 sm:min-w-0 sm:flex-1 sm:text-sm sm:leading-relaxed">
+        <span className="font-semibold text-slate-800">Actualizar:</span> vuelve a cargar desde el servidor lo que ves en esta
+        pantalla (por ejemplo requerimientos, cifras del panel o usuarios). Si vas a otra sección del menú, ahí también se
+        pedirán datos al día.
+      </p>
+      <button
+        type="button"
+        onClick={() => void handleClick()}
+        disabled={refreshing}
+        className="flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-blue-900 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60 sm:w-auto"
+        title="Volver a pedir los datos al servidor ahora"
+        aria-label="Actualizar datos desde el servidor"
+        aria-busy={refreshing || undefined}
+      >
+        <RefreshCw className={cn("h-4 w-4 shrink-0", refreshing && "animate-spin")} aria-hidden />
+        <span>{refreshing ? "Actualizando…" : "Actualizar"}</span>
+      </button>
+    </div>
   );
 }
