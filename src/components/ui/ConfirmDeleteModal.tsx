@@ -20,6 +20,8 @@ interface ConfirmDeleteModalProps {
   cancelLabel?: string;
   onConfirm: () => void | Promise<void>;
   loading?: boolean;
+  /** Por defecto true: botón rojo de eliminación. false: estilo primario (p. ej. confirmar envío). */
+  danger?: boolean;
 }
 
 export function ConfirmDeleteModal({
@@ -31,6 +33,7 @@ export function ConfirmDeleteModal({
   cancelLabel = "Cancelar",
   onConfirm,
   loading = false,
+  danger = true,
 }: ConfirmDeleteModalProps) {
   return (
     <Modal open={open} onOpenChange={onOpenChange}>
@@ -47,7 +50,12 @@ export function ConfirmDeleteModal({
           >
             {cancelLabel}
           </Button>
-          <Button variant="destructive" onClick={() => void onConfirm()} loading={loading}>
+          <Button
+            variant={danger ? "destructive" : "default"}
+            className={danger ? undefined : "bg-blue-900 text-white hover:bg-blue-950"}
+            onClick={() => void onConfirm()}
+            loading={loading}
+          >
             {confirmLabel}
           </Button>
         </ModalFooter>
