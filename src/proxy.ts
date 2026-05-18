@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+
+// rutas protegidas con la nueva forma (proxy) en vez de middlewares de next.config.ts
 const PROTECTED_PATHS = ["/dashboard", "/requerimientos", "/usuarios", "/reportes"];
 const AUTH_PATHS = ["/auth/login", "/auth/recuperar-contrasena"];
 
@@ -60,6 +62,7 @@ export async function proxy(request: NextRequest) {
   return NextResponse.next();
 }
 
+// acá se definen las rutas que se van a proteger con la nueva forma (proxy) en vez de next.config.ts
 export const config = {
   matcher: [
     "/dashboard/:path*",

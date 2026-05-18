@@ -14,7 +14,7 @@ import { RequerimientoStatusBadge } from "@/components/features/requerimientos/R
 import { AlertaVencimiento } from "@/components/features/requerimientos/AlertaVencimiento";
 import { ESTADO_LABELS, ESTADOS_REQUERIMIENTO, EstadoRequerimiento } from "@/types/requerimiento.types";
 import { RequerimientoCreateInput } from "@/lib/validations/requerimiento.schema";
-import { ArrowLeft, Mail, Pencil, Send, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, Mail, Pencil, Send, Trash2 } from "lucide-react";
 import { canDeleteRequerimiento, canDerivarRequerimiento, canEditRequerimientoData, canSendCitizenResponse, getAllowedNextStates } from "@/lib/requerimiento-permissions";
 import { ApiClientError } from "@/lib/api/fetch-json";
 import { ConfirmDeleteModal } from "@/components/ui/ConfirmDeleteModal";
@@ -60,6 +60,12 @@ export default function RequerimientoDetailPage() {
   const canResponderVecino = !!user && !!req && canSendCitizenResponse(user.rol) && (req.estado === "completado" || req.estado === "rechazado");
   const canEditarDatos = !!user && canEditRequerimientoData(user.rol);
   const hasRespuestaVecino = !!req && (req.respuestasVecino?.length || 0) > 0;
+  const isProcessingAction =
+    updateMutation.isPending ||
+    derivarMutation.isPending ||
+    respuestaMutation.isPending ||
+    deleteMutation.isPending ||
+    updateDatosMutation.isPending;
 
   const getErrorMessage = (error: unknown): string => {
     if (error instanceof ApiClientError) {
@@ -152,6 +158,14 @@ export default function RequerimientoDetailPage() {
       <AlertaVencimiento diasHabilesRestantes={req.diasHabilesRestantes} vencido={req.vencido} />
       {successMsg && <Alert variant="success">{successMsg}</Alert>}
       {errorMsg && <Alert variant="error">{errorMsg}</Alert>}
+      {isProcessingAction && (
+        <Alert>
+          <span className="inline-flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Procesando solicitud. Unos segundos por favor.
+          </span>
+        </Alert>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main info */}

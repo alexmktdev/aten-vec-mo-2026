@@ -11,7 +11,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { ESTADO_LABELS, ESTADO_COLORS, EstadoRequerimiento } from "@/types/requerimiento.types";
 import { formatRut } from "@/lib/utils/rut";
-import { Search, Calendar, MapPin, Tag, Clock, FileText } from "lucide-react";
+import { Search, Calendar, MapPin, Tag, FileText } from "lucide-react";
 
 interface SeguimientoResult {
   numeroSeguimiento: string;
@@ -115,13 +115,6 @@ export function SeguimientoForm() {
                 <FileText className="h-4 w-4 text-slate-400" />
                 <span className="font-medium">Tipo:</span>
                 <span>{result.tipoRequerimiento}</span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-600 sm:col-span-2">
-                <Clock className="h-4 w-4 text-slate-400" />
-                <span className="font-medium">Días hábiles restantes:</span>
-                <span className={result.vencido ? "text-red-600 font-bold" : result.diasHabilesRestantes !== undefined && result.diasHabilesRestantes <= 3 ? "text-amber-600 font-bold" : ""}>
-                  {result.vencido ? `Vencido (${Math.abs(result.diasHabilesRestantes || 0)} días)` : `${result.diasHabilesRestantes} días`}
-                </span>
               </div>
             </div>
             <div className="mt-4 pt-4 border-t border-slate-100">

@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, after } from "next/server";
 import { requerimientoService } from "@/services/requerimiento.service";
 import { requerimientoCreateSchema } from "@/lib/validations/requerimiento.schema";
 import { requerimientoFiltersSchema } from "@/lib/validations/requerimiento-filters.schema";
@@ -10,6 +10,7 @@ import { sanitizeText, sanitizeOptionalText, normalizeEmail, sanitizeMultilineTe
 import { normalizeRut } from "@/lib/utils/rut";
 import { getRequerimientoListFiltersFromRequest } from "@/lib/api/requerimiento-filters-from-request";
 import { cached } from "@/lib/server-cache";
+import { verifyRecaptchaToken } from "@/lib/security/recaptcha";
 
 const log = createRouteLogger("/api/requerimientos");
 
@@ -56,6 +57,17 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+    const recaptchaToken = typeof body?.recaptchaToken === "string" ? body.recaptchaToken : "";
+    if (!recaptchaToken) {
+      return createErrorResponse(400, "Debe completar la verificación reCAPTCHA");
+    }
+
+    const forwardedFor = request.headers.get("x-forwarded-for");
+    const clientIp = forwardedFor ? forwardedFor.split(",")[0]?.trim() : undefined;
+    const recaptcha = await verifyRecaptchaToken(recaptchaToken, clientIp);
+    if (!recaptcha.success) {
+      return createErrorResponse(400, "No se pudo validar reCAPTCHA");
+    }
 
     if (body.vecino) {
       body.vecino.nombre = sanitizeText(body.vecino.nombre || "");
@@ -70,6 +82,8 @@ export async function POST(request: NextRequest) {
       body.descripcion = sanitizeMultilineText(body.descripcion);
     }
 
+    delete body.recaptchaToken;
+
     // Validate with Zod
     const parsed = requerimientoCreateSchema.safeParse(body);
     if (!parsed.success) {
@@ -77,6 +91,10 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await requerimientoService.create(parsed.data);
+
+    after(async () => {
+      await requerimientoService.afterCreate(parsed.data, result.numeroSeguimiento);
+    });
 
     return createSuccessResponse(result, "Requerimiento ingresado exitosamente", 201);
   } catch (error) {

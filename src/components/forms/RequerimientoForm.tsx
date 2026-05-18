@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import Script from "next/script";
 import { requerimientoFormSchema, type RequerimientoFormInput } from "@/lib/validations/requerimiento.schema";
 import { DIRECCIONES_MUNICIPALES, getCategorias, getDireccionLabel } from "@/constants/direcciones";
 import { TIPOS_REQUERIMIENTO, REGIONES_CHILE, TIPOS_INMUEBLE } from "@/types/requerimiento.types";
@@ -17,6 +18,33 @@ import { FileUpload } from "@/components/ui/FileUpload";
 import { CheckCircle, Info } from "lucide-react";
 
 const MAX_PDF_SIZE = Math.floor(2.5 * 1024 * 1024);
+const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "";
+
+function sanitizeUploadFileName(fileName: string): string {
+  const normalized = fileName
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._\-\s]/g, "_");
+  return normalized || "documento.pdf";
+}
+
+declare global {
+  interface Window {
+    onRecaptchaSuccess?: (token: string) => void;
+    onRecaptchaExpired?: () => void;
+    grecaptcha?: {
+      render: (
+        container: HTMLElement,
+        parameters: {
+          sitekey: string;
+          callback?: (token: string) => void;
+          "expired-callback"?: () => void;
+        }
+      ) => number;
+      reset: (widgetId?: number) => void;
+    };
+  }
+}
 
 export function RequerimientoForm() {
   const [submitted, setSubmitted] = useState(false);
@@ -24,6 +52,13 @@ export function RequerimientoForm() {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfError, setPdfError] = useState("");
   const [submitError, setSubmitError] = useState("");
+  const [submitStatus, setSubmitStatus] = useState("");
+  const [submitProgress, setSubmitProgress] = useState(0);
+  const [displayProgress, setDisplayProgress] = useState(0);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaError, setCaptchaError] = useState("");
+  const recaptchaContainerRef = useRef<HTMLDivElement | null>(null);
+  const recaptchaWidgetIdRef = useRef<number | null>(null);
 
   const {
     register,
@@ -47,6 +82,71 @@ export function RequerimientoForm() {
   const descripcionValue = useWatch({ control, name: "descripcion" }) || "";
   const categorias = selectedDireccion ? getCategorias(selectedDireccion) : [];
 
+  useEffect(() => {
+    window.onRecaptchaSuccess = (token: string) => {
+      setCaptchaToken(token);
+      setCaptchaError("");
+    };
+    window.onRecaptchaExpired = () => {
+      setCaptchaToken("");
+    };
+
+    return () => {
+      delete window.onRecaptchaSuccess;
+      delete window.onRecaptchaExpired;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (submitted) {
+      recaptchaWidgetIdRef.current = null;
+      return;
+    }
+    if (!RECAPTCHA_SITE_KEY) return;
+
+    let cancelled = false;
+    const tryRender = () => {
+      if (cancelled) return;
+      const grecaptcha = window.grecaptcha;
+      const container = recaptchaContainerRef.current;
+      if (!grecaptcha || !container) return;
+      if (recaptchaWidgetIdRef.current !== null) return;
+
+      recaptchaWidgetIdRef.current = grecaptcha.render(container, {
+        sitekey: RECAPTCHA_SITE_KEY,
+        callback: (token: string) => {
+          setCaptchaToken(token);
+          setCaptchaError("");
+        },
+        "expired-callback": () => {
+          setCaptchaToken("");
+        },
+      });
+    };
+
+    tryRender();
+    const interval = window.setInterval(tryRender, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      recaptchaWidgetIdRef.current = null;
+    };
+  }, [submitted]);
+
+  useEffect(() => {
+    if (!isSubmitting) return;
+
+    const interval = window.setInterval(() => {
+      setDisplayProgress((current) => {
+        if (current >= submitProgress) return current;
+        return Math.min(current + 1, submitProgress);
+      });
+    }, 25);
+
+    return () => window.clearInterval(interval);
+  }, [isSubmitting, submitProgress]);
+
   const handleDireccionChange = (value: string) => {
     setValue("direccionMunicipal", value);
     setValue("categoria", "");
@@ -69,23 +169,51 @@ export function RequerimientoForm() {
 
   const onSubmit = async (data: RequerimientoFormInput) => {
     setSubmitError("");
+    setSubmitStatus("Iniciando envio...");
+    setSubmitProgress(0);
+    setDisplayProgress(0);
+    setCaptchaError("");
+    if (!captchaToken) {
+      setCaptchaError("Debe completar la verificacion reCAPTCHA");
+      return;
+    }
     try {
       let documentos: { nombre: string; nombreR2: string; url: string; tipo: string; tamanio: number }[] = [];
 
       // Upload PDF if present
       if (pdfFile) {
+        setSubmitStatus("Subiendo documento adjunto...");
+        setSubmitProgress(45);
+        const safeFileName = sanitizeUploadFileName(pdfFile.name);
+        const safeContentType = pdfFile.type || "application/pdf";
         const uploadRes = await fetch("/api/upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fileName: pdfFile.name, contentType: pdfFile.type, size: pdfFile.size, isPublic: true }),
+          body: JSON.stringify({
+            fileName: safeFileName,
+            contentType: safeContentType,
+            size: pdfFile.size,
+            isPublic: true,
+          }),
         });
         const uploadData = await uploadRes.json();
         if (uploadData.success) {
-          await fetch(uploadData.data.uploadUrl, { method: "PUT", body: pdfFile, headers: { "Content-Type": pdfFile.type } });
+          const putRes = await fetch(uploadData.data.uploadUrl, {
+            method: "PUT",
+            body: pdfFile,
+            headers: { "Content-Type": safeContentType },
+          });
+          if (!putRes.ok) {
+            throw new Error("No se pudo subir el documento adjunto. Intente nuevamente.");
+          }
           documentos = [{ nombre: pdfFile.name, nombreR2: uploadData.data.fileKey, url: uploadData.data.publicUrl, tipo: pdfFile.type, tamanio: pdfFile.size }];
+        } else {
+          throw new Error(uploadData.error || "No se pudo preparar la subida del documento adjunto");
         }
       }
 
+      setSubmitStatus("Validando y registrando requerimiento...");
+      setSubmitProgress(85);
       const payload = {
         vecino: {
           nombre: data.vecino.nombre,
@@ -105,6 +233,7 @@ export function RequerimientoForm() {
         categoria: data.categoria,
         descripcion: data.descripcion,
         documentos,
+        recaptchaToken: captchaToken,
       };
 
       const res = await fetch("/api/requerimientos", {
@@ -116,8 +245,17 @@ export function RequerimientoForm() {
       if (!json.success) throw new Error(json.error || "Error al enviar");
 
       setTrackingNumber(json.data.numeroSeguimiento);
+      setSubmitProgress(100);
       setSubmitted(true);
+      setSubmitStatus("");
+      setSubmitProgress(0);
+      setDisplayProgress(0);
+      setCaptchaToken("");
+      window.grecaptcha?.reset();
     } catch (err) {
+      setSubmitStatus("");
+      setSubmitProgress(0);
+      setDisplayProgress(0);
       setSubmitError(err instanceof Error ? err.message : "Error al enviar el requerimiento");
     }
   };
@@ -144,6 +282,8 @@ export function RequerimientoForm() {
             setPdfFile(null);
             setPdfError("");
             setSubmitError("");
+            setCaptchaToken("");
+            setCaptchaError("");
             reset();
           }}
         >
@@ -160,7 +300,9 @@ export function RequerimientoForm() {
   const categoriaOptions = categorias.map((c) => ({ value: c, label: c }));
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-8">
+    <>
+      <Script src="https://www.google.com/recaptcha/api.js?render=explicit" async defer />
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-8">
       {/* Card 1 — Datos del Vecino */}
       <Card className="border-blue-100 shadow-sm">
         <CardHeader>
@@ -261,13 +403,50 @@ export function RequerimientoForm() {
         </CardContent>
       </Card>
 
-      {submitError && (
-        <Alert variant="error" title="Error">{submitError}</Alert>
-      )}
+        <div className="space-y-2">
+          <div className="flex justify-center">
+            <div className="origin-center scale-110 sm:scale-[1.15]">
+              <div ref={recaptchaContainerRef} />
+            </div>
+          </div>
+          {!RECAPTCHA_SITE_KEY && (
+            <Alert variant="error">
+              Falta configurar `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` para habilitar el formulario.
+            </Alert>
+          )}
+          {captchaError && <p className="text-sm text-red-600">{captchaError}</p>}
+        </div>
 
-      <Button type="submit" size="full" loading={isSubmitting} className="bg-[#1e3a8a] hover:bg-[#1e40af] text-white h-12 text-base font-semibold">
-        Enviar requerimiento
-      </Button>
-    </form>
+        {submitError && (
+          <Alert variant="error" title="Error">{submitError}</Alert>
+        )}
+
+        {isSubmitting && submitStatus && (
+          <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-emerald-800">{submitStatus}</p>
+              <p className="text-sm font-semibold text-emerald-700">{displayProgress}%</p>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-emerald-100">
+              <div
+                className="h-full rounded-full bg-emerald-500 transition-all duration-300 ease-out"
+                style={{ width: `${Math.max(2, displayProgress)}%` }}
+              />
+            </div>
+            <p className="text-xs font-medium text-emerald-700">Unos segundos por favor.</p>
+          </div>
+        )}
+
+        <Button
+          type="submit"
+          size="full"
+          loading={isSubmitting}
+          disabled={isSubmitting || !RECAPTCHA_SITE_KEY}
+          className="bg-[#1e3a8a] hover:bg-[#1e40af] text-white h-12 text-base font-semibold"
+        >
+          Enviar requerimiento
+        </Button>
+      </form>
+    </>
   );
 }

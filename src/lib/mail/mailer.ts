@@ -1,6 +1,7 @@
 import nodemailer, { type Transporter } from "nodemailer";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import logger from "@/lib/logger";
 
 export const MAIL_LOGO_CID = "logo-molina@atencion-vecino";
 
@@ -64,13 +65,32 @@ export async function sendMail(
   attachments: MailAttachment[] = []
 ): Promise<void> {
   const transporter = getMailTransporter();
-  const from = getSmtpFrom();
+  const configuredFrom = getSmtpFrom();
+  const smtpUser = process.env.SMTP_USER || configuredFrom;
 
-  await transporter.sendMail({
-    from,
-    to,
-    subject,
-    html,
-    attachments,
-  });
+  try {
+    await transporter.sendMail({
+      from: configuredFrom,
+      to,
+      subject,
+      html,
+      attachments,
+    });
+  } catch (error) {
+    if (smtpUser !== configuredFrom) {
+      logger.warn(
+        { error, configuredFrom, fallbackFrom: smtpUser, to, subject },
+        "SMTP rejected configured sender, retrying with SMTP_USER"
+      );
+      await transporter.sendMail({
+        from: smtpUser,
+        to,
+        subject,
+        html,
+        attachments,
+      });
+      return;
+    }
+    throw error;
+  }
 }

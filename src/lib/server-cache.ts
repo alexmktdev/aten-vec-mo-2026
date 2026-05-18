@@ -32,7 +32,11 @@ function compactExpiredEntries(store: Map<string, CacheEntry<unknown>>, now: num
 }
 
 function getTagFromKey(key: string): string {
-  return key.split(":")[0];
+  const parts = key.split(":");
+  if (parts.length >= 2) {
+    return `${parts[0]}:${parts[1]}`;
+  }
+  return parts[0];
 }
 
 function localCacheFallback<T>(key: string, ttlMs: number, loader: () => Promise<T>): Promise<T> {
@@ -86,8 +90,13 @@ export async function cached<T>(
 
 export function invalidateCacheByPrefix(prefix: string): void {
   const tag = prefix.replace(/:$/, "");
+  const rootTag = tag.split(":")[0];
   try {
     updateTag(tag);
+    if (rootTag && rootTag !== tag) {
+      // Backward compatibility with entries tagged before this change.
+      updateTag(rootTag);
+    }
   } catch {
     // revalidateTag unavailable outside request context
   }

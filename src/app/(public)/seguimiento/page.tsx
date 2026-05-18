@@ -28,7 +28,7 @@ export default function SeguimientoPage() {
               <section className="border-t border-white/20 pt-4">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-blue-200 font-bold">Teléfonos</p>
                 <p className="mt-2">Mesa Central: +56 75 276 0700</p>
-                <p>Seguridad Pública: 1462</p>
+                <p>Seguridad Pública: +56 75 276 01462</p>
               </section>
               <section className="border-t border-white/20 pt-4">
                 <p>Horario: Lunes a Viernes de 08:30 a 14:00 hrs.</p>

@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
+import { Loader2 } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -106,6 +107,7 @@ export function RespuestaVecinoModal({
             Cancelar
           </Button>
           <Button onClick={handleSubmit} loading={loading} className="bg-blue-900 hover:bg-blue-950 text-white">
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Enviar correo
           </Button>
         </ModalFooter>

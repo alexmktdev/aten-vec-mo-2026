@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { DIRECCIONES_DERIVACION_OPTIONS, getCorreoDireccion } from "@/constants/direcciones-correos";
+import { Loader2 } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -77,7 +78,10 @@ export function DerivacionModal({ open, onClose, onSubmit, direccionMunicipalIni
         </div>
         <ModalFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSubmit} loading={loading}>Enviar derivación</Button>
+          <Button onClick={handleSubmit} loading={loading}>
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Enviar derivación
+          </Button>
         </ModalFooter>
       </ModalContent>
     </Modal>

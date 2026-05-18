@@ -76,17 +76,25 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Send derivation email
-    await notificacionService.enviarDerivacion(parsed.data.emailDestinatario, {
-      numeroSeguimiento: req.numeroSeguimiento,
-      vecino: req.vecino,
-      tipoRequerimiento: req.tipoRequerimiento,
-      direccionMunicipalLabel,
-      categoria: req.categoria,
-      descripcion: req.descripcion,
-      fechaIngreso: req.fechaIngreso,
-      fechaLimite: req.fechaLimite,
-    });
+    let envioCorreoOk = true;
+    try {
+      await notificacionService.enviarDerivacion(parsed.data.emailDestinatario, {
+        numeroSeguimiento: req.numeroSeguimiento,
+        vecino: req.vecino,
+        tipoRequerimiento: req.tipoRequerimiento,
+        direccionMunicipalLabel,
+        categoria: req.categoria,
+        descripcion: req.descripcion,
+        fechaIngreso: req.fechaIngreso,
+        fechaLimite: req.fechaLimite,
+      });
+    } catch (emailError) {
+      envioCorreoOk = false;
+      log.error(
+        { id, emailDestinatario: parsed.data.emailDestinatario, error: emailError },
+        "No se pudo enviar el correo de derivación"
+      );
+    }
 
     // Update status to "derivado"
     await requerimientoService.updateEstado(
@@ -101,7 +109,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       "Requerimiento derivado"
     );
 
-    return createSuccessResponse(null, "Requerimiento derivado exitosamente");
+    const message = envioCorreoOk
+      ? "Requerimiento derivado exitosamente"
+      : "Requerimiento derivado, pero no se pudo enviar el correo de derivación";
+    return createSuccessResponse(null, message);
   } catch (error) {
     log.error({ error }, "Error derivando requerimiento");
     return createErrorResponse(500, "Error al derivar el requerimiento");

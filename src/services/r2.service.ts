@@ -62,8 +62,6 @@ export const r2Service = {
       Bucket: bucket,
       Key: fileKey,
       ContentType: contentType,
-      ContentLength: size,
-      ContentDisposition: `inline; filename="${originalName.replace(/"/g, "")}"`,
     });
 
     // Presigned URL expires in 5 minutes

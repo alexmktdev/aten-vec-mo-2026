@@ -86,7 +86,9 @@ function toRequerimientoDTO(req: Requerimiento): RequerimientoDTO {
 
 export const requerimientoService = {
   /**
-   * Create a new requerimiento — public endpoint
+   * Create a new requerimiento — public endpoint.
+   * Only persists the document and returns immediately.
+   * Call `afterCreate()` via next/server `after()` for emails, metrics, and cache invalidation.
    */
   async create(input: CreateInput): Promise<{ id: string; numeroSeguimiento: string }> {
     const numeroSeguimiento = await generateNumeroSeguimiento();
@@ -120,38 +122,51 @@ export const requerimientoService = {
     };
 
     const id = await requerimientoRepository.create(requerimientoData);
-    await dashboardMetricsService.onCreate(requerimientoData);
-
-    // Send notification emails (non-blocking)
-    try {
-      await notificacionService.enviarConfirmacionVecino({
-        numeroSeguimiento,
-        vecino: input.vecino as unknown as VecinoData,
-        tipoRequerimiento: input.tipoRequerimiento,
-        direccionMunicipalLabel,
-        categoria: input.categoria,
-        descripcion: input.descripcion,
-        fechaIngreso: now.toLocaleDateString("es-CL"),
-      });
-
-      await notificacionService.enviarAvisoAdmin({
-        numeroSeguimiento,
-        vecino: input.vecino as unknown as VecinoData,
-        tipoRequerimiento: input.tipoRequerimiento,
-        direccionMunicipalLabel,
-        categoria: input.categoria,
-        descripcion: input.descripcion,
-        fechaIngreso: now.toLocaleDateString("es-CL"),
-      });
-    } catch (error) {
-      logger.error({ error }, "Error sending notification emails");
-    }
 
     logger.info({ id, numeroSeguimiento }, "Requerimiento created successfully");
+    return { id, numeroSeguimiento };
+  },
+
+  /**
+   * Background work after creating a requerimiento.
+   * Should be called inside `after()` from the route handler so it runs
+   * after the HTTP response is sent (emails won't block the user).
+   */
+  async afterCreate(input: CreateInput, numeroSeguimiento: string): Promise<void> {
+    const direccionMunicipalLabel = input.direccionMunicipalLabel || getDireccionLabel(input.direccionMunicipal);
+    const now = new Date();
+
+    await Promise.allSettled([
+      dashboardMetricsService.onCreate({
+        tipoRequerimiento: input.tipoRequerimiento as TipoRequerimiento,
+        direccionMunicipal: input.direccionMunicipal,
+        direccionMunicipalLabel,
+        categoria: input.categoria,
+        estado: "pendiente",
+      } as Requerimiento),
+      notificacionService.enviarConfirmacionVecino({
+        numeroSeguimiento,
+        vecino: input.vecino as unknown as VecinoData,
+        tipoRequerimiento: input.tipoRequerimiento,
+        direccionMunicipalLabel,
+        categoria: input.categoria,
+        descripcion: input.descripcion,
+        fechaIngreso: now.toLocaleDateString("es-CL"),
+      }),
+      notificacionService.enviarAvisoAdmin({
+        numeroSeguimiento,
+        vecino: input.vecino as unknown as VecinoData,
+        tipoRequerimiento: input.tipoRequerimiento,
+        direccionMunicipalLabel,
+        categoria: input.categoria,
+        descripcion: input.descripcion,
+        fechaIngreso: now.toLocaleDateString("es-CL"),
+      }),
+    ]);
+
     invalidateCacheByPrefix("requerimientos:list:");
     invalidateCacheByPrefix("dashboard:stats:");
     invalidateCacheByPrefix("dashboard:highlights:");
-    return { id, numeroSeguimiento };
   },
 
   /**
