@@ -1,6 +1,7 @@
 "use client";
 
 import { Sidebar } from "@/components/layout/Sidebar";
+import { AdminRefreshButton } from "@/components/layout/AdminRefreshButton";
 import { useUIStore } from "@/stores/ui.store";
 import { cn } from "@/lib/utils";
 import { Menu } from "lucide-react";
@@ -19,7 +20,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       >
         <Menu className="h-5 w-5" />
       </button>
-      <main className={cn("transition-all duration-300 p-4 sm:p-6", sidebarOpen ? "lg:ml-64" : "lg:ml-20")}>
+      <AdminRefreshButton />
+      <main className={cn("transition-all duration-300 pb-4 px-4 sm:pb-6 sm:px-6 pt-16 sm:pt-20", sidebarOpen ? "lg:ml-64 lg:pt-6" : "lg:ml-20 lg:pt-6")}>
         {children}
       </main>
     </div>
