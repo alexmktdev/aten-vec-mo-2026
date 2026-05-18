@@ -2,8 +2,8 @@ import { EstadoRequerimiento } from "@/types/requerimiento.types";
 import { RolUsuario } from "@/types/usuario.types";
 
 const ADMIN_STATUS_TRANSITIONS: Record<EstadoRequerimiento, EstadoRequerimiento[]> = {
-  // For admin, pending -> derivado must go through the Derivar action (email + audit).
-  pendiente: [],
+  // Admin puede corregir derivaciones: pendiente ↔ derivado en cualquier momento (también vía acción Derivar con correo).
+  pendiente: ["derivado"],
   derivado: ["pendiente"],
   en_proceso: [],
   completado: [],

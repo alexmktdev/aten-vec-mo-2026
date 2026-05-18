@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tansta
 import { RequerimientoDTO, EstadoRequerimiento, RespuestaVecinoInput } from "@/types/requerimiento.types";
 import { fetchJson } from "@/lib/api/fetch-json";
 import { RequerimientoCreateInput } from "@/lib/validations/requerimiento.schema";
+import { getDireccionLabel } from "@/constants/direcciones";
 
 interface ListParams {
   estado?: string;
@@ -90,12 +91,24 @@ export function useUpdateRequerimiento() {
         body: JSON.stringify({ estado, nota }),
       });
     },
-    onMutate: async ({ id, estado }) => {
-      if (!estado) return;
+    onMutate: async ({ id, estado, nota }) => {
+      if (!estado) return {};
       await queryClient.cancelQueries({ queryKey: ["requerimiento", id] });
       const prevDetail = queryClient.getQueryData<RequerimientoDTO>(["requerimiento", id]);
       if (prevDetail) {
-        queryClient.setQueryData<RequerimientoDTO>(["requerimiento", id], { ...prevDetail, estado });
+        const notaTrim = nota?.trim();
+        queryClient.setQueryData<RequerimientoDTO>(["requerimiento", id], {
+          ...prevDetail,
+          estado,
+          historialEstados: [
+            ...prevDetail.historialEstados,
+            {
+              estado,
+              fecha: new Date().toISOString(),
+              ...(notaTrim ? { nota: notaTrim } : {}),
+            },
+          ],
+        });
       }
       return { prevDetail };
     },
@@ -104,9 +117,13 @@ export function useUpdateRequerimiento() {
         queryClient.setQueryData(["requerimiento", id], context.prevDetail);
       }
     },
-    onSettled: () => {
+    onSettled: (_data, _err, variables) => {
       queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
-      queryClient.invalidateQueries({ queryKey: ["requerimiento"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-highlights"] });
+      if (variables?.id) {
+        queryClient.invalidateQueries({ queryKey: ["requerimiento", variables.id] });
+      }
     },
   });
 }
@@ -148,9 +165,40 @@ export function useDerivarRequerimiento() {
         body: JSON.stringify({ direccionMunicipal, emailDestinatario }),
       });
     },
-    onSuccess: () => {
+    onMutate: async ({ id, direccionMunicipal, emailDestinatario }) => {
+      await queryClient.cancelQueries({ queryKey: ["requerimiento", id] });
+      const prevDetail = queryClient.getQueryData<RequerimientoDTO>(["requerimiento", id]);
+      if (prevDetail) {
+        const label = getDireccionLabel(direccionMunicipal);
+        queryClient.setQueryData<RequerimientoDTO>(["requerimiento", id], {
+          ...prevDetail,
+          estado: "derivado",
+          direccionMunicipal,
+          direccionMunicipalLabel: label,
+          historialEstados: [
+            ...prevDetail.historialEstados,
+            {
+              estado: "derivado",
+              fecha: new Date().toISOString(),
+              nota: `Derivado a ${label} (${emailDestinatario})`,
+            },
+          ],
+        });
+      }
+      return { prevDetail };
+    },
+    onError: (_err, { id }, context) => {
+      if (context?.prevDetail) {
+        queryClient.setQueryData(["requerimiento", id], context.prevDetail);
+      }
+    },
+    onSettled: (_data, _err, variables) => {
       queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
-      queryClient.invalidateQueries({ queryKey: ["requerimiento"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-highlights"] });
+      if (variables?.id) {
+        queryClient.invalidateQueries({ queryKey: ["requerimiento", variables.id] });
+      }
     },
   });
 }

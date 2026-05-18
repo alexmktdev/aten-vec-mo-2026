@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useRequerimiento, useUpdateRequerimiento, useUpdateRequerimientoDatos, useDerivarRequerimiento, useDeleteRequerimiento, useEnviarRespuestaVecino } from "@/hooks/useRequerimientos";
 import { useAuth } from "@/hooks/useAuth";
@@ -55,6 +55,11 @@ export default function RequerimientoDetailPage() {
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
+  useEffect(() => {
+    setNewEstado("");
+    setNota("");
+  }, [id]);
+
   const canDerivar = !!user && !!req && canDerivarRequerimiento(user.rol) && req.estado === "pendiente";
   const canDelete = !!user && canDeleteRequerimiento(user.rol);
   const canResponderVecino = !!user && !!req && canSendCitizenResponse(user.rol) && (req.estado === "completado" || req.estado === "rechazado");
@@ -87,9 +92,7 @@ export default function RequerimientoDetailPage() {
         nota: nota || undefined,
       });
       setSuccessMsg("Requerimiento actualizado");
-      if (newEstado) {
-        setNewEstado(newEstado);
-      }
+      setNewEstado("");
       setNota("");
       setTimeout(() => setSuccessMsg(""), 3000);
     } catch (error) {
@@ -102,6 +105,7 @@ export default function RequerimientoDetailPage() {
     try {
       await derivarMutation.mutateAsync({ id, ...payload });
       setSuccessMsg("Requerimiento derivado exitosamente");
+      setNewEstado("");
       setTimeout(() => setSuccessMsg(""), 3000);
     } catch (error) {
       setErrorMsg(getErrorMessage(error));
@@ -277,7 +281,10 @@ export default function RequerimientoDetailPage() {
                 size="full"
                 onClick={handleUpdateEstado}
                 loading={updateMutation.isPending}
-                disabled={!newEstado && !nota}
+                disabled={
+                  updateMutation.isPending ||
+                  (!nota.trim() && (!newEstado || newEstado === req.estado))
+                }
               >
                 Guardar cambios
               </Button>
