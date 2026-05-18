@@ -37,6 +37,8 @@ interface DashboardHighlights {
   porcentajeUrgentesActivos: number;
 }
 
+type RequerimientosListCache = { data: RequerimientoDTO[]; nextCursor?: string; total?: number };
+
 async function fetchRequerimientos(params: ListParams) {
   const searchParams = new URLSearchParams();
   if (params.estado) searchParams.set("estado", params.estado);
@@ -94,9 +96,13 @@ export function useUpdateRequerimiento() {
     onMutate: async ({ id, estado, nota }) => {
       if (!estado) return {};
       await queryClient.cancelQueries({ queryKey: ["requerimiento", id] });
+      await queryClient.cancelQueries({ queryKey: ["requerimientos"] });
+
+      const listSnapshots = queryClient.getQueriesData<RequerimientosListCache>({ queryKey: ["requerimientos"] });
       const prevDetail = queryClient.getQueryData<RequerimientoDTO>(["requerimiento", id]);
+      const notaTrim = nota?.trim();
+
       if (prevDetail) {
-        const notaTrim = nota?.trim();
         queryClient.setQueryData<RequerimientoDTO>(["requerimiento", id], {
           ...prevDetail,
           estado,
@@ -110,12 +116,44 @@ export function useUpdateRequerimiento() {
           ],
         });
       }
-      return { prevDetail };
+
+      queryClient.setQueriesData<RequerimientosListCache>(
+        { queryKey: ["requerimientos"] },
+        (old) => {
+          if (!old?.data) return old;
+          const idx = old.data.findIndex((r) => r.id === id);
+          if (idx === -1) return old;
+          return {
+            ...old,
+            data: old.data.map((r, i) =>
+              i === idx
+                ? {
+                    ...r,
+                    estado,
+                    historialEstados: [
+                      ...r.historialEstados,
+                      {
+                        estado,
+                        fecha: new Date().toISOString(),
+                        ...(notaTrim ? { nota: notaTrim } : {}),
+                      },
+                    ],
+                  }
+                : r
+            ),
+          };
+        }
+      );
+
+      return { prevDetail, listSnapshots };
     },
     onError: (_err, { id }, context) => {
       if (context?.prevDetail) {
         queryClient.setQueryData(["requerimiento", id], context.prevDetail);
       }
+      context?.listSnapshots?.forEach(([key, data]) => {
+        queryClient.setQueryData(key, data);
+      });
     },
     onSettled: (_data, _err, variables) => {
       queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
@@ -167,30 +205,53 @@ export function useDerivarRequerimiento() {
     },
     onMutate: async ({ id, direccionMunicipal, emailDestinatario }) => {
       await queryClient.cancelQueries({ queryKey: ["requerimiento", id] });
+      await queryClient.cancelQueries({ queryKey: ["requerimientos"] });
+
+      const listSnapshots = queryClient.getQueriesData<RequerimientosListCache>({ queryKey: ["requerimientos"] });
       const prevDetail = queryClient.getQueryData<RequerimientoDTO>(["requerimiento", id]);
+      const label = getDireccionLabel(direccionMunicipal);
+
+      const patchRow = (r: RequerimientoDTO): RequerimientoDTO => ({
+        ...r,
+        estado: "derivado",
+        direccionMunicipal,
+        direccionMunicipalLabel: label,
+        historialEstados: [
+          ...r.historialEstados,
+          {
+            estado: "derivado",
+            fecha: new Date().toISOString(),
+            nota: `Derivado a ${label} (${emailDestinatario})`,
+          },
+        ],
+      });
+
       if (prevDetail) {
-        const label = getDireccionLabel(direccionMunicipal);
-        queryClient.setQueryData<RequerimientoDTO>(["requerimiento", id], {
-          ...prevDetail,
-          estado: "derivado",
-          direccionMunicipal,
-          direccionMunicipalLabel: label,
-          historialEstados: [
-            ...prevDetail.historialEstados,
-            {
-              estado: "derivado",
-              fecha: new Date().toISOString(),
-              nota: `Derivado a ${label} (${emailDestinatario})`,
-            },
-          ],
-        });
+        queryClient.setQueryData<RequerimientoDTO>(["requerimiento", id], patchRow(prevDetail));
       }
-      return { prevDetail };
+
+      queryClient.setQueriesData<RequerimientosListCache>(
+        { queryKey: ["requerimientos"] },
+        (old) => {
+          if (!old?.data) return old;
+          const idx = old.data.findIndex((r) => r.id === id);
+          if (idx === -1) return old;
+          return {
+            ...old,
+            data: old.data.map((r, i) => (i === idx ? patchRow(r) : r)),
+          };
+        }
+      );
+
+      return { prevDetail, listSnapshots };
     },
     onError: (_err, { id }, context) => {
       if (context?.prevDetail) {
         queryClient.setQueryData(["requerimiento", id], context.prevDetail);
       }
+      context?.listSnapshots?.forEach(([key, data]) => {
+        queryClient.setQueryData(key, data);
+      });
     },
     onSettled: (_data, _err, variables) => {
       queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
@@ -211,9 +272,8 @@ export function useDeleteRequerimiento() {
     },
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ["requerimientos"] });
-      type ListResult = { data: RequerimientoDTO[]; nextCursor?: string; total?: number };
-      const snapshots = queryClient.getQueriesData<ListResult>({ queryKey: ["requerimientos"] });
-      queryClient.setQueriesData<ListResult>(
+      const snapshots = queryClient.getQueriesData<RequerimientosListCache>({ queryKey: ["requerimientos"] });
+      queryClient.setQueriesData<RequerimientosListCache>(
         { queryKey: ["requerimientos"] },
         (old) => {
           if (!old) return old;
