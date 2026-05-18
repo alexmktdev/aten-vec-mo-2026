@@ -297,6 +297,8 @@ export function useDeleteRequerimiento() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-highlights"] });
     },
   });
 }
@@ -314,6 +316,8 @@ export function useEnviarRespuestaVecino() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["requerimiento", variables.id] });
       queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-highlights"] });
     },
   });
 }
@@ -326,7 +330,9 @@ export function useDashboardStats() {
     },
     staleTime: 60_000,
     gcTime: 10 * 60_000,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
+    /** Ingresos desde el sitio público no disparan mutaciones en el panel; refresco suave. */
+    refetchInterval: 60_000,
   });
 }
 
@@ -338,6 +344,7 @@ export function useDashboardHighlights() {
     },
     staleTime: 60_000,
     gcTime: 10 * 60_000,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
+    refetchInterval: 60_000,
   });
 }
