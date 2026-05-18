@@ -12,7 +12,8 @@ const ADMIN_STATUS_TRANSITIONS: Record<EstadoRequerimiento, EstadoRequerimiento[
 
 const DIRECTOR_STATUS_TRANSITIONS: Record<EstadoRequerimiento, EstadoRequerimiento[]> = {
   pendiente: [],
-  derivado: ["en_proceso"],
+  // Pendiente: el admin pudo derivar con dirección equivocada; el director puede devolverlo al estado inicial.
+  derivado: ["pendiente", "en_proceso"],
   en_proceso: ["derivado", "completado", "rechazado"],
   completado: ["en_proceso", "rechazado"],
   rechazado: ["en_proceso", "completado"],
