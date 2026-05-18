@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import type { QueryClient } from "@tanstack/react-query";
 import { RequerimientoDTO, EstadoRequerimiento, RespuestaVecinoInput } from "@/types/requerimiento.types";
 import { fetchJson } from "@/lib/api/fetch-json";
 import { RequerimientoCreateInput } from "@/lib/validations/requerimiento.schema";
@@ -38,6 +39,25 @@ interface DashboardHighlights {
 }
 
 type RequerimientosListCache = { data: RequerimientoDTO[]; nextCursor?: string; total?: number };
+
+function patchRowInAllRequerimientosQueries(
+  queryClient: QueryClient,
+  id: string,
+  patchRow: (row: RequerimientoDTO) => RequerimientoDTO
+) {
+  queryClient.setQueriesData<RequerimientosListCache>(
+    { predicate: (q) => q.queryKey[0] === "requerimientos" },
+    (old) => {
+      if (!old?.data) return old;
+      const idx = old.data.findIndex((r) => r.id === id);
+      if (idx === -1) return old;
+      return {
+        ...old,
+        data: old.data.map((r, i) => (i === idx ? patchRow(r) : r)),
+      };
+    }
+  );
+}
 
 async function fetchRequerimientos(params: ListParams) {
   const searchParams = new URLSearchParams();
@@ -117,35 +137,27 @@ export function useUpdateRequerimiento() {
         });
       }
 
-      queryClient.setQueriesData<RequerimientosListCache>(
-        { queryKey: ["requerimientos"] },
-        (old) => {
-          if (!old?.data) return old;
-          const idx = old.data.findIndex((r) => r.id === id);
-          if (idx === -1) return old;
-          return {
-            ...old,
-            data: old.data.map((r, i) =>
-              i === idx
-                ? {
-                    ...r,
-                    estado,
-                    historialEstados: [
-                      ...r.historialEstados,
-                      {
-                        estado,
-                        fecha: new Date().toISOString(),
-                        ...(notaTrim ? { nota: notaTrim } : {}),
-                      },
-                    ],
-                  }
-                : r
-            ),
-          };
-        }
-      );
+      patchRowInAllRequerimientosQueries(queryClient, id, (r) => ({
+        ...r,
+        estado,
+        historialEstados: [
+          ...r.historialEstados,
+          {
+            estado,
+            fecha: new Date().toISOString(),
+            ...(notaTrim ? { nota: notaTrim } : {}),
+          },
+        ],
+      }));
 
       return { prevDetail, listSnapshots };
+    },
+    onSuccess: (_data, variables) => {
+      if (!variables.estado) return;
+      patchRowInAllRequerimientosQueries(queryClient, variables.id, (r) => ({
+        ...r,
+        estado: variables.estado!,
+      }));
     },
     onError: (_err, { id }, context) => {
       if (context?.prevDetail) {
@@ -156,7 +168,6 @@ export function useUpdateRequerimiento() {
       });
     },
     onSettled: (_data, _err, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-highlights"] });
       if (variables?.id) {
@@ -230,20 +241,18 @@ export function useDerivarRequerimiento() {
         queryClient.setQueryData<RequerimientoDTO>(["requerimiento", id], patchRow(prevDetail));
       }
 
-      queryClient.setQueriesData<RequerimientosListCache>(
-        { queryKey: ["requerimientos"] },
-        (old) => {
-          if (!old?.data) return old;
-          const idx = old.data.findIndex((r) => r.id === id);
-          if (idx === -1) return old;
-          return {
-            ...old,
-            data: old.data.map((r, i) => (i === idx ? patchRow(r) : r)),
-          };
-        }
-      );
+      patchRowInAllRequerimientosQueries(queryClient, id, patchRow);
 
       return { prevDetail, listSnapshots };
+    },
+    onSuccess: (_data, variables) => {
+      const label = getDireccionLabel(variables.direccionMunicipal);
+      patchRowInAllRequerimientosQueries(queryClient, variables.id, (r) => ({
+        ...r,
+        estado: "derivado",
+        direccionMunicipal: variables.direccionMunicipal,
+        direccionMunicipalLabel: label,
+      }));
     },
     onError: (_err, { id }, context) => {
       if (context?.prevDetail) {
@@ -254,7 +263,6 @@ export function useDerivarRequerimiento() {
       });
     },
     onSettled: (_data, _err, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-highlights"] });
       if (variables?.id) {
