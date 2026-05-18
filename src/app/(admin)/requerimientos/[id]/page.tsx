@@ -65,6 +65,9 @@ export default function RequerimientoDetailPage() {
   const canResponderVecino = !!user && !!req && canSendCitizenResponse(user.rol) && (req.estado === "completado" || req.estado === "rechazado");
   const canEditarDatos = !!user && canEditRequerimientoData(user.rol);
   const hasRespuestaVecino = !!req && (req.respuestasVecino?.length || 0) > 0;
+  const isAdmin = user?.rol === "admin";
+  const allowedNextStates = !!user && !!req ? getAllowedNextStates(user.rol, req.estado) : [];
+  const canChangeEstado = allowedNextStates.length > 0 && !(hasRespuestaVecino && (req?.estado === "completado" || req?.estado === "rechazado"));
   const isProcessingAction =
     updateMutation.isPending ||
     derivarMutation.isPending ||
@@ -161,12 +164,21 @@ export default function RequerimientoDetailPage() {
           <h1 className="admin-title">{req.numeroSeguimiento}</h1>
           <RequerimientoStatusBadge estado={req.estado} />
         </div>
-        {canDerivar && (
+        {isAdmin && req.estado === "pendiente" && (
+          <Alert variant="info">
+            <p className="text-sm">
+              Para pasar este requerimiento a «{ESTADO_LABELS.derivado}», use el botón{" "}
+              <strong>Derivar</strong> en el panel de acciones. Al derivar se enviará el correo a la
+              dirección correspondiente y el estado cambiará automáticamente.
+            </p>
+          </Alert>
+        )}
+        {isAdmin && req.estado !== "pendiente" && (
           <Alert>
             <p className="text-sm text-slate-700">
-              Antes de cambiar el estado a «{ESTADO_LABELS.derivado}», envíe el correo de derivación a
-              la dirección correspondiente usando el botón <strong>Derivar</strong>. Luego de eso podrá
-              cambiar el estado del requerimiento a «{ESTADO_LABELS.derivado}».
+              Como administrador, usted no puede modificar el estado manualmente. Si la derivación fue
+              incorrecta, el director de la dirección asignada puede devolver el requerimiento a «{ESTADO_LABELS.pendiente}»
+              para que pueda derivar nuevamente.
             </p>
           </Alert>
         )}
@@ -275,32 +287,43 @@ export default function RequerimientoDetailPage() {
           <Card>
             <CardHeader><CardTitle>Acciones</CardTitle></CardHeader>
             <CardContent className="space-y-4">
-              <Select
-                label="Cambiar estado"
-                options={estadoOptions}
-                value={newEstado || req.estado}
-                onChange={(e) => setNewEstado(e.target.value)}
-                placeholder="Seleccione nuevo estado"
-              />
-              <Textarea
-                label="Nota (opcional)"
-                rows={3}
-                maxLength={1000}
-                value={nota}
-                onChange={(e) => setNota(e.target.value)}
-                placeholder="Agregar nota al cambio..."
-              />
-              <Button
-                size="full"
-                onClick={handleUpdateEstado}
-                loading={updateMutation.isPending}
-                disabled={
-                  updateMutation.isPending ||
-                  (!nota.trim() && (!newEstado || newEstado === req.estado))
-                }
-              >
-                Guardar cambios
-              </Button>
+              {canChangeEstado && (
+                <>
+                  <Select
+                    label="Cambiar estado"
+                    options={estadoOptions}
+                    value={newEstado || req.estado}
+                    onChange={(e) => setNewEstado(e.target.value)}
+                    placeholder="Seleccione nuevo estado"
+                  />
+                  <Textarea
+                    label="Nota (opcional)"
+                    rows={3}
+                    maxLength={1000}
+                    value={nota}
+                    onChange={(e) => setNota(e.target.value)}
+                    placeholder="Agregar nota al cambio..."
+                  />
+                  <Button
+                    size="full"
+                    onClick={handleUpdateEstado}
+                    loading={updateMutation.isPending}
+                    disabled={
+                      updateMutation.isPending ||
+                      (!nota.trim() && (!newEstado || newEstado === req.estado))
+                    }
+                  >
+                    Guardar cambios
+                  </Button>
+                </>
+              )}
+              {!canChangeEstado && hasRespuestaVecino && (req.estado === "completado" || req.estado === "rechazado") && (
+                <Alert variant="warning">
+                  <p className="text-sm">
+                    Ya se envió una respuesta al vecino. El estado del requerimiento no se puede modificar.
+                  </p>
+                </Alert>
+              )}
 
               {canEditarDatos && (
                 <Button

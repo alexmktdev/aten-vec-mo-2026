@@ -56,6 +56,20 @@ export async function PATCH(request: NextRequest, routeParams: RequerimientoRout
       return createErrorResponse(403, "No tiene permisos para realizar este cambio de estado");
     }
 
+    // Block state changes when citizen response was already sent
+    if (
+      parsed.data.estado &&
+      parsed.data.estado !== existing.estado &&
+      (existing.estado === "completado" || existing.estado === "rechazado") &&
+      existing.respuestasVecino &&
+      existing.respuestasVecino.length > 0
+    ) {
+      return createErrorResponse(
+        403,
+        "No se puede cambiar el estado porque ya se envió una respuesta al vecino"
+      );
+    }
+
     // Update status if provided
     if (parsed.data.estado) {
       await requerimientoService.updateEstado(

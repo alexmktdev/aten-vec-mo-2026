@@ -1,22 +1,30 @@
 import { EstadoRequerimiento } from "@/types/requerimiento.types";
 import { RolUsuario } from "@/types/usuario.types";
 
+/**
+ * Admin: NO puede cambiar estado manualmente.
+ * La única forma de pasar de pendiente → derivado es con el botón Derivar (acción + correo).
+ */
 const ADMIN_STATUS_TRANSITIONS: Record<EstadoRequerimiento, EstadoRequerimiento[]> = {
-  // Admin puede corregir derivaciones: pendiente ↔ derivado en cualquier momento (también vía acción Derivar con correo).
-  pendiente: ["derivado"],
-  derivado: ["pendiente"],
+  pendiente: [],
+  derivado: [],
   en_proceso: [],
   completado: [],
   rechazado: [],
 };
 
+/**
+ * Director:
+ * - derivado → pendiente (admin derivó mal) o en_proceso
+ * - en_proceso → pendiente (categoría/dirección equivocada), completado o rechazado
+ * - completado / rechazado: sin transiciones (se bloquea tras responder al vecino desde la UI y backend)
+ */
 const DIRECTOR_STATUS_TRANSITIONS: Record<EstadoRequerimiento, EstadoRequerimiento[]> = {
   pendiente: [],
-  // Pendiente: el admin pudo derivar con dirección equivocada; el director puede devolverlo al estado inicial.
   derivado: ["pendiente", "en_proceso"],
-  en_proceso: ["derivado", "completado", "rechazado"],
-  completado: ["en_proceso", "rechazado"],
-  rechazado: ["en_proceso", "completado"],
+  en_proceso: ["pendiente", "completado", "rechazado"],
+  completado: [],
+  rechazado: [],
 };
 
 const ALL_STATUS_TRANSITIONS: Record<EstadoRequerimiento, EstadoRequerimiento[]> = {
