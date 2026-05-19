@@ -385,11 +385,10 @@ export function useDashboardStats() {
     queryFn: async () => {
       return fetchJson<DashboardStats>("/api/dashboard/stats");
     },
-    staleTime: 60_000,
-    gcTime: 10 * 60_000,
+    staleTime: 0,
+    gcTime: 5 * 60_000,
     refetchOnWindowFocus: true,
-    /** Ingresos desde el sitio público no disparan mutaciones en el panel; refresco suave. */
-    refetchInterval: 60_000,
+    refetchInterval: 30_000,
   });
 }
 
@@ -399,9 +398,9 @@ export function useDashboardHighlights() {
     queryFn: async () => {
       return fetchJson<DashboardHighlights>("/api/dashboard/highlights");
     },
-    staleTime: 60_000,
-    gcTime: 10 * 60_000,
+    staleTime: 0,
+    gcTime: 5 * 60_000,
     refetchOnWindowFocus: true,
-    refetchInterval: 60_000,
+    refetchInterval: 30_000,
   });
 }
