@@ -188,8 +188,36 @@ export function useUpdateRequerimientoDatos() {
       });
     },
     onSuccess: (_, variables) => {
+      const { id, payload } = variables;
+      const label = payload.direccionMunicipalLabel ?? getDireccionLabel(payload.direccionMunicipal);
+
+      patchRowInAllRequerimientosQueries(queryClient, id, (r) => ({
+        ...r,
+        vecino: payload.vecino as RequerimientoDTO["vecino"],
+        tipoRequerimiento: payload.tipoRequerimiento as RequerimientoDTO["tipoRequerimiento"],
+        direccionMunicipal: payload.direccionMunicipal,
+        direccionMunicipalLabel: label,
+        categoria: payload.categoria,
+        descripcion: payload.descripcion,
+        documentos: payload.documentos ?? r.documentos,
+      }));
+
+      queryClient.setQueryData<RequerimientoDTO>(["requerimiento", id], (prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          vecino: payload.vecino as RequerimientoDTO["vecino"],
+          tipoRequerimiento: payload.tipoRequerimiento as RequerimientoDTO["tipoRequerimiento"],
+          direccionMunicipal: payload.direccionMunicipal,
+          direccionMunicipalLabel: label,
+          categoria: payload.categoria,
+          descripcion: payload.descripcion,
+          documentos: payload.documentos ?? prev.documentos,
+        };
+      });
+
       queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
-      queryClient.invalidateQueries({ queryKey: ["requerimiento", variables.id] });
+      queryClient.invalidateQueries({ queryKey: ["requerimiento", id] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-highlights"] });
     },

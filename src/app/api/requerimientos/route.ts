@@ -9,7 +9,6 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { sanitizeText, sanitizeOptionalText, normalizeEmail, sanitizeMultilineText } from "@/lib/utils/sanitize";
 import { normalizeRut } from "@/lib/utils/rut";
 import { getRequerimientoListFiltersFromRequest } from "@/lib/api/requerimiento-filters-from-request";
-import { cached } from "@/lib/server-cache";
 import { verifyRecaptchaToken } from "@/lib/security/recaptcha";
 
 const log = createRouteLogger("/api/requerimientos");
@@ -29,15 +28,8 @@ export async function GET(request: NextRequest) {
     }
 
     const direccionRestriccion = getDireccionRestriccion(authResult.user);
-    const cacheKey = `requerimientos:list:${JSON.stringify({
-      uid: authResult.user.uid,
-      rol: authResult.user.rol,
-      filters: parsedFilters.data,
-      direccionRestriccion: direccionRestriccion || [],
-    })}`;
-    const result = await cached(cacheKey, 180_000, () =>
-      requerimientoService.list(parsedFilters.data, direccionRestriccion)
-    );
+    // Lista sin unstable_cache: dirección/categoría deben reflejarse al instante tras editar un requerimiento.
+    const result = await requerimientoService.list(parsedFilters.data, direccionRestriccion);
 
     return createSuccessResponse(result);
   } catch (error) {
