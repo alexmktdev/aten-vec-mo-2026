@@ -18,15 +18,21 @@ export async function PATCH(request: NextRequest, routeParams: RequerimientoRout
   try {
     const authResult = await requireAuth();
     if (authResult.error) return authResult.error;
-    if (!canEditRequerimientoData(authResult.user.rol)) {
-      return createErrorResponse(403, "No tiene permisos para editar datos del requerimiento");
-    }
 
     const access = await requireRequerimientoWithAccess(routeParams, {
       forbidden: "No tiene permisos para editar este requerimiento",
     });
     if (access.error) return access.error;
     const { id } = access;
+
+    if (!canEditRequerimientoData(authResult.user.rol, access.requerimiento.estado)) {
+      return createErrorResponse(
+        403,
+        authResult.user.rol === "director"
+          ? "El rol director no puede editar los datos completos del requerimiento"
+          : "Solo puede editar datos completos cuando el requerimiento está pendiente"
+      );
+    }
     const body = await request.json();
 
     if (body.vecino) {

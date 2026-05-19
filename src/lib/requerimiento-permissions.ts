@@ -47,8 +47,19 @@ export function canSendCitizenResponse(rol: RolUsuario): boolean {
   return rol === "superadmin" || rol === "director" || rol === "administradora-municipal";
 }
 
-export function canEditRequerimientoData(rol: RolUsuario): boolean {
-  return rol === "superadmin" || rol === "admin" || rol === "director" || rol === "administradora-municipal";
+/**
+ * Edición completa del requerimiento (modal «Editar datos completos»):
+ * - superadmin: siempre
+ * - admin / administradora-municipal: solo mientras el estado es pendiente (tras derivar queda bloqueado hasta que un director vuelva a pendiente)
+ * - director: nunca
+ */
+export function canEditRequerimientoData(rol: RolUsuario, estado: EstadoRequerimiento): boolean {
+  if (rol === "superadmin") return true;
+  if (rol === "director") return false;
+  if (rol === "admin" || rol === "administradora-municipal") {
+    return estado === "pendiente";
+  }
+  return false;
 }
 
 export function getAllowedNextStates(

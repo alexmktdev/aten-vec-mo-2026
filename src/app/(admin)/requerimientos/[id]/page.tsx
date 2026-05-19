@@ -64,7 +64,11 @@ export default function RequerimientoDetailPage() {
   const canDerivar = !!user && !!req && canDerivarRequerimiento(user.rol) && req.estado === "pendiente";
   const canDelete = !!user && canDeleteRequerimiento(user.rol);
   const canResponderVecino = !!user && !!req && canSendCitizenResponse(user.rol) && (req.estado === "completado" || req.estado === "rechazado");
-  const canEditarDatos = !!user && canEditRequerimientoData(user.rol);
+  const puedeEditarDatosAhora = !!user && !!req && canEditRequerimientoData(user.rol, req.estado);
+  const muestraBotonEditarDatos =
+    !!user &&
+    !!req &&
+    (user.rol === "superadmin" || user.rol === "admin" || user.rol === "administradora-municipal");
   const hasRespuestaVecino = !!req && (req.respuestasVecino?.length || 0) > 0;
   const isAdmin = user?.rol === "admin";
   const allowedNextStates = !!user && !!req ? getAllowedNextStates(user.rol, req.estado) : [];
@@ -340,14 +344,33 @@ export default function RequerimientoDetailPage() {
                 </Alert>
               )}
 
-              {canEditarDatos && (
-                <Button
-                  variant="outline"
-                  size="full"
-                  onClick={() => setShowEditar(true)}
-                >
-                  <Pencil className="h-4 w-4 mr-2" /> Editar datos completos
-                </Button>
+              {muestraBotonEditarDatos && (
+                <div className="space-y-2">
+                  <Button
+                    variant="outline"
+                    size="full"
+                    disabled={!puedeEditarDatosAhora || updateDatosMutation.isPending}
+                    title={
+                      puedeEditarDatosAhora
+                        ? undefined
+                        : user?.rol === "admin" || user?.rol === "administradora-municipal"
+                          ? "Solo puede editar datos completos con el requerimiento en «Pendiente». Si ya derivó, espere a que un director devuelva el caso a pendiente."
+                          : undefined
+                    }
+                    onClick={() => {
+                      if (puedeEditarDatosAhora) setShowEditar(true);
+                    }}
+                  >
+                    <Pencil className="h-4 w-4 mr-2" /> Editar datos completos
+                  </Button>
+                  {(user?.rol === "admin" || user?.rol === "administradora-municipal") &&
+                    req.estado !== "pendiente" && (
+                      <p className="text-xs text-slate-500">
+                        La edición completa solo está disponible con estado «{ESTADO_LABELS.pendiente}». Tras derivar,
+                        deberá esperar a que un director devuelva el requerimiento a pendiente si hubo un error.
+                      </p>
+                    )}
+                </div>
               )}
 
               {canDerivar && (
