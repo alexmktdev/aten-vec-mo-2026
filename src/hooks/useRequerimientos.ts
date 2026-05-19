@@ -367,6 +367,19 @@ export function useSetEvidenciaResolucion() {
   });
 }
 
+export function useDeleteEvidenciaResolucion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      return fetchJson(`/api/requerimientos/${id}/evidencia`, { method: "DELETE" });
+    },
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: ["requerimiento", id] });
+      queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
+    },
+  });
+}
+
 export function useDashboardStats() {
   return useQuery({
     queryKey: ["dashboard-stats"],

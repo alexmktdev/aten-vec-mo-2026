@@ -405,6 +405,22 @@ export const requerimientoService = {
     invalidateCacheByPrefix("requerimientos:list:");
   },
 
+  async clearEvidenciaResolucion(id: string): Promise<void> {
+    const current = await requerimientoRepository.getById(id);
+    if (!current) throw new Error("Requerimiento no encontrado");
+    if (current.estado !== "en_proceso") {
+      throw new Error("Solo puede eliminar evidencia cuando el requerimiento está en proceso de solución");
+    }
+    if (!current.evidenciaResolucion) {
+      return;
+    }
+
+    await requerimientoRepository.clearEvidenciaResolucion(id);
+
+    logger.info({ id }, "Evidencia de resolución eliminada");
+    invalidateCacheByPrefix("requerimientos:list:");
+  },
+
   /**
    * Delete a requerimiento (superadmin only)
    */

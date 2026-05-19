@@ -3,7 +3,15 @@
 import dynamic from "next/dynamic";
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useRequerimiento, useUpdateRequerimiento, useUpdateRequerimientoDatos, useDerivarRequerimiento, useDeleteRequerimiento, useEnviarRespuestaVecino } from "@/hooks/useRequerimientos";
+import {
+  useRequerimiento,
+  useUpdateRequerimiento,
+  useUpdateRequerimientoDatos,
+  useDerivarRequerimiento,
+  useDeleteRequerimiento,
+  useEnviarRespuestaVecino,
+  useDeleteEvidenciaResolucion,
+} from "@/hooks/useRequerimientos";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -46,6 +54,7 @@ export default function RequerimientoDetailPage() {
   const derivarMutation = useDerivarRequerimiento();
   const deleteMutation = useDeleteRequerimiento();
   const respuestaMutation = useEnviarRespuestaVecino();
+  const deleteEvidenciaMutation = useDeleteEvidenciaResolucion();
 
   const [newEstado, setNewEstado] = useState("");
   const [nota, setNota] = useState("");
@@ -53,6 +62,9 @@ export default function RequerimientoDetailPage() {
   const [showDerivar, setShowDerivar] = useState(false);
   const [showRespuesta, setShowRespuesta] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showPendienteEvidenciaModal, setShowPendienteEvidenciaModal] = useState(false);
+  const [pendienteEvidenciaNota, setPendienteEvidenciaNota] = useState<string | undefined>();
+  const [pendienteEvidenciaActionLoading, setPendienteEvidenciaActionLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -80,7 +92,8 @@ export default function RequerimientoDetailPage() {
     derivarMutation.isPending ||
     respuestaMutation.isPending ||
     deleteMutation.isPending ||
-    updateDatosMutation.isPending;
+    updateDatosMutation.isPending ||
+    pendienteEvidenciaActionLoading;
 
   const getErrorMessage = (error: unknown): string => {
     if (error instanceof ApiClientError) {
@@ -93,8 +106,19 @@ export default function RequerimientoDetailPage() {
   };
 
   const handleUpdateEstado = async () => {
+    if (!req) return;
     if (!newEstado && !nota) return;
     const estadoEnviar = newEstado ? (newEstado as EstadoRequerimiento) : undefined;
+
+    if (
+      estadoEnviar === "pendiente" &&
+      req.estado === "en_proceso" &&
+      req.evidenciaResolucion
+    ) {
+      setPendienteEvidenciaNota(nota.trim() || undefined);
+      setShowPendienteEvidenciaModal(true);
+      return;
+    }
 
     setErrorMsg("");
     try {
@@ -109,6 +133,31 @@ export default function RequerimientoDetailPage() {
       setTimeout(() => setSuccessMsg(""), 3000);
     } catch (error) {
       setErrorMsg(getErrorMessage(error));
+    }
+  };
+
+  const handleConfirmPendienteConEliminarEvidencia = async () => {
+    if (!req) return;
+    setErrorMsg("");
+    setPendienteEvidenciaActionLoading(true);
+    try {
+      await deleteEvidenciaMutation.mutateAsync(id);
+      await updateMutation.mutateAsync({
+        id,
+        estado: "pendiente",
+        nota: pendienteEvidenciaNota,
+      });
+      setShowPendienteEvidenciaModal(false);
+      setPendienteEvidenciaNota(undefined);
+      setNewEstado("");
+      setNota("");
+      setSuccessMsg("Evidencia eliminada y requerimiento vuelto a pendiente");
+      setTimeout(() => setSuccessMsg(""), 4000);
+    } catch (error) {
+      setErrorMsg(getErrorMessage(error));
+      setShowPendienteEvidenciaModal(false);
+    } finally {
+      setPendienteEvidenciaActionLoading(false);
     }
   };
 
@@ -284,6 +333,7 @@ export default function RequerimientoDetailPage() {
           {req.estado === "en_proceso" && !!user && (user.rol === "director" || user.rol === "superadmin") && (
             <EvidenciaResolucionForm
               requerimientoId={req.id}
+              canManage
               evidenciaExistente={req.evidenciaResolucion}
             />
           )}
@@ -482,6 +532,33 @@ export default function RequerimientoDetailPage() {
           )}
         </div>
       </div>
+
+      <ConfirmDeleteModal
+        open={showPendienteEvidenciaModal}
+        onOpenChange={(open) => {
+          setShowPendienteEvidenciaModal(open);
+          if (!open) setPendienteEvidenciaNota(undefined);
+        }}
+        title="Eliminar evidencia para volver a pendiente"
+        confirmLabel="Eliminar evidencia y volver a Pendiente"
+        description={
+          <div className="space-y-3 text-sm text-slate-600">
+            <p>
+              Se debe eliminar la evidencia que subió para volver al estado anterior de «
+              {ESTADO_LABELS.pendiente}».
+            </p>
+            <p>
+              Cuando el requerimiento vuelva a estar en «{ESTADO_LABELS.en_proceso}», deberá volver a subir
+              evidencia si corresponde.
+            </p>
+            <p>
+              Si no elimina la evidencia, no puede volver al estado «{ESTADO_LABELS.pendiente}».
+            </p>
+          </div>
+        }
+        onConfirm={handleConfirmPendienteConEliminarEvidencia}
+        loading={pendienteEvidenciaActionLoading}
+      />
 
       <ConfirmDeleteModal
         open={showDeleteConfirm}

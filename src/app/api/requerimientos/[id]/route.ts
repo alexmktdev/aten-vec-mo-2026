@@ -62,6 +62,18 @@ export async function PATCH(request: NextRequest, routeParams: RequerimientoRout
       return createErrorResponse(403, "No tiene permisos para realizar este cambio de estado");
     }
 
+    // No pasar a pendiente desde en proceso si sigue habiendo evidencia (debe eliminarse antes)
+    if (
+      parsed.data.estado === "pendiente" &&
+      existing.estado === "en_proceso" &&
+      existing.evidenciaResolucion
+    ) {
+      return createErrorResponse(
+        403,
+        "Debe eliminar la evidencia de resolución antes de volver el requerimiento a pendiente"
+      );
+    }
+
     // Block state changes when citizen response was already sent
     if (
       parsed.data.estado &&

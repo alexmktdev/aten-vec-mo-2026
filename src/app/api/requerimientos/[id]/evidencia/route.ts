@@ -77,3 +77,42 @@ export async function POST(request: NextRequest, routeParams: RequerimientoRoute
     return createErrorResponse(500, message);
   }
 }
+
+/**
+ * DELETE /api/requerimientos/:id/evidencia
+ * Quita la evidencia de resolución (solo en proceso). Roles: director, superadmin.
+ */
+export async function DELETE(_request: NextRequest, routeParams: RequerimientoRouteParams) {
+  try {
+    const authResult = await requireAuth();
+    if (authResult.error) return authResult.error;
+
+    if (
+      authResult.user.rol !== "superadmin" &&
+      authResult.user.rol !== "director" &&
+      authResult.user.rol !== "administradora-municipal"
+    ) {
+      return createErrorResponse(403, "No tiene permisos para eliminar la evidencia de resolución");
+    }
+
+    const access = await requireRequerimientoWithAccess(routeParams, {
+      forbidden: "No tiene permisos para acceder a este requerimiento",
+    });
+    if (access.error) return access.error;
+
+    if (access.requerimiento.estado !== "en_proceso") {
+      return createErrorResponse(
+        400,
+        "Solo puede eliminar evidencia cuando el requerimiento está en proceso de solución"
+      );
+    }
+
+    await requerimientoService.clearEvidenciaResolucion(access.id);
+
+    return createSuccessResponse(null, "Evidencia de resolución eliminada");
+  } catch (error) {
+    log.error({ error }, "Error eliminando evidencia de resolución");
+    const message = error instanceof Error ? error.message : "Error al eliminar la evidencia";
+    return createErrorResponse(500, message);
+  }
+}

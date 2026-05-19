@@ -279,6 +279,14 @@ export const requerimientoRepository = {
     });
   },
 
+  /** Quita el campo evidenciaResolucion del documento */
+  async clearEvidenciaResolucion(id: string): Promise<void> {
+    await collection().doc(id).update({
+      evidenciaResolucion: FieldValue.delete(),
+      actualizadoEn: FieldValue.serverTimestamp(),
+    });
+  },
+
   /**
    * Add a note to a requerimiento
    */
