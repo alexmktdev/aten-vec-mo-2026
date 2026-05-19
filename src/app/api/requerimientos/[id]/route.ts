@@ -52,7 +52,13 @@ export async function PATCH(request: NextRequest, routeParams: RequerimientoRout
     }
 
     // Validate status transition by role
-    if (parsed.data.estado && !canTransitionEstado(user.rol, existing.estado, parsed.data.estado)) {
+    const transitionContext = {
+      hasRespuestaVecino: (existing.respuestasVecino?.length ?? 0) > 0,
+    };
+    if (
+      parsed.data.estado &&
+      !canTransitionEstado(user.rol, existing.estado, parsed.data.estado, transitionContext)
+    ) {
       return createErrorResponse(403, "No tiene permisos para realizar este cambio de estado");
     }
 

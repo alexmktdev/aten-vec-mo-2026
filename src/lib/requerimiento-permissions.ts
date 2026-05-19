@@ -17,7 +17,7 @@ const ADMIN_STATUS_TRANSITIONS: Record<EstadoRequerimiento, EstadoRequerimiento[
  * Director:
  * - derivado → pendiente (admin derivó mal) o en_proceso
  * - en_proceso → pendiente (categoría/dirección equivocada), completado o rechazado
- * - completado / rechazado: sin transiciones (se bloquea tras responder al vecino desde la UI y backend)
+ * - completado / rechazado → en_proceso solo si aún NO se envió correo al vecino (hasRespuestaVecino)
  */
 const DIRECTOR_STATUS_TRANSITIONS: Record<EstadoRequerimiento, EstadoRequerimiento[]> = {
   pendiente: [],
@@ -62,9 +62,15 @@ export function canEditRequerimientoData(rol: RolUsuario, estado: EstadoRequerim
   return false;
 }
 
+/** Contexto opcional para transiciones que dependen del historial (ej. correo al vecino ya enviado). */
+export interface EstadoTransitionContext {
+  hasRespuestaVecino?: boolean;
+}
+
 export function getAllowedNextStates(
   rol: RolUsuario,
-  currentEstado: EstadoRequerimiento
+  currentEstado: EstadoRequerimiento,
+  context?: EstadoTransitionContext
 ): EstadoRequerimiento[] {
   if (rol === "superadmin" || rol === "administradora-municipal") {
     return ALL_STATUS_TRANSITIONS[currentEstado];
@@ -75,7 +81,14 @@ export function getAllowedNextStates(
   }
 
   if (rol === "director") {
-    return DIRECTOR_STATUS_TRANSITIONS[currentEstado];
+    const base = [...DIRECTOR_STATUS_TRANSITIONS[currentEstado]];
+    if (
+      !context?.hasRespuestaVecino &&
+      (currentEstado === "completado" || currentEstado === "rechazado")
+    ) {
+      base.push("en_proceso");
+    }
+    return base;
   }
 
   return [];
@@ -84,8 +97,9 @@ export function getAllowedNextStates(
 export function canTransitionEstado(
   rol: RolUsuario,
   from: EstadoRequerimiento,
-  to: EstadoRequerimiento
+  to: EstadoRequerimiento,
+  context?: EstadoTransitionContext
 ): boolean {
   if (from === to) return true;
-  return getAllowedNextStates(rol, from).includes(to);
+  return getAllowedNextStates(rol, from, context).includes(to);
 }

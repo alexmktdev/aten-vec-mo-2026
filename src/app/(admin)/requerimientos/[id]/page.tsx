@@ -70,8 +70,10 @@ export default function RequerimientoDetailPage() {
     !!req &&
     (user.rol === "superadmin" || user.rol === "admin" || user.rol === "administradora-municipal");
   const hasRespuestaVecino = !!req && (req.respuestasVecino?.length || 0) > 0;
+  const estadoTransitionContext = { hasRespuestaVecino };
   const isAdmin = user?.rol === "admin";
-  const allowedNextStates = !!user && !!req ? getAllowedNextStates(user.rol, req.estado) : [];
+  const allowedNextStates =
+    !!user && !!req ? getAllowedNextStates(user.rol, req.estado, estadoTransitionContext) : [];
   const canChangeEstado = allowedNextStates.length > 0 && !(hasRespuestaVecino && (req?.estado === "completado" || req?.estado === "rechazado"));
   const isProcessingAction =
     updateMutation.isPending ||
@@ -148,7 +150,7 @@ export default function RequerimientoDetailPage() {
   }
 
   const estadoOptions = req && user
-    ? [req.estado, ...getAllowedNextStates(user.rol, req.estado)].filter(
+    ? [req.estado, ...getAllowedNextStates(user.rol, req.estado, estadoTransitionContext)].filter(
         (estado, index, arr) => arr.indexOf(estado) === index
       ).map((estado) => ({ value: estado, label: ESTADO_LABELS[estado] }))
     : ESTADOS_REQUERIMIENTO.map((e) => ({ value: e, label: ESTADO_LABELS[e] }));
@@ -192,6 +194,17 @@ export default function RequerimientoDetailPage() {
       <AlertaVencimiento diasHabilesRestantes={req.diasHabilesRestantes} vencido={req.vencido} />
       {successMsg && <Alert variant="success">{successMsg}</Alert>}
       {errorMsg && <Alert variant="error">{errorMsg}</Alert>}
+      {user?.rol === "director" &&
+        req &&
+        (req.estado === "completado" || req.estado === "rechazado") &&
+        !hasRespuestaVecino && (
+          <Alert variant="info">
+            <p className="text-sm">
+              Si el estado «{ESTADO_LABELS[req.estado]}» fue registrado por error, puede volver a «
+              {ESTADO_LABELS.en_proceso}» con «Cambiar estado» mientras no haya enviado el correo al vecino.
+            </p>
+          </Alert>
+        )}
       {isProcessingAction && (
         <Alert>
           <span className="inline-flex items-center gap-2">
