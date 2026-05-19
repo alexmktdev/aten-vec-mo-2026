@@ -127,7 +127,7 @@ export default function RequerimientosPage() {
     {
       key: "respuestaVecino",
       header: "Respuesta enviada al vecino",
-      className: "min-w-[200px]",
+      className: "min-w-[200px] text-center",
       render: (item: RequerimientoDTO) => {
         const cerrado = item.estado === "completado" || item.estado === "rechazado";
         const enviada = (item.respuestasVecino?.length ?? 0) > 0;
