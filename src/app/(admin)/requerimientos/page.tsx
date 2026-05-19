@@ -125,6 +125,30 @@ export default function RequerimientosPage() {
       ),
     },
     {
+      key: "respuestaVecino",
+      header: "Respuesta enviada al vecino",
+      className: "min-w-[200px]",
+      render: (item: RequerimientoDTO) => {
+        const cerrado = item.estado === "completado" || item.estado === "rechazado";
+        const enviada = (item.respuestasVecino?.length ?? 0) > 0;
+        if (!cerrado) {
+          return <span className="text-xs text-slate-400">—</span>;
+        }
+        if (enviada) {
+          return (
+            <span className="inline-flex min-w-[3rem] items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800">
+              Sí
+            </span>
+          );
+        }
+        return (
+          <span className="inline-flex min-w-[3rem] items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-800">
+            No
+          </span>
+        );
+      },
+    },
+    {
       key: "fechaIngreso",
       header: "Fecha",
       className: "whitespace-nowrap min-w-[130px]",
