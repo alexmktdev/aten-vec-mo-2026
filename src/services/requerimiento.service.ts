@@ -436,17 +436,9 @@ export const requerimientoService = {
   },
 
   /**
-   * Get dashboard stats
+   * Get dashboard stats — always live from Firestore for accuracy.
    */
   async getStats(direccionRestriccion?: string[]) {
-    if (!direccionRestriccion || direccionRestriccion.length === 0) {
-      const core = await dashboardMetricsService.getCoreStats();
-      if (core) {
-        // "vencidos" still computed live because it is time-dependent.
-        const live = await requerimientoRepository.getStats(direccionRestriccion);
-        return { ...core, vencidos: live.vencidos };
-      }
-    }
     return requerimientoRepository.getStats(direccionRestriccion);
   },
 
@@ -458,7 +450,6 @@ export const requerimientoService = {
     urgentes: RequerimientoDTO[];
     direccionesTop: { direccion: string; total: number }[];
     direccionesResueltasTop: { direccion: string; totalResueltos: number }[];
-    porcentajeUrgentesActivos: number;
   }> {
     const ultimosResult = await requerimientoRepository.list({ limit: 5 }, direccionRestriccion);
     const ultimos = ultimosResult.data.map(toRequerimientoDTO);
@@ -475,16 +466,7 @@ export const requerimientoService = {
         .filter((r) => r.estado !== "completado" && r.estado !== "rechazado")
         .sort((a, b) => getTimeFromDateLike(a.fechaIngreso) - getTimeFromDateLike(b.fechaIngreso))
         .slice(0, 5);
-      const activos = candidatosDto.filter(
-        (r) => r.estado === "pendiente" || r.estado === "derivado" || r.estado === "en_proceso"
-      );
-      const urgentesActivos = activos.filter(
-        (r) => !r.vencido && (r.diasHabilesRestantes ?? Number.POSITIVE_INFINITY) <= 7
-      );
-      const porcentajeUrgentesActivos =
-        activos.length > 0 ? Math.round((urgentesActivos.length / activos.length) * 100) : 0;
 
-      // Fallback when aggregated metrics are still empty (e.g., before historical backfill).
       if (direccionesTop.length === 0 || direccionesResueltasTop.length === 0) {
         const universo = await requerimientoRepository.getForReport({}, direccionRestriccion);
         const universoDto = universo.map(toRequerimientoDTO);
@@ -516,10 +498,9 @@ export const requerimientoService = {
         }
       }
 
-      return { ultimos, urgentes, direccionesTop, direccionesResueltasTop, porcentajeUrgentesActivos };
+      return { ultimos, urgentes, direccionesTop, direccionesResueltasTop };
     }
 
-    // Use full filtered universe to avoid missing records in tops/percentages.
     const candidatos = await requerimientoRepository.getForReport({}, direccionRestriccion);
     const candidatosDto = candidatos.map(toRequerimientoDTO);
 
@@ -527,15 +508,6 @@ export const requerimientoService = {
       .filter((r) => r.estado !== "completado" && r.estado !== "rechazado")
       .sort((a, b) => getTimeFromDateLike(a.fechaIngreso) - getTimeFromDateLike(b.fechaIngreso))
       .slice(0, 5);
-
-    const activos = candidatosDto.filter(
-      (r) => r.estado === "pendiente" || r.estado === "derivado" || r.estado === "en_proceso"
-    );
-    const urgentesActivos = activos.filter(
-      (r) => !r.vencido && (r.diasHabilesRestantes ?? Number.POSITIVE_INFINITY) <= 7
-    );
-    const porcentajeUrgentesActivos =
-      activos.length > 0 ? Math.round((urgentesActivos.length / activos.length) * 100) : 0;
 
     const conteoDirecciones = new Map<string, number>();
     candidatosDto.forEach((r) => {
@@ -561,7 +533,7 @@ export const requerimientoService = {
       .sort((a, b) => b.totalResueltos - a.totalResueltos)
       .slice(0, 5);
 
-    return { ultimos, urgentes, direccionesTop, direccionesResueltasTop, porcentajeUrgentesActivos };
+    return { ultimos, urgentes, direccionesTop, direccionesResueltasTop };
   },
 
   /**

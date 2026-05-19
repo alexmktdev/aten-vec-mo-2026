@@ -14,7 +14,6 @@ import {
   Flame,
   Building2,
   BadgeCheck,
-  Percent,
 } from "lucide-react";
 
 type RankTheme = "blue" | "orange" | "slate" | "green";
@@ -70,19 +69,12 @@ export default function DashboardPage() {
 
       <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <StatsCard title="Total Requerimientos" value={stats?.total || 0} icon={FileText} color="blue" trend="Total acumulado del sistema" />
-        <StatsCard title="Pendientes" value={stats?.pendiente || 0} icon={Clock} color="yellow" trend="Esperando primera gestión" />
-        <StatsCard title="Derivados" value={stats?.derivado || 0} icon={Send} color="blue" trend="Enviados al área correspondiente" />
-        <StatsCard title="En Proceso" value={stats?.en_proceso || 0} icon={Clock} color="orange" trend="Con atención actualmente activa" />
-        <StatsCard title="Completados" value={stats?.completado || 0} icon={CheckCircle} color="green" trend="Resueltos y cerrados correctamente" />
-        <StatsCard title="Rechazados" value={stats?.rechazado || 0} icon={XCircle} color="red" trend="No procede por validación" />
-        <StatsCard title="Vencidos" value={stats?.vencidos || 0} icon={AlertTriangle} color="red" trend="Fuera de plazo hábil" />
-        <StatsCard
-          title="Urgentes Activos (%)"
-          value={`${highlights?.porcentajeUrgentesActivos ?? 0}%`}
-          icon={Percent}
-          color="blue"
-          trend="Activos con <= 7 días hábiles"
-        />
+        <StatsCard title="Pendientes" value={stats?.pendiente || 0} icon={Clock} color="yellow" trend="Estado: Pendiente" />
+        <StatsCard title="Derivados" value={stats?.derivado || 0} icon={Send} color="blue" trend="Estado: Derivar al área correspondiente" />
+        <StatsCard title="En Proceso" value={stats?.en_proceso || 0} icon={Clock} color="orange" trend="Estado: En proceso de solución" />
+        <StatsCard title="Completados" value={stats?.completado || 0} icon={CheckCircle} color="green" trend="Estado: Requerimiento Completado" />
+        <StatsCard title="Rechazados" value={stats?.rechazado || 0} icon={XCircle} color="red" trend="Estado: Requerimiento Rechazado" />
+        <StatsCard title="Urgentes Activos" value={stats?.urgentesActivos || 0} icon={AlertTriangle} color="red" trend="Más de 20 días sin responder" />
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">

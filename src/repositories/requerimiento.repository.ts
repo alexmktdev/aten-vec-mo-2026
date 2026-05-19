@@ -362,9 +362,9 @@ export const requerimientoRepository = {
     en_proceso: number;
     completado: number;
     rechazado: number;
-    vencidos: number;
+    urgentesActivos: number;
   }> {
-    let query = collection().select("estado", "fechaLimite");
+    let query = collection().select("estado", "fechaIngreso");
 
     if (direccionRestriccion && direccionRestriccion.length > 0) {
       if (direccionRestriccion.length === 1) {
@@ -382,27 +382,26 @@ export const requerimientoRepository = {
       en_proceso: 0,
       completado: 0,
       rechazado: 0,
-      vencidos: 0,
+      urgentesActivos: 0,
     };
 
     const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const estadoKeys = new Set<string>(["pendiente", "derivado", "en_proceso", "completado", "rechazado"]);
     snapshot.docs.forEach((doc) => {
       const data = doc.data();
       stats.total++;
-      const estado = data.estado as EstadoRequerimiento;
-      if (estado in stats) {
-        stats[estado]++;
+      const estado = data.estado as string;
+      if (estadoKeys.has(estado)) {
+        (stats as Record<string, number>)[estado]++;
       }
 
-      // Check for expired requirements
-      if (
-        data.fechaLimite &&
-        estado !== "completado" &&
-        estado !== "rechazado"
-      ) {
-        const fechaLimite = (data.fechaLimite as Timestamp).toDate();
-        if (now > fechaLimite) {
-          stats.vencidos++;
+      if (estado !== "completado" && estado !== "rechazado" && data.fechaIngreso) {
+        const fechaIngreso = (data.fechaIngreso as Timestamp).toDate();
+        const diffMs = now.getTime() - fechaIngreso.getTime();
+        const diasCalendario = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        if (diasCalendario >= 20) {
+          stats.urgentesActivos++;
         }
       }
     });

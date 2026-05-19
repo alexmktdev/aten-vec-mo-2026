@@ -27,7 +27,7 @@ interface DashboardStats {
   en_proceso: number;
   completado: number;
   rechazado: number;
-  vencidos: number;
+  urgentesActivos: number;
 }
 
 interface DashboardHighlights {
@@ -35,7 +35,6 @@ interface DashboardHighlights {
   urgentes: RequerimientoDTO[];
   direccionesTop: { direccion: string; total: number }[];
   direccionesResueltasTop: { direccion: string; totalResueltos: number }[];
-  porcentajeUrgentesActivos: number;
 }
 
 type RequerimientosListCache = { data: RequerimientoDTO[]; nextCursor?: string; total?: number };
