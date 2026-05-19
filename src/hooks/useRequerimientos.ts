@@ -322,6 +322,23 @@ export function useEnviarRespuestaVecino() {
   });
 }
 
+export function useSetEvidenciaResolucion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...payload }: { id: string; tipo: "documento" | "link"; nombre?: string; nombreR2?: string; url: string; tamanio?: number }) => {
+      return fetchJson(`/api/requerimientos/${id}/evidencia`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["requerimiento", variables.id] });
+      queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
+    },
+  });
+}
+
 export function useDashboardStats() {
   return useQuery({
     queryKey: ["dashboard-stats"],

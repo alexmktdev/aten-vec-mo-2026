@@ -28,7 +28,8 @@ export async function GET(request: NextRequest) {
     if (access.error) return access.error;
 
     const documento = access.requerimiento.documentos.find((item) => item.nombreR2 === fileKey);
-    if (!documento) {
+    const isEvidencia = access.requerimiento.evidenciaResolucion?.nombreR2 === fileKey;
+    if (!documento && !isEvidencia) {
       return createErrorResponse(404, "Documento no encontrado para este requerimiento");
     }
 

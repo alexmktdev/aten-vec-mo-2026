@@ -92,4 +92,19 @@ export const r2Service = {
     const url = await getSignedUrl(r2, command, { expiresIn: 600 });
     return url;
   },
+
+  async getFileBuffer(fileKey: string): Promise<Buffer> {
+    const r2 = getR2Client();
+    const bucket = getR2BucketName();
+
+    const command = new GetObjectCommand({
+      Bucket: bucket,
+      Key: fileKey,
+    });
+
+    const response = await r2.send(command);
+    if (!response.Body) throw new Error("Archivo vacío en R2");
+    const bytes = await response.Body.transformToByteArray();
+    return Buffer.from(bytes);
+  },
 };

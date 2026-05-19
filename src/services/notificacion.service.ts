@@ -83,13 +83,23 @@ export const notificacionService = {
       mensaje: string;
       direccionMunicipalLabel: string;
       categoria: string;
-    }
+      evidencia?: { tipo: "documento" | "link"; nombre?: string; url?: string };
+    },
+    evidenciaAdjunta?: { filename: string; content: Buffer }
   ): Promise<void> {
     try {
       const { subject, html } = getRespuestaVecinoTemplate(params);
-      await sendMail(emailDestino, subject, html, [getEmbeddedLogoAttachment()]);
+      const attachments = [getEmbeddedLogoAttachment()];
+      if (evidenciaAdjunta) {
+        attachments.push({
+          filename: evidenciaAdjunta.filename,
+          content: evidenciaAdjunta.content,
+          contentType: "application/pdf",
+        });
+      }
+      await sendMail(emailDestino, subject, html, attachments);
       logger.info(
-        { email: emailDestino, numero: params.numeroSeguimiento },
+        { email: emailDestino, numero: params.numeroSeguimiento, hasEvidencia: !!evidenciaAdjunta },
         "Citizen response email sent"
       );
     } catch (error) {

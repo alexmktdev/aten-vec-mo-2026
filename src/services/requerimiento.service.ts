@@ -1,5 +1,6 @@
 import { requerimientoRepository, RequerimientoFilters } from "@/repositories/requerimiento.repository";
 import { Requerimiento, RequerimientoDTO, EstadoRequerimiento, VecinoData, TipoRequerimiento, DocumentoRequerimiento, RespuestaVecinoInput } from "@/types/requerimiento.types";
+import { r2Service } from "@/services/r2.service";
 
 // Input type that accepts Zod-parsed data (Zod v4 infers enums as string)
 interface CreateInput {
@@ -74,6 +75,17 @@ function toRequerimientoDTO(req: Requerimiento): RequerimientoDTO {
       usuarioId: r.usuarioId,
       fecha: timestampToString(r.fecha),
     })),
+    evidenciaResolucion: req.evidenciaResolucion
+      ? {
+          tipo: req.evidenciaResolucion.tipo,
+          nombre: req.evidenciaResolucion.nombre,
+          nombreR2: req.evidenciaResolucion.nombreR2,
+          url: req.evidenciaResolucion.url,
+          tamanio: req.evidenciaResolucion.tamanio,
+          fecha: timestampToString(req.evidenciaResolucion.fecha),
+          usuarioId: req.evidenciaResolucion.usuarioId,
+        }
+      : undefined,
     fechaIngreso: timestampToString(req.fechaIngreso),
     fechaLimite: timestampToString(req.fechaLimite),
     fechaResolucion: req.fechaResolucion ? timestampToString(req.fechaResolucion) : undefined,
@@ -324,14 +336,40 @@ export const requerimientoService = {
       throw new Error("Ya existe una respuesta enviada al vecino para este requerimiento");
     }
 
-    await notificacionService.enviarRespuestaVecino(input.emailDestino, {
-      numeroSeguimiento: current.numeroSeguimiento,
-      vecino: current.vecino,
-      asunto: input.asunto,
-      mensaje: input.mensaje,
-      direccionMunicipalLabel: current.direccionMunicipalLabel,
-      categoria: current.categoria,
-    });
+    let evidenciaAdjunta: { filename: string; content: Buffer } | undefined;
+    if (current.evidenciaResolucion?.tipo === "documento" && current.evidenciaResolucion.nombreR2) {
+      try {
+        const buffer = await r2Service.getFileBuffer(current.evidenciaResolucion.nombreR2);
+        evidenciaAdjunta = {
+          filename: current.evidenciaResolucion.nombre || "evidencia-resolucion.pdf",
+          content: buffer,
+        };
+      } catch (err) {
+        logger.warn({ err, id }, "Could not attach evidence PDF to citizen email, sending without it");
+      }
+    }
+
+    const evidenciaInfo = current.evidenciaResolucion
+      ? {
+          tipo: current.evidenciaResolucion.tipo,
+          nombre: current.evidenciaResolucion.nombre,
+          url: current.evidenciaResolucion.tipo === "link" ? current.evidenciaResolucion.url : undefined,
+        }
+      : undefined;
+
+    await notificacionService.enviarRespuestaVecino(
+      input.emailDestino,
+      {
+        numeroSeguimiento: current.numeroSeguimiento,
+        vecino: current.vecino,
+        asunto: input.asunto,
+        mensaje: input.mensaje,
+        direccionMunicipalLabel: current.direccionMunicipalLabel,
+        categoria: current.categoria,
+        evidencia: evidenciaInfo as { tipo: "documento" | "link"; nombre?: string; url?: string } | undefined,
+      },
+      evidenciaAdjunta
+    );
 
     await requerimientoRepository.addRespuestaVecino(id, {
       emailDestino: input.emailDestino,
@@ -341,6 +379,29 @@ export const requerimientoService = {
     });
 
     logger.info({ id, usuarioId, emailDestino: input.emailDestino }, "Citizen response registered");
+    invalidateCacheByPrefix("requerimientos:list:");
+  },
+
+  async setEvidenciaResolucion(
+    id: string,
+    evidencia: { tipo: "documento" | "link"; nombre?: string; nombreR2?: string; url: string; tamanio?: number },
+    usuarioId: string
+  ): Promise<void> {
+    const current = await requerimientoRepository.getById(id);
+    if (!current) throw new Error("Requerimiento no encontrado");
+    if (current.estado !== "en_proceso") {
+      throw new Error("Solo se puede adjuntar evidencia cuando el requerimiento está en proceso de solución");
+    }
+
+    await requerimientoRepository.update(id, {
+      evidenciaResolucion: {
+        ...evidencia,
+        fecha: new Date(),
+        usuarioId,
+      },
+    } as Partial<Requerimiento>);
+
+    logger.info({ id }, "Evidencia de resolución adjuntada");
     invalidateCacheByPrefix("requerimientos:list:");
   },
 

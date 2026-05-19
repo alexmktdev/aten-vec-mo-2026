@@ -9,13 +9,14 @@ interface RespuestaVecinoTemplateParams {
   mensaje: string;
   direccionMunicipalLabel: string;
   categoria: string;
+  evidencia?: { tipo: "documento" | "link"; nombre?: string; url?: string };
 }
 
 export function getRespuestaVecinoTemplate(params: RespuestaVecinoTemplateParams): {
   subject: string;
   html: string;
 } {
-  const { numeroSeguimiento, vecino, asunto, mensaje, direccionMunicipalLabel, categoria } = params;
+  const { numeroSeguimiento, vecino, asunto, mensaje, direccionMunicipalLabel, categoria, evidencia } = params;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const seguimientoUrl = `${appUrl.replace(/\/$/, "")}/seguimiento`;
   const nombreCompleto = mailText(`${vecino.nombre} ${vecino.primerApellido}`);
@@ -66,6 +67,17 @@ export function getRespuestaVecinoTemplate(params: RespuestaVecinoTemplateParams
                   </div>
                 </td>
               </tr>
+              ${evidencia ? `<tr>
+                <td style="padding:16px 32px 0;">
+                  <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;padding:14px 18px;">
+                    <p style="margin:0 0 6px;color:#065f46;font-size:12px;letter-spacing:0.8px;text-transform:uppercase;font-weight:700;">Documentación de resolución</p>
+                    ${evidencia.tipo === "documento"
+                      ? `<p style="margin:0;color:#334155;font-size:13px;line-height:1.5;">Se adjunta el documento <strong>${mailText(evidencia.nombre || "evidencia-resolucion.pdf")}</strong> con la evidencia de resolución de su requerimiento.</p>`
+                      : `<p style="margin:0;color:#334155;font-size:13px;line-height:1.5;">Puede acceder a la documentación de resolución de su requerimiento en el siguiente enlace:</p>
+                         <p style="margin:8px 0 0;"><a href="${mailAttr(evidencia.url || "")}" style="color:#1e3a8a;font-size:13px;font-weight:600;text-decoration:underline;">${mailText(evidencia.url || "")}</a></p>`}
+                  </div>
+                </td>
+              </tr>` : ""}
               <tr>
                 <td style="padding:18px 32px 0;">
                   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">

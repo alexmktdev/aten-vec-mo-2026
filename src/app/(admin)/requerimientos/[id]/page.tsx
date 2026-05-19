@@ -18,6 +18,7 @@ import { ArrowLeft, Loader2, Mail, Pencil, Send, Trash2 } from "lucide-react";
 import { canDeleteRequerimiento, canDerivarRequerimiento, canEditRequerimientoData, canSendCitizenResponse, getAllowedNextStates } from "@/lib/requerimiento-permissions";
 import { ApiClientError } from "@/lib/api/fetch-json";
 import { ConfirmDeleteModal } from "@/components/ui/ConfirmDeleteModal";
+import { EvidenciaResolucionForm } from "@/components/features/requerimientos/EvidenciaResolucionForm";
 
 const DerivacionModal = dynamic(
   () => import("@/components/features/requerimientos/DerivacionModal").then((mod) => mod.DerivacionModal),
@@ -260,6 +261,20 @@ export default function RequerimientoDetailPage() {
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* Evidencia de resolución */}
+          {req.estado === "en_proceso" && !!user && (user.rol === "director" || user.rol === "superadmin") && (
+            <EvidenciaResolucionForm
+              requerimientoId={req.id}
+              evidenciaExistente={req.evidenciaResolucion}
+            />
+          )}
+          {req.estado !== "en_proceso" && req.evidenciaResolucion && (
+            <EvidenciaResolucionForm
+              requerimientoId={req.id}
+              evidenciaExistente={req.evidenciaResolucion}
+            />
           )}
 
           {/* Historial */}

@@ -88,6 +88,16 @@ export interface RespuestaVecino {
   fecha: Timestamp | Date | string;
 }
 
+export interface EvidenciaResolucion {
+  tipo: "documento" | "link";
+  nombre?: string;
+  nombreR2?: string;
+  url: string;
+  tamanio?: number;
+  fecha: Timestamp | Date | string;
+  usuarioId: string;
+}
+
 export interface Requerimiento {
   id: string;
   numeroSeguimiento: string;
@@ -102,6 +112,7 @@ export interface Requerimiento {
   historialEstados: HistorialEstado[];
   notas: NotaRequerimiento[];
   respuestasVecino?: RespuestaVecino[];
+  evidenciaResolucion?: EvidenciaResolucion;
   fechaIngreso: Timestamp | Date | string;
   fechaLimite: Timestamp | Date | string;
   fechaResolucion?: Timestamp | Date | string;
@@ -139,6 +150,15 @@ export interface RequerimientoDTO {
     usuarioId: string;
     fecha: string;
   }[];
+  evidenciaResolucion?: {
+    tipo: "documento" | "link";
+    nombre?: string;
+    nombreR2?: string;
+    url: string;
+    tamanio?: number;
+    fecha: string;
+    usuarioId: string;
+  };
   fechaIngreso: string;
   fechaLimite: string;
   fechaResolucion?: string;
