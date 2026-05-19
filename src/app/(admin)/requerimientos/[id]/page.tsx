@@ -366,9 +366,11 @@ export default function RequerimientoDetailPage() {
                     title={
                       puedeEditarDatosAhora
                         ? undefined
-                        : user?.rol === "admin" || user?.rol === "administradora-municipal"
-                          ? "Solo puede editar datos completos con el requerimiento en «Pendiente». Si ya derivó, espere a que un director devuelva el caso a pendiente."
-                          : undefined
+                        : req.estado === "completado" || req.estado === "rechazado"
+                          ? "No puede editar datos completos en completado o rechazado. Si aún no envió correo al vecino, vuelva primero a «En proceso de solución»."
+                          : user?.rol === "admin" || user?.rol === "administradora-municipal"
+                            ? "Solo puede editar datos completos con el requerimiento en «Pendiente». Si ya derivó, espere a que un director devuelva el caso a pendiente."
+                            : undefined
                     }
                     onClick={() => {
                       if (puedeEditarDatosAhora) setShowEditar(true);
@@ -376,13 +378,22 @@ export default function RequerimientoDetailPage() {
                   >
                     <Pencil className="h-4 w-4 mr-2" /> Editar datos completos
                   </Button>
-                  {(user?.rol === "admin" || user?.rol === "administradora-municipal") &&
-                    req.estado !== "pendiente" && (
-                      <p className="text-xs text-slate-500">
-                        La edición completa solo está disponible con estado «{ESTADO_LABELS.pendiente}». Tras derivar,
-                        deberá esperar a que un director devuelva el requerimiento a pendiente si hubo un error.
-                      </p>
-                    )}
+                  {req.estado === "completado" || req.estado === "rechazado"
+                    ? (user?.rol === "superadmin" ||
+                        user?.rol === "admin" ||
+                        user?.rol === "administradora-municipal") && (
+                        <p className="text-xs text-slate-500">
+                          En «{ESTADO_LABELS[req.estado]}» no está permitida la edición completa de datos. Si aún no envió
+                          correo al vecino, use «Cambiar estado» para volver a «{ESTADO_LABELS.en_proceso}».
+                        </p>
+                      )
+                    : (user?.rol === "admin" || user?.rol === "administradora-municipal") &&
+                      req.estado !== "pendiente" && (
+                        <p className="text-xs text-slate-500">
+                          La edición completa solo está disponible con estado «{ESTADO_LABELS.pendiente}». Tras derivar,
+                          deberá esperar a que un director devuelva el requerimiento a pendiente si hubo un error.
+                        </p>
+                      )}
                 </div>
               )}
 

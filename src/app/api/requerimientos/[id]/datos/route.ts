@@ -26,12 +26,17 @@ export async function PATCH(request: NextRequest, routeParams: RequerimientoRout
     const { id } = access;
 
     if (!canEditRequerimientoData(authResult.user.rol, access.requerimiento.estado)) {
-      return createErrorResponse(
-        403,
-        authResult.user.rol === "director"
-          ? "El rol director no puede editar los datos completos del requerimiento"
-          : "Solo puede editar datos completos cuando el requerimiento está pendiente"
-      );
+      const est = access.requerimiento.estado;
+      let message: string;
+      if (authResult.user.rol === "director") {
+        message = "El rol director no puede editar los datos completos del requerimiento";
+      } else if (est === "completado" || est === "rechazado") {
+        message =
+          "No puede editar datos completos mientras el requerimiento está completado o rechazado. Si aún no envió correo al vecino, cambie primero el estado a «en proceso de solución».";
+      } else {
+        message = "Solo puede editar datos completos cuando el requerimiento está pendiente";
+      }
+      return createErrorResponse(403, message);
     }
     const body = await request.json();
 
