@@ -207,6 +207,7 @@ export const requerimientoRepository = {
           "direccionMunicipalLabel",
           "categoria",
           "estado",
+          "respuestasVecino",
           "fechaIngreso",
           "fechaLimite",
           "creadoEn",
