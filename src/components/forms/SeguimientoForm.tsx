@@ -99,7 +99,7 @@ export function SeguimientoForm() {
                 <p className="text-sm text-slate-500">Requerimiento</p>
                 <CardTitle className="text-blue-600">{result.numeroSeguimiento}</CardTitle>
               </div>
-              <div className="flex flex-col items-end gap-2 shrink-0">
+              <div className="flex flex-col items-center gap-2 shrink-0">
                 <Badge variant={estadoColor} className="text-sm px-4 py-1.5">
                   {ESTADO_LABELS[result.estado]}
                 </Badge>
