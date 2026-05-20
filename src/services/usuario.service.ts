@@ -75,7 +75,7 @@ export const usuarioService = {
     });
 
     logger.info({ uid: authUser.uid, email: input.email, rol: input.rol }, "User created");
-    invalidateCacheByPrefix("usuarios:");
+    invalidateCacheByPrefix("usuarios:list:");
 
     const user = await usuarioRepository.getById(authUser.uid);
     return toUsuarioDTO(user!);
@@ -188,7 +188,7 @@ export const usuarioService = {
 
     const updated = await usuarioRepository.getById(uid);
     logger.info({ uid, rol: input.rol }, "User updated");
-    invalidateCacheByPrefix("usuarios:");
+    invalidateCacheByPrefix("usuarios:list:");
     return updated ? toUsuarioDTO(updated) : null;
   },
 
@@ -196,6 +196,6 @@ export const usuarioService = {
     await adminAuth.deleteUser(uid);
     await usuarioRepository.delete(uid);
     logger.info({ uid }, "User deleted permanently");
-    invalidateCacheByPrefix("usuarios:");
+    invalidateCacheByPrefix("usuarios:list:");
   },
 };

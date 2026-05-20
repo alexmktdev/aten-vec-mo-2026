@@ -5,13 +5,13 @@ import { requireRole } from "@/lib/auth-guard";
 import { createSuccessResponse, createErrorResponse } from "@/lib/utils/response";
 import { createRouteLogger } from "@/lib/logger";
 import { sanitizeText, normalizeEmail } from "@/lib/utils/sanitize";
-import { cached } from "@/lib/server-cache";
 
 const log = createRouteLogger("/api/usuarios");
 
 /**
  * GET /api/usuarios — List all users
  * Roles: superadmin, admin, administradora-municipal
+ * Sin caché de servidor: la lista debe reflejar altas/bajas al instante.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -22,11 +22,8 @@ export async function GET(request: NextRequest) {
     const page = Math.max(1, Number(searchParams.get("page") || "1"));
     const limit = Math.min(50, Math.max(1, Number(searchParams.get("limit") || "10")));
     const search = sanitizeText(searchParams.get("search") || "");
-    const cacheKey = `usuarios:list:${authResult.user.uid}:${authResult.user.rol}:${page}:${limit}:${search || "all"}`;
 
-    const users = await cached(cacheKey, 180_000, () =>
-      usuarioService.listPaginated({ page, limit, search })
-    );
+    const users = await usuarioService.listPaginated({ page, limit, search });
     return createSuccessResponse(users);
   } catch (error) {
     log.error({ error }, "Error listing users");

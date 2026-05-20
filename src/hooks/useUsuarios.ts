@@ -22,8 +22,8 @@ export function getUsuariosQueryOptions(params: UseUsuariosParams = {}) {
       return fetchJson<PaginatedUsuariosResponse>(`/api/usuarios?${searchParams}`);
     },
     placeholderData: keepPreviousData,
-    staleTime: 5 * 60_000,
-    gcTime: 10 * 60_000,
+    staleTime: 0,
+    gcTime: 5 * 60_000,
   };
 }
 
