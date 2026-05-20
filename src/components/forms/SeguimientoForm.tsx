@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { ESTADO_LABELS, ESTADO_COLORS, EstadoRequerimiento } from "@/types/requerimiento.types";
+import { cn } from "@/lib/utils";
 import { formatRut } from "@/lib/utils/rut";
 import { Search, Calendar, MapPin, Tag, FileText } from "lucide-react";
 
@@ -25,6 +26,15 @@ interface SeguimientoResult {
   diasHabilesRestantes?: number;
   vencido?: boolean;
 }
+
+/** Avance visual del trámite: porcentaje de relleno y color de la barra (alineado con cada estado). */
+const BARRA_ESTADO: Record<EstadoRequerimiento, { porcentaje: number; fill: string }> = {
+  pendiente: { porcentaje: 25, fill: "bg-amber-400" },
+  derivado: { porcentaje: 50, fill: "bg-blue-600" },
+  en_proceso: { porcentaje: 75, fill: "bg-orange-500" },
+  completado: { porcentaje: 100, fill: "bg-emerald-500" },
+  rechazado: { porcentaje: 100, fill: "bg-red-500" },
+};
 
 export function SeguimientoForm() {
   const [result, setResult] = useState<SeguimientoResult | null>(null);
@@ -84,14 +94,32 @@ export function SeguimientoForm() {
       {result && (
         <Card className="border-blue-100 shadow-sm">
           <CardHeader>
-            <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-start justify-between flex-wrap gap-4">
               <div>
                 <p className="text-sm text-slate-500">Requerimiento</p>
                 <CardTitle className="text-blue-600">{result.numeroSeguimiento}</CardTitle>
               </div>
-              <Badge variant={estadoColor} className="text-sm px-4 py-1.5">
-                {ESTADO_LABELS[result.estado]}
-              </Badge>
+              <div className="flex flex-col items-end gap-2 shrink-0">
+                <Badge variant={estadoColor} className="text-sm px-4 py-1.5">
+                  {ESTADO_LABELS[result.estado]}
+                </Badge>
+                <div
+                  className="w-[min(100%,11rem)] sm:w-44 rounded-full bg-slate-200/90 h-2 overflow-hidden border border-slate-200"
+                  role="progressbar"
+                  aria-valuenow={BARRA_ESTADO[result.estado].porcentaje}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={`Avance del trámite: ${BARRA_ESTADO[result.estado].porcentaje}%`}
+                >
+                  <div
+                    className={cn(
+                      "h-full rounded-full transition-[width] duration-500 ease-out",
+                      BARRA_ESTADO[result.estado].fill
+                    )}
+                    style={{ width: `${BARRA_ESTADO[result.estado].porcentaje}%` }}
+                  />
+                </div>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
