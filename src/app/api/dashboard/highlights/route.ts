@@ -6,8 +6,8 @@ import { createRouteLogger } from "@/lib/logger";
 const log = createRouteLogger("/api/dashboard/highlights");
 
 /**
- * GET /api/dashboard/highlights — Latest and urgent requerimientos for dashboard
- * No server cache: ensures fresh data after estado/note changes.
+ * GET /api/dashboard/highlights — Destacados recientes y urgentes del panel.
+ * Alcance global para todos los usuarios autenticados (sin filtrar por dirección asignada).
  */
 export async function GET() {
   try {

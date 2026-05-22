@@ -170,7 +170,8 @@ export default function RequerimientosPage() {
         }
 
         const diasSinResponder = getBusinessDaysBetween(new Date(item.fechaIngreso), new Date());
-        const isCritico = item.vencido || diasSinResponder >= 20;
+        // Rojo ≥20 hábiles, ámbar 10–19, azul <10; no depende del vencimiento por fecha límite.
+        const isCritico = diasSinResponder >= 20;
         const isAlerta = !isCritico && diasSinResponder >= 10;
 
         return (

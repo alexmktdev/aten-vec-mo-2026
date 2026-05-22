@@ -17,14 +17,17 @@ import {
   Users,
   UserPlus,
   BarChart3,
+  ChartPie,
   LogOut,
   ChevronLeft,
 } from "lucide-react";
+import { ROLES_USUARIO, ROLES_ACCESO_REPORTES } from "@/types/usuario.types";
 
 const NAV_ITEMS = [
-  { href: "/dashboard", label: "Panel de Control", icon: LayoutDashboard, section: "General", roles: ["superadmin", "admin", "administradora-municipal", "director"] },
-  { href: "/requerimientos", label: "Requerimientos", icon: FileText, section: "Administración", roles: ["superadmin", "admin", "administradora-municipal", "director"] },
-  { href: "/reportes", label: "Reportes", icon: BarChart3, section: "Administración", roles: ["superadmin", "admin", "administradora-municipal", "director"] },
+  { href: "/dashboard", label: "Panel de Control", icon: LayoutDashboard, section: "General", roles: [...ROLES_USUARIO] },
+  { href: "/dashboard/graficas", label: "Gráficas resumen", icon: ChartPie, section: "General", roles: [...ROLES_USUARIO] },
+  { href: "/requerimientos", label: "Requerimientos", icon: FileText, section: "Administración", roles: [...ROLES_USUARIO] },
+  { href: "/reportes", label: "Reportes", icon: BarChart3, section: "Administración", roles: [...ROLES_ACCESO_REPORTES] },
   { href: "/usuarios", label: "Usuarios", icon: Users, section: "Usuarios", roles: ["superadmin", "admin", "administradora-municipal"] },
   { href: "/usuarios/nuevo", label: "Crear usuario", icon: UserPlus, section: "Usuarios", roles: ["superadmin"] },
 ];
@@ -36,6 +39,7 @@ function getPrefetchQueries(): { queryKey: readonly unknown[]; queryFn: () => Pr
     getRequerimientosQueryOptions({ page: 1, includeTotal: true, limit: 8, sortBy: "fechaIngreso", sortDir: "desc" }),
     getUsuariosQueryOptions({ page: 1, limit: 10 }),
     { queryKey: ["dashboard-stats"] as const, queryFn: () => fetchJson("/api/dashboard/stats") },
+    { queryKey: ["dashboard-charts"] as const, queryFn: () => fetchJson("/api/dashboard/charts") },
     { queryKey: ["dashboard-highlights"] as const, queryFn: () => fetchJson("/api/dashboard/highlights") },
   ];
 }
@@ -46,6 +50,11 @@ const PREFETCH_MAP: Record<string, () => { queryKey: readonly unknown[]; queryFn
   "/dashboard": () => [
     { queryKey: ["dashboard-stats"] as const, queryFn: () => fetchJson("/api/dashboard/stats") },
     { queryKey: ["dashboard-highlights"] as const, queryFn: () => fetchJson("/api/dashboard/highlights") },
+    { queryKey: ["dashboard-charts"] as const, queryFn: () => fetchJson("/api/dashboard/charts") },
+  ],
+  "/dashboard/graficas": () => [
+    { queryKey: ["dashboard-charts"] as const, queryFn: () => fetchJson("/api/dashboard/charts") },
+    { queryKey: ["dashboard-stats"] as const, queryFn: () => fetchJson("/api/dashboard/stats") },
   ],
 };
 
@@ -143,9 +152,12 @@ export function Sidebar() {
             )}
             <div className="space-y-1.5">
               {items.map((item) => {
-                const isActive = item.href === "/usuarios"
-                  ? pathname === "/usuarios"
-                  : pathname.startsWith(item.href);
+                const isActive =
+                  item.href === "/usuarios"
+                    ? pathname === "/usuarios"
+                    : item.href === "/dashboard"
+                      ? pathname === "/dashboard"
+                      : pathname.startsWith(item.href);
                 return (
                   <Link
                     key={item.href}

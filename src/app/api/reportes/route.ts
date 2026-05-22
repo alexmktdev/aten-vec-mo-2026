@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { reporteService } from "@/services/reporte.service";
-import { requireAuth, getDireccionRestriccion } from "@/lib/auth-guard";
+import { requireReportesAccess, getDireccionRestriccion } from "@/lib/auth-guard";
 import { createSuccessResponse, createErrorResponse } from "@/lib/utils/response";
 import { createRouteLogger } from "@/lib/logger";
 import { requerimientoFiltersSchema } from "@/lib/validations/requerimiento-filters.schema";
@@ -10,11 +10,11 @@ const log = createRouteLogger("/api/reportes");
 
 /**
  * GET /api/reportes — Generate report data
- * All authenticated roles. Filtered by direction for restricted roles.
+ * Solo superadmin y administradora municipal. Filtrado por dirección para roles restringidos.
  */
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await requireAuth();
+    const authResult = await requireReportesAccess();
     if (authResult.error) return authResult.error;
 
     const requestFilters = getRequerimientoListFiltersFromRequest(request);

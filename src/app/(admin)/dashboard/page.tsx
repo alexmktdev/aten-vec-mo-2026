@@ -1,7 +1,10 @@
 "use client";
 
-import { useDashboardHighlights, useDashboardStats } from "@/hooks/useRequerimientos";
+import { useState } from "react";
+import { useDashboardHighlights, useDashboardStats, useDashboardCharts } from "@/hooks/useRequerimientos";
 import { StatsCard } from "@/components/features/dashboard/StatsCard";
+import { DashboardChartModal } from "@/components/features/dashboard/DashboardChartModal";
+import type { DashboardChartCardId } from "@/types/dashboard-charts.types";
 import {
   FileText,
   CheckCircle,
@@ -38,8 +41,16 @@ function rankClass(index: number, theme: RankTheme) {
 }
 
 export default function DashboardPage() {
+  const [chartOpen, setChartOpen] = useState(false);
+  const [activeCard, setActiveCard] = useState<DashboardChartCardId | null>(null);
   const { data: stats, isLoading } = useDashboardStats();
   const { data: highlights, isLoading: loadingHighlights } = useDashboardHighlights();
+  const { data: charts } = useDashboardCharts();
+
+  const openCardChart = (id: DashboardChartCardId) => {
+    setActiveCard(id);
+    setChartOpen(true);
+  };
 
   if (isLoading) {
     return (
@@ -67,15 +78,76 @@ export default function DashboardPage() {
         Panel de control de Requerimientos para el sistema de atención al vecino
       </h1>
 
+      <p className="text-sm text-slate-600">
+        Pulse una tarjeta para ver la torta por <strong>dirección municipal</strong> (misma base que el Excel de
+        fiscalización). También puede abrir la sección <strong>Gráficas resumen</strong> en el menú lateral.
+      </p>
+
       <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        <StatsCard title="Total Requerimientos" value={stats?.total || 0} icon={FileText} color="blue" trend="Total acumulado del sistema" />
-        <StatsCard title="Pendientes" value={stats?.pendiente || 0} icon={Clock} color="yellow" trend="Estado: Pendiente" />
-        <StatsCard title="Derivados" value={stats?.derivado || 0} icon={Send} color="blue" trend="Estado: Derivar al área correspondiente" />
-        <StatsCard title="En Proceso" value={stats?.en_proceso || 0} icon={Clock} color="orange" trend="Estado: En proceso de solución" />
-        <StatsCard title="Completados" value={stats?.completado || 0} icon={CheckCircle} color="green" trend="Estado: Requerimiento Completado" />
-        <StatsCard title="Rechazados" value={stats?.rechazado || 0} icon={XCircle} color="red" trend="Estado: Requerimiento Rechazado" />
-        <StatsCard title="Urgentes Activos" value={stats?.urgentesActivos || 0} icon={AlertTriangle} color="red" trend="Más de 20 días sin responder" />
+        <StatsCard
+          title="Total Requerimientos"
+          value={stats?.total || 0}
+          icon={FileText}
+          color="blue"
+          trend="Total acumulado del sistema"
+          onClick={() => openCardChart("total")}
+        />
+        <StatsCard
+          title="Pendientes"
+          value={stats?.pendiente || 0}
+          icon={Clock}
+          color="yellow"
+          trend="Estado: Pendiente"
+          onClick={() => openCardChart("pendiente")}
+        />
+        <StatsCard
+          title="Derivados"
+          value={stats?.derivado || 0}
+          icon={Send}
+          color="blue"
+          trend="Estado: Derivar al área correspondiente"
+          onClick={() => openCardChart("derivado")}
+        />
+        <StatsCard
+          title="En Proceso"
+          value={stats?.en_proceso || 0}
+          icon={Clock}
+          color="orange"
+          trend="Estado: En proceso de solución"
+          onClick={() => openCardChart("en_proceso")}
+        />
+        <StatsCard
+          title="Completados"
+          value={stats?.completado || 0}
+          icon={CheckCircle}
+          color="green"
+          trend="Estado: Requerimiento Completado"
+          onClick={() => openCardChart("completado")}
+        />
+        <StatsCard
+          title="Rechazados"
+          value={stats?.rechazado || 0}
+          icon={XCircle}
+          color="red"
+          trend="Estado: Requerimiento Rechazado"
+          onClick={() => openCardChart("rechazado")}
+        />
+        <StatsCard
+          title="Urgentes Activos"
+          value={stats?.urgentesActivos || 0}
+          icon={AlertTriangle}
+          color="red"
+          trend="Más de 20 días sin responder"
+          onClick={() => openCardChart("urgentesActivos")}
+        />
       </div>
+
+      <DashboardChartModal
+        open={chartOpen}
+        onOpenChange={setChartOpen}
+        cardId={activeCard}
+        slices={activeCard && charts?.cards ? charts.cards[activeCard] : []}
+      />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">

@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { requireAuth, getDireccionRestriccion } from "@/lib/auth-guard";
+import { requireReportesAccess, getDireccionRestriccion } from "@/lib/auth-guard";
 import { createErrorResponse } from "@/lib/utils/response";
 import { createRouteLogger } from "@/lib/logger";
 import { reporteFiltersSchema } from "@/lib/validations/reporte-filters.schema";
@@ -9,6 +9,25 @@ import { getBaseRequerimientoFiltersFromRequest } from "@/lib/api/requerimiento-
 
 const log = createRouteLogger("/api/reportes/export/pdf");
 
+const DAY_MS = 86_400_000;
+
+function startOfDayPdf(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function diasCalendarioDesdeIngreso(fechaIngreso: string | Date): number {
+  const a = startOfDayPdf(new Date(fechaIngreso));
+  const b = startOfDayPdf(new Date());
+  return Math.floor((b.getTime() - a.getTime()) / DAY_MS);
+}
+
+function esActivoUrgente20d(r: { estado: string; fechaIngreso: string | Date }): boolean {
+  if (r.estado === "completado" || r.estado === "rechazado") return false;
+  return diasCalendarioDesdeIngreso(r.fechaIngreso) >= 20;
+}
+
 function getNextAutoTableY(doc: unknown, fallback: number): number {
   const maybe = doc as { lastAutoTable?: { finalY?: number } };
   const finalY = maybe.lastAutoTable?.finalY;
@@ -17,7 +36,7 @@ function getNextAutoTableY(doc: unknown, fallback: number): number {
 
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await requireAuth();
+    const authResult = await requireReportesAccess();
     if (authResult.error) return authResult.error;
 
     const parsed = reporteFiltersSchema.safeParse(getBaseRequerimientoFiltersFromRequest(request));
@@ -53,10 +72,10 @@ export async function GET(request: NextRequest) {
     const topDireccionesResueltas = Object.entries(porDireccionResuelta).sort((a, b) => b[1] - a[1]).slice(0, 5);
     const urgentes = sortedRows
       .filter((r) => r.estado !== "completado" && r.estado !== "rechazado")
-      .sort((a, b) => (a.diasHabilesRestantes ?? Number.POSITIVE_INFINITY) - (b.diasHabilesRestantes ?? Number.POSITIVE_INFINITY))
+      .sort((a, b) => diasCalendarioDesdeIngreso(b.fechaIngreso) - diasCalendarioDesdeIngreso(a.fechaIngreso))
       .slice(0, 5);
     const activos = rows.filter((r) => r.estado === "pendiente" || r.estado === "derivado" || r.estado === "en_proceso");
-    const urgentesActivos = activos.filter((r) => !r.vencido && (r.diasHabilesRestantes ?? Number.POSITIVE_INFINITY) <= 7);
+    const urgentesActivos = activos.filter((r) => esActivoUrgente20d(r));
     const porcentajeUrgentesActivos = activos.length > 0 ? Math.round((urgentesActivos.length / activos.length) * 100) : 0;
 
     doc.setFontSize(16);
@@ -85,8 +104,10 @@ export async function GET(request: NextRequest) {
         ["En proceso", porEstado.en_proceso || 0],
         ["Completados", porEstado.completado || 0],
         ["Rechazados", porEstado.rechazado || 0],
-        ["Vencidos", rows.filter((r) => r.vencido).length],
-        ["Urgentes activos (%)", `${porcentajeUrgentesActivos}%`],
+        [
+          "% activos con 20+ días calendario desde ingreso",
+          `${porcentajeUrgentesActivos}%`,
+        ],
       ],
     });
 
@@ -135,13 +156,13 @@ export async function GET(request: NextRequest) {
       theme: "striped",
       headStyles: { fillColor: [194, 65, 12] },
       styles: { fontSize: 7.5, cellPadding: 1.6 },
-      head: [["Top 5 requerimientos más urgentes", "Vecino", "Dirección", "Días hábiles"]],
+      head: [["Mayor antigüedad abierta (top 5)", "Vecino", "Dirección", "Días calendario desde ingreso"]],
       body: urgentes.length
         ? urgentes.map((r) => [
             r.numeroSeguimiento,
             `${r.vecino.nombre} ${r.vecino.primerApellido}`,
             r.direccionMunicipalLabel,
-            r.diasHabilesRestantes ?? "-",
+            diasCalendarioDesdeIngreso(r.fechaIngreso),
           ])
         : [["Sin datos", "", "", ""]],
     });

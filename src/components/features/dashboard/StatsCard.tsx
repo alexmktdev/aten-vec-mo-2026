@@ -8,9 +8,11 @@ interface Props {
   icon: LucideIcon;
   color?: string;
   trend?: string;
+  /** Al hacer clic se abre el gráfico asociado (p. ej. reparto por dirección). */
+  onClick?: () => void;
 }
 
-export function StatsCard({ title, value, icon: Icon, color = "blue", trend }: Props) {
+export function StatsCard({ title, value, icon: Icon, color = "blue", trend, onClick }: Props) {
   const colorClasses: Record<string, { top: string; value: string; icon: string; iconBg: string }> = {
     blue: { top: "border-t-blue-400", value: "text-slate-800", icon: "text-blue-700", iconBg: "bg-slate-100" },
     green: { top: "border-t-emerald-400", value: "text-slate-800", icon: "text-emerald-700", iconBg: "bg-slate-100" },
@@ -22,7 +24,27 @@ export function StatsCard({ title, value, icon: Icon, color = "blue", trend }: P
   const c = colorClasses[color] || colorClasses.blue;
 
   return (
-    <Card className={cn("h-full min-h-[118px] border border-slate-200 border-t-[3px] rounded-xl shadow-sm hover:shadow-md transition-shadow", c.top)}>
+    <Card
+      className={cn(
+        "h-full min-h-[118px] border border-slate-200 border-t-[3px] rounded-xl shadow-sm hover:shadow-md transition-all",
+        onClick && "cursor-pointer hover:ring-2 hover:ring-blue-200/90 active:scale-[0.99]",
+        c.top
+      )}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-label={onClick ? `Ver gráfico: ${title}` : undefined}
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
+    >
       <CardContent className="h-full p-3.5">
         <div className="h-full flex items-start justify-between gap-4">
           <div>

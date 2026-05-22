@@ -1,7 +1,10 @@
 import { cookies } from "next/headers";
 import { adminAuth } from "@/lib/firebase/admin";
 import { SessionUser } from "@/types/auth.types";
-import { RolUsuario } from "@/types/usuario.types";
+import {
+  RolUsuario,
+  ROLES_ACCESO_REPORTES,
+} from "@/types/usuario.types";
 import { createErrorResponse } from "@/lib/utils/response";
 import { NextResponse } from "next/server";
 
@@ -76,6 +79,15 @@ export async function requireRole(
   }
 
   return { user: result.user };
+}
+
+/**
+ * Acceso a /reportes y exportaciones: solo superadmin y administradora municipal.
+ */
+export async function requireReportesAccess(): Promise<
+  { user: SessionUser; error?: never } | { user?: never; error: NextResponse }
+> {
+  return requireRole(...(ROLES_ACCESO_REPORTES as [RolUsuario, ...RolUsuario[]]));
 }
 
 /**

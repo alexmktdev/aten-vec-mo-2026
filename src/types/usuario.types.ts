@@ -7,6 +7,13 @@ export const ROLES_USUARIO = [
 
 export type RolUsuario = (typeof ROLES_USUARIO)[number];
 
+/** Roles con acceso a la pestaña Reportes y a las exportaciones PDF/Excel asociadas. */
+export const ROLES_ACCESO_REPORTES: readonly RolUsuario[] = ["superadmin", "administradora-municipal"];
+
+export function puedeVerReportes(rol: RolUsuario): boolean {
+  return ROLES_ACCESO_REPORTES.includes(rol);
+}
+
 export interface Usuario {
   id: string;
   nombre: string;

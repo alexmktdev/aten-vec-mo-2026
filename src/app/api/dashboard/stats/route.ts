@@ -6,9 +6,8 @@ import { createRouteLogger } from "@/lib/logger";
 const log = createRouteLogger("/api/dashboard/stats");
 
 /**
- * GET /api/dashboard/stats — Dashboard statistics
- * All authenticated roles. Always global dashboard data.
- * No server cache: live counts ensure accuracy after estado changes.
+ * GET /api/dashboard/stats — Estadísticas globales del municipio.
+ * Mismos totales para cualquier usuario autenticado (la restricción por dirección sólo aplica en listados/reportes).
  */
 export async function GET() {
   try {

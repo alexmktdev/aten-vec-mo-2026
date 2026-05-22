@@ -6,6 +6,7 @@ import { RequerimientoDTO, EstadoRequerimiento, RespuestaVecinoInput } from "@/t
 import { fetchJson } from "@/lib/api/fetch-json";
 import { RequerimientoCreateInput } from "@/lib/validations/requerimiento.schema";
 import { getDireccionLabel } from "@/constants/direcciones";
+import type { DashboardChartsPayload } from "@/types/dashboard-charts.types";
 
 interface ListParams {
   estado?: string;
@@ -169,6 +170,7 @@ export function useUpdateRequerimiento() {
     onSettled: (_data, _err, variables) => {
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-highlights"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-charts"] });
       if (variables?.id) {
         queryClient.invalidateQueries({ queryKey: ["requerimiento", variables.id] });
       }
@@ -219,6 +221,7 @@ export function useUpdateRequerimientoDatos() {
       queryClient.invalidateQueries({ queryKey: ["requerimiento", id] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-highlights"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-charts"] });
     },
   });
 }
@@ -292,6 +295,7 @@ export function useDerivarRequerimiento() {
     onSettled: (_data, _err, variables) => {
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-highlights"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-charts"] });
       if (variables?.id) {
         queryClient.invalidateQueries({ queryKey: ["requerimiento", variables.id] });
       }
@@ -326,6 +330,7 @@ export function useDeleteRequerimiento() {
       queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-highlights"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-charts"] });
     },
   });
 }
@@ -345,6 +350,7 @@ export function useEnviarRespuestaVecino() {
       queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-highlights"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-charts"] });
     },
   });
 }
@@ -362,6 +368,9 @@ export function useSetEvidenciaResolucion() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["requerimiento", variables.id] });
       queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-highlights"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-charts"] });
     },
   });
 }
@@ -375,6 +384,9 @@ export function useDeleteEvidenciaResolucion() {
     onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: ["requerimiento", id] });
       queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-highlights"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-charts"] });
     },
   });
 }
@@ -398,6 +410,17 @@ export function useDashboardHighlights() {
     queryFn: async () => {
       return fetchJson<DashboardHighlights>("/api/dashboard/highlights");
     },
+    staleTime: 0,
+    gcTime: 5 * 60_000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 30_000,
+  });
+}
+
+export function useDashboardCharts() {
+  return useQuery({
+    queryKey: ["dashboard-charts"],
+    queryFn: async () => fetchJson<DashboardChartsPayload>("/api/dashboard/charts"),
     staleTime: 0,
     gcTime: 5 * 60_000,
     refetchOnWindowFocus: true,

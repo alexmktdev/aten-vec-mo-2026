@@ -16,6 +16,8 @@ type UpdateDataInput = CreateInput;
 import { generateNumeroSeguimiento } from "@/lib/utils/numero-seguimiento";
 import { calcularFechaLimite, getDiasHabilesRestantes, isVencido } from "@/lib/utils/dias-habiles";
 import { getDireccionLabel } from "@/constants/direcciones";
+import { buildDashboardChartsPayload } from "@/lib/dashboard/chart-analytics";
+import type { DashboardChartsPayload } from "@/types/dashboard-charts.types";
 import { notificacionService } from "@/services/notificacion.service";
 import logger from "@/lib/logger";
 import { Timestamp } from "firebase-admin/firestore";
@@ -440,6 +442,14 @@ export const requerimientoService = {
    */
   async getStats(direccionRestriccion?: string[]) {
     return requerimientoRepository.getStats(direccionRestriccion);
+  },
+
+  /**
+   * Datos agregados para gráficos de torta (dashboard / fiscalización).
+   */
+  async getDashboardCharts(direccionRestriccion?: string[]): Promise<DashboardChartsPayload> {
+    const raw = await requerimientoRepository.getDashboardChartRows(direccionRestriccion);
+    return buildDashboardChartsPayload(raw);
   },
 
   /**

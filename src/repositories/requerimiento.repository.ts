@@ -1,5 +1,6 @@
 import { adminDb } from "@/lib/firebase/admin";
 import { COLLECTIONS } from "@/lib/firebase/firestore-collections";
+import type { ChartSourceRow } from "@/lib/dashboard/chart-analytics";
 import { Requerimiento, EstadoRequerimiento } from "@/types/requerimiento.types";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import logger from "@/lib/logger";
@@ -407,6 +408,30 @@ export const requerimientoRepository = {
     });
 
     return stats;
+  },
+
+  /**
+   * Filas mínimas para gráficos del dashboard (opcionalmente filtradas; el API del panel no aplica filtro por rol).
+   */
+  async getDashboardChartRows(direccionRestriccion?: string[]): Promise<ChartSourceRow[]> {
+    let query: FirebaseFirestore.Query<FirebaseFirestore.DocumentData> = collection().select(
+      "estado",
+      "direccionMunicipal",
+      "direccionMunicipalLabel",
+      "categoria",
+      "fechaIngreso"
+    );
+
+    if (direccionRestriccion && direccionRestriccion.length > 0) {
+      if (direccionRestriccion.length === 1) {
+        query = query.where("direccionMunicipal", "==", direccionRestriccion[0]);
+      } else {
+        query = query.where("direccionMunicipal", "in", direccionRestriccion.slice(0, 10));
+      }
+    }
+
+    const snapshot = await query.get();
+    return snapshot.docs.map((doc) => doc.data() as ChartSourceRow);
   },
 
   /**
