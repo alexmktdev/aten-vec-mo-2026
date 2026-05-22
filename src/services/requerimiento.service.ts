@@ -32,6 +32,15 @@ function timestampToString(ts: Timestamp | Date | string | undefined): string {
   return "";
 }
 
+function invalidateDashboardAndListCaches(): void {
+  invalidateCacheByPrefix("requerimientos:list:");
+  invalidateCacheByPrefix("dashboard:stats:");
+  invalidateCacheByPrefix("dashboard:highlights:");
+  invalidateCacheByPrefix("dashboard:charts:");
+  invalidateCacheByPrefix("dashboard:urgentes:");
+  invalidateCacheByPrefix("reports:data:");
+}
+
 function getTimeFromDateLike(value: string | Date | undefined): number {
   if (!value) return Number.POSITIVE_INFINITY;
   const date = value instanceof Date ? value : new Date(value);
@@ -178,10 +187,7 @@ export const requerimientoService = {
       }),
     ]);
 
-    invalidateCacheByPrefix("requerimientos:list:");
-    invalidateCacheByPrefix("dashboard:stats:");
-    invalidateCacheByPrefix("dashboard:highlights:");
-    invalidateCacheByPrefix("dashboard:charts:");
+    invalidateDashboardAndListCaches();
   },
 
   /**
@@ -222,23 +228,22 @@ export const requerimientoService = {
   },
 
   /**
-   * Update requerimiento status
+   * Update requerimiento status.
+   * Accepts optional `existing` to skip re-reading the doc from Firestore.
    */
   async updateEstado(
     id: string,
     estado: EstadoRequerimiento,
     usuarioId: string,
-    nota?: string
+    nota?: string,
+    existing?: RequerimientoDTO
   ): Promise<void> {
-    const current = await requerimientoRepository.getById(id);
+    const current = existing ?? await requerimientoRepository.getById(id);
     if (!current) return;
     await requerimientoRepository.addEstadoToHistorial(id, estado, usuarioId, nota);
-    await dashboardMetricsService.onEstadoChange(current, estado);
+    await dashboardMetricsService.onEstadoChange(current as unknown as Requerimiento, estado);
     logger.info({ id, estado, usuarioId }, "Requerimiento status updated");
-    invalidateCacheByPrefix("requerimientos:list:");
-    invalidateCacheByPrefix("dashboard:stats:");
-    invalidateCacheByPrefix("dashboard:highlights:");
-    invalidateCacheByPrefix("dashboard:charts:");
+    invalidateDashboardAndListCaches();
   },
 
   /**
@@ -247,12 +252,11 @@ export const requerimientoService = {
   async addNota(id: string, contenido: string, usuarioId: string): Promise<void> {
     await requerimientoRepository.addNota(id, { contenido, usuarioId });
     logger.info({ id, usuarioId }, "Note added to requerimiento");
-    invalidateCacheByPrefix("requerimientos:list:");
-    invalidateCacheByPrefix("dashboard:highlights:");
+    invalidateDashboardAndListCaches();
   },
 
-  async updateDatos(id: string, input: UpdateDataInput): Promise<void> {
-    const current = await requerimientoRepository.getById(id);
+  async updateDatos(id: string, input: UpdateDataInput, existing?: RequerimientoDTO): Promise<void> {
+    const current = existing ?? await requerimientoRepository.getById(id);
     if (!current) {
       throw new Error("Requerimiento no encontrado");
     }
@@ -270,31 +274,21 @@ export const requerimientoService = {
     });
 
     await dashboardMetricsService.onDataChange(
-      {
-        estado: current.estado,
-        direccionMunicipalLabel: current.direccionMunicipalLabel,
-        categoria: current.categoria,
-      },
-      {
-        estado: current.estado,
-        direccionMunicipalLabel,
-        categoria: input.categoria,
-      }
+      current as unknown as Requerimiento,
+      { estado: current.estado, direccionMunicipalLabel, categoria: input.categoria } as unknown as Requerimiento,
     );
 
     logger.info({ id }, "Requerimiento data updated");
-    invalidateCacheByPrefix("requerimientos:list:");
-    invalidateCacheByPrefix("dashboard:stats:");
-    invalidateCacheByPrefix("dashboard:highlights:");
-    invalidateCacheByPrefix("dashboard:charts:");
+    invalidateDashboardAndListCaches();
   },
 
   async updateDireccionMunicipal(
     id: string,
     direccionMunicipal: string,
-    direccionMunicipalLabel: string
+    direccionMunicipalLabel: string,
+    existing?: RequerimientoDTO
   ): Promise<void> {
-    const current = await requerimientoRepository.getById(id);
+    const current = existing ?? await requerimientoRepository.getById(id);
     if (!current) {
       throw new Error("Requerimiento no encontrado");
     }
@@ -308,30 +302,20 @@ export const requerimientoService = {
     });
 
     await dashboardMetricsService.onDataChange(
-      {
-        estado: current.estado,
-        direccionMunicipalLabel: current.direccionMunicipalLabel,
-        categoria: current.categoria,
-      },
-      {
-        estado: current.estado,
-        direccionMunicipalLabel,
-        categoria: current.categoria,
-      }
+      current as unknown as Requerimiento,
+      { estado: current.estado, direccionMunicipalLabel, categoria: current.categoria } as unknown as Requerimiento,
     );
 
-    invalidateCacheByPrefix("requerimientos:list:");
-    invalidateCacheByPrefix("dashboard:stats:");
-    invalidateCacheByPrefix("dashboard:highlights:");
-    invalidateCacheByPrefix("dashboard:charts:");
+    invalidateDashboardAndListCaches();
   },
 
   async enviarRespuestaVecino(
     id: string,
     input: RespuestaVecinoInput,
-    usuarioId: string
+    usuarioId: string,
+    existing?: RequerimientoDTO
   ): Promise<void> {
-    const current = await requerimientoRepository.getById(id);
+    const current = existing ?? await requerimientoRepository.getById(id);
     if (!current) {
       throw new Error("Requerimiento no encontrado");
     }
@@ -385,15 +369,16 @@ export const requerimientoService = {
     });
 
     logger.info({ id, usuarioId, emailDestino: input.emailDestino }, "Citizen response registered");
-    invalidateCacheByPrefix("requerimientos:list:");
+    invalidateDashboardAndListCaches();
   },
 
   async setEvidenciaResolucion(
     id: string,
     evidencia: { tipo: "documento" | "link"; nombre?: string; nombreR2?: string; url: string; tamanio?: number },
-    usuarioId: string
+    usuarioId: string,
+    existing?: RequerimientoDTO
   ): Promise<void> {
-    const current = await requerimientoRepository.getById(id);
+    const current = existing ?? await requerimientoRepository.getById(id);
     if (!current) throw new Error("Requerimiento no encontrado");
     if (current.estado !== "en_proceso") {
       throw new Error("Solo se puede adjuntar evidencia cuando el requerimiento está en proceso de solución");
@@ -408,11 +393,11 @@ export const requerimientoService = {
     } as Partial<Requerimiento>);
 
     logger.info({ id }, "Evidencia de resolución adjuntada");
-    invalidateCacheByPrefix("requerimientos:list:");
+    invalidateDashboardAndListCaches();
   },
 
-  async clearEvidenciaResolucion(id: string): Promise<void> {
-    const current = await requerimientoRepository.getById(id);
+  async clearEvidenciaResolucion(id: string, existing?: RequerimientoDTO): Promise<void> {
+    const current = existing ?? await requerimientoRepository.getById(id);
     if (!current) throw new Error("Requerimiento no encontrado");
     if (current.estado !== "en_proceso") {
       throw new Error("Solo puede eliminar evidencia cuando el requerimiento está en proceso de solución");
@@ -424,22 +409,19 @@ export const requerimientoService = {
     await requerimientoRepository.clearEvidenciaResolucion(id);
 
     logger.info({ id }, "Evidencia de resolución eliminada");
-    invalidateCacheByPrefix("requerimientos:list:");
+    invalidateDashboardAndListCaches();
   },
 
   /**
    * Delete a requerimiento (superadmin only)
    */
-  async delete(id: string): Promise<void> {
-    const current = await requerimientoRepository.getById(id);
+  async delete(id: string, existing?: RequerimientoDTO): Promise<void> {
+    const current = existing ?? await requerimientoRepository.getById(id);
     if (!current) return;
     await requerimientoRepository.delete(id);
-    await dashboardMetricsService.onDelete(current);
+    await dashboardMetricsService.onDelete(current as unknown as Requerimiento);
     logger.info({ id }, "Requerimiento deleted");
-    invalidateCacheByPrefix("requerimientos:list:");
-    invalidateCacheByPrefix("dashboard:stats:");
-    invalidateCacheByPrefix("dashboard:highlights:");
-    invalidateCacheByPrefix("dashboard:charts:");
+    invalidateDashboardAndListCaches();
   },
 
   /**
@@ -461,7 +443,9 @@ export const requerimientoService = {
   },
 
   async countUrgentesActivos(): Promise<number> {
-    return requerimientoRepository.countUrgentesActivos();
+    return cached("dashboard:urgentes:count", 180_000, () =>
+      requerimientoRepository.countUrgentesActivos()
+    );
   },
 
   /**
@@ -469,7 +453,7 @@ export const requerimientoService = {
    */
   async getDashboardCharts(direccionRestriccion?: string[]): Promise<DashboardChartsPayload> {
     const cacheKey = `dashboard:charts:${direccionRestriccion?.sort().join(",") ?? "global"}`;
-    return cached(cacheKey, 120_000, async () => {
+    return cached(cacheKey, 300_000, async () => {
       const raw = await requerimientoRepository.getDashboardChartRows(direccionRestriccion);
       return buildDashboardChartsPayload(raw);
     });
@@ -486,7 +470,7 @@ export const requerimientoService = {
     direccionesResueltasTop: { direccion: string; totalResueltos: number }[];
   }> {
     const cacheKey = `dashboard:highlights:${direccionRestriccion?.sort().join(",") ?? "global"}`;
-    return cached(cacheKey, 120_000, async () => {
+    return cached(cacheKey, 300_000, async () => {
       const ultimosResult = await requerimientoRepository.list({ limit: 5 }, direccionRestriccion);
       const ultimos = ultimosResult.data.map(toRequerimientoDTO);
 
@@ -540,10 +524,15 @@ export const requerimientoService = {
   },
 
   /**
-   * Get requerimientos for report generation
+   * Get requerimientos for report generation — cacheado 3 min para evitar
+   * scans repetidos cuando varios usuarios exportan seguido.
    */
   async getForReport(filters: RequerimientoFilters, direccionRestriccion?: string[]): Promise<RequerimientoDTO[]> {
-    const data = await requerimientoRepository.getForReport(filters, direccionRestriccion);
-    return data.map(toRequerimientoDTO);
+    const filterKey = JSON.stringify({ ...filters, direccionRestriccion });
+    const cacheKey = `reports:data:${Buffer.from(filterKey).toString("base64url")}`;
+    return cached(cacheKey, 180_000, async () => {
+      const data = await requerimientoRepository.getForReport(filters, direccionRestriccion);
+      return data.map(toRequerimientoDTO);
+    });
   },
 };

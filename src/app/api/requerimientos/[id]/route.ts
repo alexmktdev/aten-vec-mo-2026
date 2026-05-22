@@ -94,7 +94,8 @@ export async function PATCH(request: NextRequest, routeParams: RequerimientoRout
         id,
         parsed.data.estado,
         user.uid,
-        parsed.data.nota
+        parsed.data.nota,
+        existing
       );
     }
 
@@ -113,18 +114,15 @@ export async function PATCH(request: NextRequest, routeParams: RequerimientoRout
 /**
  * DELETE /api/requerimientos/:id — Delete (superadmin only)
  */
-export async function DELETE(request: NextRequest, routeParams: RequerimientoRouteParams) {
+export async function DELETE(_request: NextRequest, routeParams: RequerimientoRouteParams) {
   try {
-    const authResult = await requireAuth();
-    if (authResult.error) return authResult.error;
-    if (!canDeleteRequerimiento(authResult.user.rol)) {
+    const access = await requireRequerimientoWithAccess(routeParams);
+    if (access.error) return access.error;
+    if (!canDeleteRequerimiento(access.user.rol)) {
       return createErrorResponse(403, "No tiene permisos para eliminar requerimientos");
     }
 
-    const access = await requireRequerimientoWithAccess(routeParams);
-    if (access.error) return access.error;
-
-    await requerimientoService.delete(access.id);
+    await requerimientoService.delete(access.id, access.requerimiento);
 
     return createSuccessResponse(null, "Requerimiento eliminado exitosamente");
   } catch (error) {

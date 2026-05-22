@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { requireAuth } from "@/lib/auth-guard";
 import { requerimientoService } from "@/services/requerimiento.service";
 import { requerimientoRespuestaSchema } from "@/lib/validations/requerimiento.schema";
 import { createErrorResponse, createSuccessResponse } from "@/lib/utils/response";
@@ -15,17 +14,14 @@ const log = createRouteLogger("/api/requerimientos/[id]/respuesta");
 
 export async function POST(request: NextRequest, routeParams: RequerimientoRouteParams) {
   try {
-    const authResult = await requireAuth();
-    if (authResult.error) return authResult.error;
-    if (!canSendCitizenResponse(authResult.user.rol)) {
-      return createErrorResponse(403, "No tiene permisos para responder al vecino");
-    }
-
     const access = await requireRequerimientoWithAccess(routeParams, {
       forbidden: "No tiene permisos para responder este requerimiento",
     });
     if (access.error) return access.error;
-    const { id, user } = access;
+    const { id, user, requerimiento: existing } = access;
+    if (!canSendCitizenResponse(user.rol)) {
+      return createErrorResponse(403, "No tiene permisos para responder al vecino");
+    }
     const body = await request.json();
 
     if (typeof body.emailDestino === "string") {
@@ -43,7 +39,7 @@ export async function POST(request: NextRequest, routeParams: RequerimientoRoute
       return createErrorResponse(400, "Datos inválidos", parsed.error.issues);
     }
 
-    await requerimientoService.enviarRespuestaVecino(id, parsed.data, user.uid);
+    await requerimientoService.enviarRespuestaVecino(id, parsed.data, user.uid, existing);
 
     return createSuccessResponse(null, "Correo de respuesta enviado al vecino exitosamente");
   } catch (error) {

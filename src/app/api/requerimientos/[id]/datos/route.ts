@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import { requerimientoService } from "@/services/requerimiento.service";
 import { requerimientoAdminEditSchema } from "@/lib/validations/requerimiento.schema";
-import { requireAuth } from "@/lib/auth-guard";
 import { createErrorResponse, createSuccessResponse } from "@/lib/utils/response";
 import { createRouteLogger } from "@/lib/logger";
 import { normalizeEmail, sanitizeMultilineText, sanitizeOptionalText, sanitizeText } from "@/lib/utils/sanitize";
@@ -16,19 +15,16 @@ const log = createRouteLogger("/api/requerimientos/[id]/datos");
 
 export async function PATCH(request: NextRequest, routeParams: RequerimientoRouteParams) {
   try {
-    const authResult = await requireAuth();
-    if (authResult.error) return authResult.error;
-
     const access = await requireRequerimientoWithAccess(routeParams, {
       forbidden: "No tiene permisos para editar este requerimiento",
     });
     if (access.error) return access.error;
-    const { id } = access;
+    const { id, user, requerimiento: existing } = access;
 
-    if (!canEditRequerimientoData(authResult.user.rol, access.requerimiento.estado)) {
-      const est = access.requerimiento.estado;
+    if (!canEditRequerimientoData(user.rol, existing.estado)) {
+      const est = existing.estado;
       let message: string;
-      if (authResult.user.rol === "director") {
+      if (user.rol === "director") {
         message = "El rol director no puede editar los datos completos del requerimiento";
       } else if (est === "completado" || est === "rechazado") {
         message =
@@ -62,7 +58,7 @@ export async function PATCH(request: NextRequest, routeParams: RequerimientoRout
       return createErrorResponse(400, "Datos inválidos", parsed.error.issues);
     }
 
-    await requerimientoService.updateDatos(id, parsed.data);
+    await requerimientoService.updateDatos(id, parsed.data, existing);
 
     return createSuccessResponse(null, "Datos del requerimiento actualizados exitosamente");
   } catch (error) {

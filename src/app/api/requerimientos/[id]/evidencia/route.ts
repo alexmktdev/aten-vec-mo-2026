@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
 import { requerimientoService } from "@/services/requerimiento.service";
-import { requireAuth } from "@/lib/auth-guard";
 import { createSuccessResponse, createErrorResponse } from "@/lib/utils/response";
 import { createRouteLogger } from "@/lib/logger";
 import { z } from "zod";
@@ -42,17 +41,14 @@ const evidenciaSchema = z.discriminatedUnion("tipo", [
  */
 export async function POST(request: NextRequest, routeParams: RequerimientoRouteParams) {
   try {
-    const authResult = await requireAuth();
-    if (authResult.error) return authResult.error;
-
-    if (authResult.user.rol !== "superadmin" && authResult.user.rol !== "director") {
-      return createErrorResponse(403, "Solo el director o superadmin pueden adjuntar evidencia de resolución");
-    }
-
     const access = await requireRequerimientoWithAccess(routeParams, {
       forbidden: "No tiene permisos para acceder a este requerimiento",
     });
     if (access.error) return access.error;
+
+    if (access.user.rol !== "superadmin" && access.user.rol !== "director") {
+      return createErrorResponse(403, "Solo el director o superadmin pueden adjuntar evidencia de resolución");
+    }
 
     if (access.requerimiento.estado !== "en_proceso") {
       return createErrorResponse(400, "Solo se puede adjuntar evidencia cuando el requerimiento está en proceso de solución");
@@ -67,7 +63,8 @@ export async function POST(request: NextRequest, routeParams: RequerimientoRoute
     await requerimientoService.setEvidenciaResolucion(
       access.id,
       parsed.data,
-      authResult.user.uid
+      access.user.uid,
+      access.requerimiento
     );
 
     return createSuccessResponse(null, "Evidencia de resolución adjuntada exitosamente");
@@ -84,21 +81,18 @@ export async function POST(request: NextRequest, routeParams: RequerimientoRoute
  */
 export async function DELETE(_request: NextRequest, routeParams: RequerimientoRouteParams) {
   try {
-    const authResult = await requireAuth();
-    if (authResult.error) return authResult.error;
-
-    if (
-      authResult.user.rol !== "superadmin" &&
-      authResult.user.rol !== "director" &&
-      authResult.user.rol !== "administradora-municipal"
-    ) {
-      return createErrorResponse(403, "No tiene permisos para eliminar la evidencia de resolución");
-    }
-
     const access = await requireRequerimientoWithAccess(routeParams, {
       forbidden: "No tiene permisos para acceder a este requerimiento",
     });
     if (access.error) return access.error;
+
+    if (
+      access.user.rol !== "superadmin" &&
+      access.user.rol !== "director" &&
+      access.user.rol !== "administradora-municipal"
+    ) {
+      return createErrorResponse(403, "No tiene permisos para eliminar la evidencia de resolución");
+    }
 
     if (access.requerimiento.estado !== "en_proceso") {
       return createErrorResponse(
@@ -107,7 +101,7 @@ export async function DELETE(_request: NextRequest, routeParams: RequerimientoRo
       );
     }
 
-    await requerimientoService.clearEvidenciaResolucion(access.id);
+    await requerimientoService.clearEvidenciaResolucion(access.id, access.requerimiento);
 
     return createSuccessResponse(null, "Evidencia de resolución eliminada");
   } catch (error) {

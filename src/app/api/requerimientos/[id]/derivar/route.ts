@@ -47,7 +47,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return createErrorResponse(400, "Datos inválidos", parsed.error.issues);
     }
 
-    // Get requerimiento
     const req = await requerimientoService.getById(id);
     if (!req) {
       return createErrorResponse(404, "Requerimiento no encontrado");
@@ -72,7 +71,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       await requerimientoService.updateDireccionMunicipal(
         id,
         parsed.data.direccionMunicipal,
-        direccionMunicipalLabel
+        direccionMunicipalLabel,
+        req
       );
     }
 
@@ -96,12 +96,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Update status to "derivado"
     await requerimientoService.updateEstado(
       id,
       "derivado",
       authResult.user.uid,
-      `Derivado a ${direccionMunicipalLabel} (${parsed.data.emailDestinatario})`
+      `Derivado a ${direccionMunicipalLabel} (${parsed.data.emailDestinatario})`,
+      req
     );
 
     log.info(
