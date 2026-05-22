@@ -21,7 +21,7 @@ import type { DashboardChartsPayload } from "@/types/dashboard-charts.types";
 import { notificacionService } from "@/services/notificacion.service";
 import logger from "@/lib/logger";
 import { Timestamp } from "firebase-admin/firestore";
-import { invalidateCacheByPrefix } from "@/lib/server-cache";
+import { cached, invalidateCacheByPrefix } from "@/lib/server-cache";
 import { dashboardMetricsService } from "@/services/dashboard-metrics.service";
 
 function timestampToString(ts: Timestamp | Date | string | undefined): string {
@@ -181,6 +181,7 @@ export const requerimientoService = {
     invalidateCacheByPrefix("requerimientos:list:");
     invalidateCacheByPrefix("dashboard:stats:");
     invalidateCacheByPrefix("dashboard:highlights:");
+    invalidateCacheByPrefix("dashboard:charts:");
   },
 
   /**
@@ -237,6 +238,7 @@ export const requerimientoService = {
     invalidateCacheByPrefix("requerimientos:list:");
     invalidateCacheByPrefix("dashboard:stats:");
     invalidateCacheByPrefix("dashboard:highlights:");
+    invalidateCacheByPrefix("dashboard:charts:");
   },
 
   /**
@@ -284,6 +286,7 @@ export const requerimientoService = {
     invalidateCacheByPrefix("requerimientos:list:");
     invalidateCacheByPrefix("dashboard:stats:");
     invalidateCacheByPrefix("dashboard:highlights:");
+    invalidateCacheByPrefix("dashboard:charts:");
   },
 
   async updateDireccionMunicipal(
@@ -320,6 +323,7 @@ export const requerimientoService = {
     invalidateCacheByPrefix("requerimientos:list:");
     invalidateCacheByPrefix("dashboard:stats:");
     invalidateCacheByPrefix("dashboard:highlights:");
+    invalidateCacheByPrefix("dashboard:charts:");
   },
 
   async enviarRespuestaVecino(
@@ -435,25 +439,45 @@ export const requerimientoService = {
     invalidateCacheByPrefix("requerimientos:list:");
     invalidateCacheByPrefix("dashboard:stats:");
     invalidateCacheByPrefix("dashboard:highlights:");
+    invalidateCacheByPrefix("dashboard:charts:");
   },
 
   /**
-   * Get dashboard stats — always live from Firestore for accuracy.
+   * Dashboard stats — usa métricas pre-agregadas (1 doc) cuando no hay restricción;
+   * solo necesita scan completo como fallback o para urgentesActivos (no pre-agregado).
    */
   async getStats(direccionRestriccion?: string[]) {
-    return requerimientoRepository.getStats(direccionRestriccion);
+    const cacheKey = `dashboard:stats:${direccionRestriccion?.sort().join(",") ?? "global"}`;
+    return cached(cacheKey, 120_000, async () => {
+      if (!direccionRestriccion || direccionRestriccion.length === 0) {
+        const preAggregated = await dashboardMetricsService.getCoreStats();
+        if (preAggregated && preAggregated.total > 0) {
+          const urgentesActivos = await this.countUrgentesActivos();
+          return { ...preAggregated, urgentesActivos };
+        }
+      }
+      return requerimientoRepository.getStats(direccionRestriccion);
+    });
+  },
+
+  async countUrgentesActivos(): Promise<number> {
+    return requerimientoRepository.countUrgentesActivos();
   },
 
   /**
-   * Datos agregados para gráficos de torta (dashboard / fiscalización).
+   * Datos agregados para gráficos de torta — cacheados 2 min en servidor.
    */
   async getDashboardCharts(direccionRestriccion?: string[]): Promise<DashboardChartsPayload> {
-    const raw = await requerimientoRepository.getDashboardChartRows(direccionRestriccion);
-    return buildDashboardChartsPayload(raw);
+    const cacheKey = `dashboard:charts:${direccionRestriccion?.sort().join(",") ?? "global"}`;
+    return cached(cacheKey, 120_000, async () => {
+      const raw = await requerimientoRepository.getDashboardChartRows(direccionRestriccion);
+      return buildDashboardChartsPayload(raw);
+    });
   },
 
   /**
-   * Get dashboard highlights: latest and most urgent requerimientos
+   * Dashboard highlights — cacheados 2 min en servidor.
+   * Lista de últimos (5), urgentes (5), top direcciones.
    */
   async getDashboardHighlights(direccionRestriccion?: string[]): Promise<{
     ultimos: RequerimientoDTO[];
@@ -461,89 +485,58 @@ export const requerimientoService = {
     direccionesTop: { direccion: string; total: number }[];
     direccionesResueltasTop: { direccion: string; totalResueltos: number }[];
   }> {
-    const ultimosResult = await requerimientoRepository.list({ limit: 5 }, direccionRestriccion);
-    const ultimos = ultimosResult.data.map(toRequerimientoDTO);
+    const cacheKey = `dashboard:highlights:${direccionRestriccion?.sort().join(",") ?? "global"}`;
+    return cached(cacheKey, 120_000, async () => {
+      const ultimosResult = await requerimientoRepository.list({ limit: 5 }, direccionRestriccion);
+      const ultimos = ultimosResult.data.map(toRequerimientoDTO);
 
-    if (!direccionRestriccion || direccionRestriccion.length === 0) {
-      let [direccionesTop, direccionesResueltasTop] = await Promise.all([
-        dashboardMetricsService.getTopDirections(5),
-        dashboardMetricsService.getTopResolvedDirections(5),
-      ]);
+      if (!direccionRestriccion || direccionRestriccion.length === 0) {
+        const [direccionesTop, direccionesResueltasTop, candidatosResult] = await Promise.all([
+          dashboardMetricsService.getTopDirections(5),
+          dashboardMetricsService.getTopResolvedDirections(5),
+          requerimientoRepository.list({ limit: 30 }, direccionRestriccion),
+        ]);
 
-      const candidatosResult = await requerimientoRepository.list({ limit: 150 }, direccionRestriccion);
-      const candidatosDto = candidatosResult.data.map(toRequerimientoDTO);
+        const urgentes = candidatosResult.data.map(toRequerimientoDTO)
+          .filter((r) => r.estado !== "completado" && r.estado !== "rechazado")
+          .sort((a, b) => getTimeFromDateLike(a.fechaIngreso) - getTimeFromDateLike(b.fechaIngreso))
+          .slice(0, 5);
+
+        return { ultimos, urgentes, direccionesTop, direccionesResueltasTop };
+      }
+
+      const candidatos = await requerimientoRepository.list({ limit: 30 }, direccionRestriccion);
+      const candidatosDto = candidatos.data.map(toRequerimientoDTO);
+
       const urgentes = candidatosDto
         .filter((r) => r.estado !== "completado" && r.estado !== "rechazado")
         .sort((a, b) => getTimeFromDateLike(a.fechaIngreso) - getTimeFromDateLike(b.fechaIngreso))
         .slice(0, 5);
 
-      if (direccionesTop.length === 0 || direccionesResueltasTop.length === 0) {
-        const universo = await requerimientoRepository.getForReport({}, direccionRestriccion);
-        const universoDto = universo.map(toRequerimientoDTO);
+      const conteoDirecciones = new Map<string, number>();
+      candidatosDto.forEach((r) => {
+        const key = r.direccionMunicipalLabel || r.direccionMunicipal || "Sin dirección";
+        conteoDirecciones.set(key, (conteoDirecciones.get(key) || 0) + 1);
+      });
+      const direccionesTop = Array.from(conteoDirecciones.entries())
+        .map(([direccion, total]) => ({ direccion, total }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 5);
 
-        if (direccionesTop.length === 0) {
-          const conteoDirecciones = new Map<string, number>();
-          universoDto.forEach((r) => {
-            const key = r.direccionMunicipalLabel || r.direccionMunicipal || "Sin dirección";
-            conteoDirecciones.set(key, (conteoDirecciones.get(key) || 0) + 1);
-          });
-          direccionesTop = Array.from(conteoDirecciones.entries())
-            .map(([direccion, total]) => ({ direccion, total }))
-            .sort((a, b) => b.total - a.total)
-            .slice(0, 5);
-        }
-
-        if (direccionesResueltasTop.length === 0) {
-          const conteoResueltos = new Map<string, number>();
-          universoDto
-            .filter((r) => r.estado === "completado")
-            .forEach((r) => {
-              const key = r.direccionMunicipalLabel || r.direccionMunicipal || "Sin dirección";
-              conteoResueltos.set(key, (conteoResueltos.get(key) || 0) + 1);
-            });
-          direccionesResueltasTop = Array.from(conteoResueltos.entries())
-            .map(([direccion, totalResueltos]) => ({ direccion, totalResueltos }))
-            .sort((a, b) => b.totalResueltos - a.totalResueltos)
-            .slice(0, 5);
-        }
-      }
+      const conteoResueltos = new Map<string, number>();
+      candidatosDto
+        .filter((r) => r.estado === "completado")
+        .forEach((r) => {
+          const key = r.direccionMunicipalLabel || r.direccionMunicipal || "Sin dirección";
+          conteoResueltos.set(key, (conteoResueltos.get(key) || 0) + 1);
+        });
+      const direccionesResueltasTop = Array.from(conteoResueltos.entries())
+        .map(([direccion, totalResueltos]) => ({ direccion, totalResueltos }))
+        .sort((a, b) => b.totalResueltos - a.totalResueltos)
+        .slice(0, 5);
 
       return { ultimos, urgentes, direccionesTop, direccionesResueltasTop };
-    }
-
-    const candidatos = await requerimientoRepository.getForReport({}, direccionRestriccion);
-    const candidatosDto = candidatos.map(toRequerimientoDTO);
-
-    const urgentes = candidatosDto
-      .filter((r) => r.estado !== "completado" && r.estado !== "rechazado")
-      .sort((a, b) => getTimeFromDateLike(a.fechaIngreso) - getTimeFromDateLike(b.fechaIngreso))
-      .slice(0, 5);
-
-    const conteoDirecciones = new Map<string, number>();
-    candidatosDto.forEach((r) => {
-      const key = r.direccionMunicipalLabel || r.direccionMunicipal || "Sin dirección";
-      conteoDirecciones.set(key, (conteoDirecciones.get(key) || 0) + 1);
     });
-
-    const direccionesTop = Array.from(conteoDirecciones.entries())
-      .map(([direccion, total]) => ({ direccion, total }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 5);
-
-    const conteoResueltos = new Map<string, number>();
-    candidatosDto
-      .filter((r) => r.estado === "completado")
-      .forEach((r) => {
-        const key = r.direccionMunicipalLabel || r.direccionMunicipal || "Sin dirección";
-        conteoResueltos.set(key, (conteoResueltos.get(key) || 0) + 1);
-      });
-
-    const direccionesResueltasTop = Array.from(conteoResueltos.entries())
-      .map(([direccion, totalResueltos]) => ({ direccion, totalResueltos }))
-      .sort((a, b) => b.totalResueltos - a.totalResueltos)
-      .slice(0, 5);
-
-    return { ultimos, urgentes, direccionesTop, direccionesResueltasTop };
   },
 
   /**

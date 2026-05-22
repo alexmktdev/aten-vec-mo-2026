@@ -210,7 +210,6 @@ export const requerimientoRepository = {
           "estado",
           "respuestasVecino",
           "fechaIngreso",
-          "fechaLimite",
           "creadoEn",
           "actualizadoEn"
         );
@@ -408,6 +407,24 @@ export const requerimientoRepository = {
     });
 
     return stats;
+  },
+
+  /**
+   * Cuenta solo requerimientos activos con 20+ días desde ingreso (select mínimo + filtro servidor).
+   */
+  async countUrgentesActivos(): Promise<number> {
+    const snap = await collection()
+      .select("fechaIngreso")
+      .where("estado", "not-in", ["completado", "rechazado"])
+      .get();
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    let count = 0;
+    for (const doc of snap.docs) {
+      const fi = (doc.data().fechaIngreso as Timestamp)?.toDate?.();
+      if (fi && Math.floor((now.getTime() - fi.getTime()) / 86_400_000) >= 20) count++;
+    }
+    return count;
   },
 
   /**

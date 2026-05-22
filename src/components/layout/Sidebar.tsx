@@ -37,10 +37,6 @@ const SECTIONS = ["General", "Administración", "Usuarios"] as const;
 function getPrefetchQueries(): { queryKey: readonly unknown[]; queryFn: () => Promise<unknown> }[] {
   return [
     getRequerimientosQueryOptions({ page: 1, includeTotal: true, limit: 8, sortBy: "fechaIngreso", sortDir: "desc" }),
-    getUsuariosQueryOptions({ page: 1, limit: 10 }),
-    { queryKey: ["dashboard-stats"] as const, queryFn: () => fetchJson("/api/dashboard/stats") },
-    { queryKey: ["dashboard-charts"] as const, queryFn: () => fetchJson("/api/dashboard/charts") },
-    { queryKey: ["dashboard-highlights"] as const, queryFn: () => fetchJson("/api/dashboard/highlights") },
   ];
 }
 

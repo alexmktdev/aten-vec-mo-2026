@@ -14,7 +14,13 @@ export function AdminRefreshButton() {
   const handleClick = async () => {
     setRefreshing(true);
     try {
-      await queryClient.invalidateQueries();
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["requerimientos"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-highlights"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-charts"] }),
+        queryClient.invalidateQueries({ queryKey: ["usuarios"] }),
+      ]);
       router.refresh();
     } catch {
       window.location.reload();

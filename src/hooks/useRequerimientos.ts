@@ -397,10 +397,10 @@ export function useDashboardStats() {
     queryFn: async () => {
       return fetchJson<DashboardStats>("/api/dashboard/stats");
     },
-    staleTime: 0,
-    gcTime: 5 * 60_000,
-    refetchOnWindowFocus: true,
-    refetchInterval: 30_000,
+    staleTime: 2 * 60_000,
+    gcTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchInterval: 5 * 60_000,
   });
 }
 
@@ -410,10 +410,10 @@ export function useDashboardHighlights() {
     queryFn: async () => {
       return fetchJson<DashboardHighlights>("/api/dashboard/highlights");
     },
-    staleTime: 0,
-    gcTime: 5 * 60_000,
-    refetchOnWindowFocus: true,
-    refetchInterval: 30_000,
+    staleTime: 2 * 60_000,
+    gcTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchInterval: 5 * 60_000,
   });
 }
 
@@ -421,9 +421,9 @@ export function useDashboardCharts() {
   return useQuery({
     queryKey: ["dashboard-charts"],
     queryFn: async () => fetchJson<DashboardChartsPayload>("/api/dashboard/charts"),
-    staleTime: 0,
-    gcTime: 5 * 60_000,
-    refetchOnWindowFocus: true,
-    refetchInterval: 30_000,
+    staleTime: 2 * 60_000,
+    gcTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchInterval: 5 * 60_000,
   });
 }

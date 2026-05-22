@@ -54,7 +54,7 @@ export default function RequerimientosPage() {
         estado: estado || undefined,
         direccion: direccion || undefined,
         page: effectivePage + 1,
-        includeTotal: true,
+        includeTotal: false,
         limit: 8,
         sortBy: sortMode === "limite" ? "fechaLimite" : "fechaIngreso",
         sortDir: sortMode === "antiguos" ? "asc" : "desc",
