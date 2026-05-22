@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useEffect, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getUsuariosQueryOptions, useUsuarios, useUpdateUsuario, useDeleteUsuario } from "@/hooks/useUsuarios";
 import { useAuth } from "@/hooks/useAuth";
@@ -31,7 +31,8 @@ export default function UsuariosPage() {
   const [userToDelete, setUserToDelete] = useState<UsuarioDTO | null>(null);
   const pageSize = 10;
   const deferredSearch = useDeferredValue(searchTerm.trim());
-  const { data: usuariosResponse, isLoading, error } = useUsuarios({
+  const cachedTotal = useRef<number | undefined>(undefined);
+  const { data: usuariosResponse, isLoading, isFetching, error } = useUsuarios({
     page: currentPage,
     limit: pageSize,
     search: deferredSearch || undefined,
@@ -131,19 +132,29 @@ export default function UsuariosPage() {
   ];
 
   const usuariosData = usuariosResponse?.data || [];
-  const totalPages = Math.max(1, Math.ceil((usuariosResponse?.total || 0) / pageSize));
+  if (usuariosResponse?.total !== undefined && usuariosResponse.total !== cachedTotal.current) {
+    cachedTotal.current = usuariosResponse.total;
+  }
+  const total = cachedTotal.current ?? usuariosResponse?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
 
+  const buildUserParams = useCallback((page: number) => ({
+    page,
+    limit: pageSize,
+    search: deferredSearch || undefined,
+  }), [deferredSearch]);
+
   useEffect(() => {
-    if (!usuariosResponse?.total || safeCurrentPage >= totalPages) return;
-    void queryClient.prefetchQuery(
-      getUsuariosQueryOptions({
-        page: safeCurrentPage + 1,
-        limit: pageSize,
-        search: deferredSearch || undefined,
-      })
-    );
-  }, [usuariosResponse?.total, safeCurrentPage, totalPages, queryClient, deferredSearch]);
+    if (total === 0) return;
+    const pages: number[] = [];
+    if (safeCurrentPage > 1) pages.push(safeCurrentPage - 1);
+    if (safeCurrentPage < totalPages) pages.push(safeCurrentPage + 1);
+    if (safeCurrentPage + 2 <= totalPages) pages.push(safeCurrentPage + 2);
+    pages.forEach((p) => {
+      void queryClient.prefetchQuery(getUsuariosQueryOptions(buildUserParams(p)));
+    });
+  }, [total, safeCurrentPage, totalPages, queryClient, buildUserParams]);
 
   return (
     <div>
@@ -157,6 +168,7 @@ export default function UsuariosPage() {
           onChange={(e) => {
             setSearchTerm(e.target.value);
             setCurrentPage(1);
+            cachedTotal.current = undefined;
           }}
           placeholder="Buscar por nombre, email, rol o dirección"
         />
@@ -171,6 +183,7 @@ export default function UsuariosPage() {
         data={usuariosData}
         keyExtractor={(item) => item.id}
         loading={isLoading}
+        fetching={isFetching && !isLoading}
         emptyMessage="No hay usuarios registrados"
       />
 

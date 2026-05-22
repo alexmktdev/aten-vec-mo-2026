@@ -52,24 +52,7 @@ export default function DashboardPage() {
     setChartOpen(true);
   };
 
-  if (isLoading) {
-    return (
-      <div className="mx-auto w-full max-w-[1280px] px-2 xl:px-4">
-        <h1 className="admin-title mb-8 flex items-center gap-3">
-          <LayoutDashboard className="h-7 w-7 text-blue-900" />
-          Panel de control de Requerimientos para el sistema de atención al vecino
-        </h1>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-            <div key={i} className="rounded-2xl bg-white p-4 shadow-sm animate-pulse">
-              <div className="mb-3 h-4 w-24 rounded bg-slate-100" />
-              <div className="h-8 w-16 rounded bg-slate-100" />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const statsReady = !isLoading && stats;
 
   return (
     <div className="mx-auto w-full max-w-[1280px] space-y-6 px-2 xl:px-4">
@@ -84,62 +67,72 @@ export default function DashboardPage() {
       </p>
 
       <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        <StatsCard
-          title="Total Requerimientos"
-          value={stats?.total || 0}
-          icon={FileText}
-          color="blue"
-          trend="Total acumulado del sistema"
-          onClick={() => openCardChart("total")}
-        />
-        <StatsCard
-          title="Pendientes"
-          value={stats?.pendiente || 0}
-          icon={Clock}
-          color="yellow"
-          trend="Estado: Pendiente"
-          onClick={() => openCardChart("pendiente")}
-        />
-        <StatsCard
-          title="Derivados"
-          value={stats?.derivado || 0}
-          icon={Send}
-          color="blue"
-          trend="Estado: Derivar al área correspondiente"
-          onClick={() => openCardChart("derivado")}
-        />
-        <StatsCard
-          title="En Proceso"
-          value={stats?.en_proceso || 0}
-          icon={Clock}
-          color="orange"
-          trend="Estado: En proceso de solución"
-          onClick={() => openCardChart("en_proceso")}
-        />
-        <StatsCard
-          title="Completados"
-          value={stats?.completado || 0}
-          icon={CheckCircle}
-          color="green"
-          trend="Estado: Requerimiento Completado"
-          onClick={() => openCardChart("completado")}
-        />
-        <StatsCard
-          title="Rechazados"
-          value={stats?.rechazado || 0}
-          icon={XCircle}
-          color="red"
-          trend="Estado: Requerimiento Rechazado"
-          onClick={() => openCardChart("rechazado")}
-        />
-        <StatsCard
-          title="Urgentes Activos"
-          value={stats?.urgentesActivos || 0}
-          icon={AlertTriangle}
-          color="red"
-          trend="Más de 20 días sin responder"
-          onClick={() => openCardChart("urgentesActivos")}
-        />
+        {!statsReady && [1, 2, 3, 4, 5, 6, 7].map((i) => (
+          <div key={i} className="rounded-2xl bg-white p-4 shadow-sm animate-pulse">
+            <div className="mb-3 h-4 w-24 rounded bg-slate-100" />
+            <div className="h-8 w-16 rounded bg-slate-100" />
+          </div>
+        ))}
+        {statsReady && (
+          <>
+            <StatsCard
+              title="Total Requerimientos"
+              value={stats?.total || 0}
+              icon={FileText}
+              color="blue"
+              trend="Total acumulado del sistema"
+              onClick={() => openCardChart("total")}
+            />
+            <StatsCard
+              title="Pendientes"
+              value={stats?.pendiente || 0}
+              icon={Clock}
+              color="yellow"
+              trend="Estado: Pendiente"
+              onClick={() => openCardChart("pendiente")}
+            />
+            <StatsCard
+              title="Derivados"
+              value={stats?.derivado || 0}
+              icon={Send}
+              color="blue"
+              trend="Estado: Derivar al área correspondiente"
+              onClick={() => openCardChart("derivado")}
+            />
+            <StatsCard
+              title="En Proceso"
+              value={stats?.en_proceso || 0}
+              icon={Clock}
+              color="orange"
+              trend="Estado: En proceso de solución"
+              onClick={() => openCardChart("en_proceso")}
+            />
+            <StatsCard
+              title="Completados"
+              value={stats?.completado || 0}
+              icon={CheckCircle}
+              color="green"
+              trend="Estado: Requerimiento Completado"
+              onClick={() => openCardChart("completado")}
+            />
+            <StatsCard
+              title="Rechazados"
+              value={stats?.rechazado || 0}
+              icon={XCircle}
+              color="red"
+              trend="Estado: Requerimiento Rechazado"
+              onClick={() => openCardChart("rechazado")}
+            />
+            <StatsCard
+              title="Urgentes Activos"
+              value={stats?.urgentesActivos || 0}
+              icon={AlertTriangle}
+              color="red"
+              trend="Más de 20 días sin responder"
+              onClick={() => openCardChart("urgentesActivos")}
+            />
+          </>
+        )}
       </div>
 
       <DashboardChartModal
