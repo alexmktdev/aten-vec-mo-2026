@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRequerimientos, useDeleteRequerimiento, getRequerimientosQueryOptions } from "@/hooks/useRequerimientos";
@@ -16,6 +16,9 @@ import { PaginationNumeric } from "@/components/ui/PaginationNumeric";
 import { getBusinessDaysBetween } from "@/lib/utils/dias-habiles";
 import { canDeleteRequerimiento } from "@/lib/requerimiento-permissions";
 import { ConfirmDeleteModal } from "@/components/ui/ConfirmDeleteModal";
+
+const PAGE_SIZE = 8;
+
 export default function RequerimientosPage() {
   const [estado, setEstado] = useState("");
   const [direccion, setDireccion] = useState("");
@@ -24,6 +27,7 @@ export default function RequerimientosPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [errorMsg, setErrorMsg] = useState("");
   const [requerimientoToDelete, setRequerimientoToDelete] = useState<RequerimientoDTO | null>(null);
+  const cachedTotal = useRef<number | undefined>(undefined);
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -34,33 +38,48 @@ export default function RequerimientosPage() {
     user?.rol === "admin" ||
     user?.rol === "administradora-municipal";
 
-  const { data, isLoading } = useRequerimientos({
+  const sortBy = sortMode === "limite" ? "fechaLimite" as const : "fechaIngreso" as const;
+  const sortDir = sortMode === "antiguos" ? "asc" as const : "desc" as const;
+  const needsTotal = cachedTotal.current === undefined;
+
+  const { data, isLoading, isFetching } = useRequerimientos({
     estado: estado || undefined,
     direccion: direccion || undefined,
     page: effectivePage,
-    includeTotal: true,
-    limit: 8,
-    sortBy: sortMode === "limite" ? "fechaLimite" : "fechaIngreso",
-    sortDir: sortMode === "antiguos" ? "asc" : "desc",
+    includeTotal: needsTotal,
+    limit: PAGE_SIZE,
+    sortBy,
+    sortDir,
   });
-  const knownPages = Math.max(1, Math.ceil((data?.total || 0) / 8));
+
+  if (data?.total !== undefined && data.total !== cachedTotal.current) {
+    cachedTotal.current = data.total;
+  }
+  const total = cachedTotal.current ?? data?.total ?? 0;
+  const knownPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const search = busqueda.trim().toLowerCase();
   const visiblePage = Math.min(currentPage, knownPages);
 
+  const buildParams = useCallback((page: number) => ({
+    estado: estado || undefined,
+    direccion: direccion || undefined,
+    page,
+    includeTotal: false as const,
+    limit: PAGE_SIZE,
+    sortBy,
+    sortDir,
+  }), [estado, direccion, sortBy, sortDir]);
+
   useEffect(() => {
-    if (!data?.total || effectivePage >= knownPages) return;
-    void queryClient.prefetchQuery(
-      getRequerimientosQueryOptions({
-        estado: estado || undefined,
-        direccion: direccion || undefined,
-        page: effectivePage + 1,
-        includeTotal: false,
-        limit: 8,
-        sortBy: sortMode === "limite" ? "fechaLimite" : "fechaIngreso",
-        sortDir: sortMode === "antiguos" ? "asc" : "desc",
-      })
-    );
-  }, [data?.total, knownPages, effectivePage, queryClient, estado, direccion, sortMode]);
+    if (total === 0) return;
+    const pages: number[] = [];
+    if (effectivePage > 1) pages.push(effectivePage - 1);
+    if (effectivePage < knownPages) pages.push(effectivePage + 1);
+    if (effectivePage + 2 <= knownPages) pages.push(effectivePage + 2);
+    pages.forEach((p) => {
+      void queryClient.prefetchQuery(getRequerimientosQueryOptions(buildParams(p)));
+    });
+  }, [total, knownPages, effectivePage, queryClient, buildParams]);
 
   const filteredRows = useMemo(() => {
     const rows = data?.data || [];
@@ -252,10 +271,12 @@ export default function RequerimientosPage() {
           onEstadoChange={(v) => {
             setEstado(v);
             setCurrentPage(1);
+            cachedTotal.current = undefined;
           }}
           onDireccionChange={(v) => {
             setDireccion(v);
             setCurrentPage(1);
+            cachedTotal.current = undefined;
           }}
           onBusquedaChange={(v) => {
             setBusqueda(v);
@@ -264,6 +285,7 @@ export default function RequerimientosPage() {
           onSortModeChange={(mode) => {
             setSortMode(mode);
             setCurrentPage(1);
+            cachedTotal.current = undefined;
           }}
         />
       </div>
@@ -275,6 +297,7 @@ export default function RequerimientosPage() {
         data={filteredRows}
         keyExtractor={(item) => item.id}
         loading={isLoading}
+        fetching={isFetching && !isLoading}
         emptyMessage="No se encontraron requerimientos"
         onRowClick={(item) => goToRequerimiento(item.id)}
       />

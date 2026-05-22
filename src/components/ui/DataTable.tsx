@@ -15,6 +15,7 @@ interface DataTableProps<T> {
   data: T[];
   keyExtractor: (item: T) => string;
   loading?: boolean;
+  fetching?: boolean;
   emptyMessage?: string;
   onRowClick?: (item: T) => void;
 }
@@ -24,6 +25,7 @@ export function DataTable<T>({
   data,
   keyExtractor,
   loading,
+  fetching,
   emptyMessage = "No hay datos disponibles",
   onRowClick,
 }: DataTableProps<T>) {
@@ -45,7 +47,10 @@ export function DataTable<T>({
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-[0_4px_15px_rgba(0,0,0,0.05)]">
+    <div className={cn(
+      "bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-[0_4px_15px_rgba(0,0,0,0.05)] transition-opacity duration-150",
+      fetching && "opacity-60 pointer-events-none"
+    )}>
       <div className="overflow-x-auto">
         <table className="w-full text-[13px]">
           <thead>
