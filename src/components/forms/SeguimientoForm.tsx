@@ -99,12 +99,12 @@ export function SeguimientoForm() {
                 <p className="text-sm text-slate-500">Requerimiento</p>
                 <CardTitle className="text-blue-600">{result.numeroSeguimiento}</CardTitle>
               </div>
-              <div className="flex flex-col items-center gap-2 shrink-0">
+              <div className="flex flex-col items-center gap-1.5 shrink-0">
                 <Badge variant={estadoColor} className="text-sm px-4 py-1.5">
                   {ESTADO_LABELS[result.estado]}
                 </Badge>
                 <div
-                  className="w-[min(100%,11rem)] sm:w-44 rounded-full bg-slate-200/90 h-2 overflow-hidden border border-slate-200"
+                  className="w-[min(100%,11rem)] sm:w-44 rounded-full bg-slate-200/90 h-2.5 overflow-hidden border border-slate-200"
                   role="progressbar"
                   aria-valuenow={BARRA_ESTADO[result.estado].porcentaje}
                   aria-valuemin={0}
@@ -119,6 +119,9 @@ export function SeguimientoForm() {
                     style={{ width: `${BARRA_ESTADO[result.estado].porcentaje}%` }}
                   />
                 </div>
+                <span className="text-xs font-semibold text-slate-600">
+                  {BARRA_ESTADO[result.estado].porcentaje}%
+                </span>
               </div>
             </div>
           </CardHeader>
