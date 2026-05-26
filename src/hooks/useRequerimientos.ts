@@ -43,6 +43,19 @@ interface DashboardHighlights {
 
 type RequerimientosListCache = { data: RequerimientoDTO[]; nextCursor?: string; total?: number };
 
+/**
+ * Invalida las 3 queries de dashboard (stats, highlights y charts) para que
+ * se refresquen al instante después de cualquier mutación sobre
+ * requerimientos. Las queries activas refetchean inmediatamente; las
+ * inactivas quedan marcadas como stale y se actualizan al volver a
+ * montarse.
+ */
+function invalidateDashboardQueries(queryClient: QueryClient) {
+  queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+  queryClient.invalidateQueries({ queryKey: ["dashboard-highlights"] });
+  queryClient.invalidateQueries({ queryKey: ["dashboard-charts"] });
+}
+
 function patchRowInAllRequerimientosQueries(
   queryClient: QueryClient,
   id: string,
@@ -171,7 +184,7 @@ export function useUpdateRequerimiento() {
       });
     },
     onSettled: (_data, _err, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      invalidateDashboardQueries(queryClient);
       if (variables?.id) {
         queryClient.invalidateQueries({ queryKey: ["requerimiento", variables.id] });
       }
@@ -222,7 +235,7 @@ export function useUpdateRequerimientoDatos() {
 
       queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
       queryClient.invalidateQueries({ queryKey: ["requerimiento", id] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      invalidateDashboardQueries(queryClient);
     },
   });
 }
@@ -240,7 +253,7 @@ export function useDerivarRespuestaFinal() {
     onSettled: (_data, _err, variables) => {
       queryClient.invalidateQueries({ queryKey: ["requerimiento", variables?.id] });
       queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      invalidateDashboardQueries(queryClient);
     },
   });
 }
@@ -257,7 +270,7 @@ export function useRevertirEstado() {
     onSettled: (_data, _err, id) => {
       queryClient.invalidateQueries({ queryKey: ["requerimiento", id] });
       queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      invalidateDashboardQueries(queryClient);
     },
   });
 }
@@ -329,7 +342,7 @@ export function useDerivarRequerimiento() {
       });
     },
     onSettled: (_data, _err, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      invalidateDashboardQueries(queryClient);
       if (variables?.id) {
         queryClient.invalidateQueries({ queryKey: ["requerimiento", variables.id] });
       }
@@ -362,7 +375,7 @@ export function useDeleteRequerimiento() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      invalidateDashboardQueries(queryClient);
     },
   });
 }
@@ -386,7 +399,7 @@ export function useEnviarRespuestaVecino() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["requerimiento", variables.id] });
       queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      invalidateDashboardQueries(queryClient);
     },
   });
 }
@@ -404,7 +417,7 @@ export function useSetEvidenciaResolucion() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["requerimiento", variables.id] });
       queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      invalidateDashboardQueries(queryClient);
     },
   });
 }
@@ -418,7 +431,7 @@ export function useDeleteEvidenciaResolucion() {
     onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: ["requerimiento", id] });
       queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      invalidateDashboardQueries(queryClient);
     },
   });
 }
