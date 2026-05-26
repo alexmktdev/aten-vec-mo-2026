@@ -92,6 +92,7 @@ export default function RequerimientoDetailPage() {
   const [showRespuesta, setShowRespuesta] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showRevertirConfirm, setShowRevertirConfirm] = useState(false);
+  const [showConfirmCierreEstado, setShowConfirmCierreEstado] = useState(false);
   const [showPendienteEvidenciaModal, setShowPendienteEvidenciaModal] = useState(false);
   const [pendienteEvidenciaNota, setPendienteEvidenciaNota] = useState<string | undefined>();
   const [pendienteEvidenciaActionLoading, setPendienteEvidenciaActionLoading] = useState(false);
@@ -104,7 +105,14 @@ export default function RequerimientoDetailPage() {
   }, [id]);
 
   const hasRespuestaVecino = !!req && (req.respuestasVecino?.length || 0) > 0;
-  const estadoTransitionContext = { hasRespuestaVecino };
+  const estadoAnteriorReapertura =
+    req &&
+    (req.estado === "completado" || req.estado === "rechazado") &&
+    !hasRespuestaVecino &&
+    (req.historialEstados?.length ?? 0) >= 2
+      ? (req.historialEstados[req.historialEstados.length - 2]!.estado as EstadoRequerimiento)
+      : undefined;
+  const estadoTransitionContext = { hasRespuestaVecino, estadoAnteriorReapertura };
   const tipo = req?.tipoRequerimiento;
   const esTipoRespuestaDirecta = !!tipo && requiereRespuestaDirectaDirector(tipo);
   const esTipoRespuestaAdmin = !!tipo && requiereRespuestaFinalPorAdmin(tipo);
@@ -166,6 +174,11 @@ export default function RequerimientoDetailPage() {
     ) {
       setPendienteEvidenciaNota(nota.trim() || undefined);
       setShowPendienteEvidenciaModal(true);
+      return;
+    }
+
+    if (estadoEnviar === "completado" || estadoEnviar === "rechazado") {
+      setShowConfirmCierreEstado(true);
       return;
     }
 
@@ -248,6 +261,30 @@ export default function RequerimientoDetailPage() {
     } catch (err) {
       setErrorMsg(getErrorMessage(err));
       throw err;
+    }
+  };
+
+  const handleConfirmCierreEstado = async () => {
+    if (!req) return;
+    const estadoEnviar = newEstado ? (newEstado as EstadoRequerimiento) : undefined;
+    if (estadoEnviar !== "completado" && estadoEnviar !== "rechazado") {
+      setShowConfirmCierreEstado(false);
+      return;
+    }
+    setErrorMsg("");
+    setShowConfirmCierreEstado(false);
+    try {
+      await updateMutation.mutateAsync({
+        id,
+        estado: estadoEnviar,
+        nota: nota || undefined,
+      });
+      setSuccessMsg("Requerimiento actualizado");
+      setNewEstado("");
+      setNota("");
+      setTimeout(() => setSuccessMsg(""), 3000);
+    } catch (err) {
+      setErrorMsg(getErrorMessage(err));
     }
   };
 
@@ -341,14 +378,18 @@ export default function RequerimientoDetailPage() {
       <AlertaVencimiento diasHabilesRestantes={req.diasHabilesRestantes} vencido={req.vencido} />
       {successMsg && <Alert variant="success">{successMsg}</Alert>}
       {errorMsg && <Alert variant="error">{errorMsg}</Alert>}
-      {user?.rol === "director" &&
+      {(user?.rol === "director" ||
+        user?.rol === "admin" ||
+        user?.rol === "superadmin" ||
+        user?.rol === "administradora-municipal") &&
         req &&
         (req.estado === "completado" || req.estado === "rechazado") &&
         !hasRespuestaVecino && (
           <Alert variant="info">
             <p className="text-sm">
-              Si el estado «{ESTADO_LABELS[req.estado]}» fue registrado por error, puede volver a «
-              {ESTADO_LABELS.en_proceso}» con «Cambiar estado» mientras no haya enviado el correo al vecino.
+              Si marcó «{ESTADO_LABELS[req.estado]}» por error y <strong>aún no envió el correo al vecino</strong>,
+              use <strong>Revertir último cambio de estado</strong> para volver al paso anterior, o elige en{" "}
+              <strong>Cambiar estado</strong> el estado previo si aparece en la lista.
             </p>
           </Alert>
         )}
@@ -697,6 +738,41 @@ export default function RequerimientoDetailPage() {
       />
 
       <ConfirmDeleteModal
+        open={showConfirmCierreEstado}
+        onOpenChange={setShowConfirmCierreEstado}
+        title="Confirmar cierre del requerimiento"
+        confirmLabel={
+          newEstado === "completado"
+            ? "Sí, marcar como completado"
+            : newEstado === "rechazado"
+              ? "Sí, marcar como rechazado"
+              : "Confirmar"
+        }
+        danger
+        description={
+          <div className="space-y-3 text-sm text-slate-600">
+            <p>
+              Va a marcar el requerimiento como{" "}
+              <strong>
+                {newEstado === "completado"
+                  ? ESTADO_LABELS.completado
+                  : newEstado === "rechazado"
+                    ? ESTADO_LABELS.rechazado
+                    : "cerrado"}
+              </strong>
+              . Confirme que corresponde cerrar el caso y que ya envió o enviará la respuesta formal al vecino si aplica.
+            </p>
+            <p>
+              Si fue un clic por error y <strong>todavía no</strong> envió correo al vecino, después podrá usar{" "}
+              <strong>Revertir último cambio de estado</strong> para deshacer este paso.
+            </p>
+          </div>
+        }
+        onConfirm={handleConfirmCierreEstado}
+        loading={updateMutation.isPending}
+      />
+
+      <ConfirmDeleteModal
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
         title="Eliminar requerimiento"
@@ -720,12 +796,13 @@ export default function RequerimientoDetailPage() {
         description={
           <div className="space-y-3 text-sm text-slate-600">
             <p>
-              Se eliminará el último cambio de estado y se restaurará el estado anterior. Si el estado actual era
-              «{ESTADO_LABELS.en_espera_1}» o «{ESTADO_LABELS.en_espera_2}», se devolverán 2 semanas hábiles al
-              plazo. Si era «{ESTADO_LABELS.derivado_respuesta_final}», se quitará el admin asignado.
+              Vuelve el requerimiento al estado inmediatamente anterior (según el historial). Si el estado actual era
+              «{ESTADO_LABELS.en_espera_1}» o «{ESTADO_LABELS.en_espera_2}», se ajustará el plazo. Si era «
+              {ESTADO_LABELS.derivado_respuesta_final}», se quitará el admin asignado.
             </p>
             <p>
-              Esta acción no se puede deshacer y queda registrada en el historial.
+              Disponible para administración y dirección mientras no se haya enviado correo al vecino. Queda registrado
+              en el historial.
             </p>
           </div>
         }

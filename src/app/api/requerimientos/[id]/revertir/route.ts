@@ -17,8 +17,9 @@ const log = createRouteLogger("/api/requerimientos/[id]/revertir");
  * de plazo cuando se sale de en_espera_1 / en_espera_2 y limpieza del admin
  * asignado cuando se sale de derivado_respuesta_final.
  *
- * Solo superadmin y administradora-municipal.
  * No permitido si ya se envió respuesta al vecino.
+ * Permitido para superadmin, administradora-municipal, director y admin
+ * (mientras no haya correo al vecino), para corregir errores de operación.
  */
 export async function POST(_request: NextRequest, routeParams: RequerimientoRouteParams) {
   try {

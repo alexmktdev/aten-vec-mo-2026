@@ -51,9 +51,18 @@ export async function PATCH(request: NextRequest, routeParams: RequerimientoRout
       return createErrorResponse(400, "Datos inválidos", parsed.error.issues);
     }
 
+    const hist = existing.historialEstados || [];
+    const estadoAnteriorReapertura =
+      (existing.estado === "completado" || existing.estado === "rechazado") &&
+      (existing.respuestasVecino?.length ?? 0) === 0 &&
+      hist.length >= 2
+        ? (hist[hist.length - 2]!.estado as EstadoRequerimiento)
+        : undefined;
+
     // Validate status transition by role
     const transitionContext = {
       hasRespuestaVecino: (existing.respuestasVecino?.length ?? 0) > 0,
+      estadoAnteriorReapertura,
     };
     const nextEstado = parsed.data.estado as EstadoRequerimiento | undefined;
     if (

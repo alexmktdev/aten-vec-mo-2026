@@ -92,6 +92,11 @@ export function canEditRequerimientoData(rol: RolUsuario, estado: EstadoRequerim
 
 export interface EstadoTransitionContext {
   hasRespuestaVecino?: boolean;
+  /**
+   * Si el caso está en completado/rechazado y aún no hay correo al vecino,
+   * es el estado previo en historial (sirve para reabrir con el mismo flujo).
+   */
+  estadoAnteriorReapertura?: EstadoRequerimiento;
 }
 
 export function getAllowedNextStates(
@@ -103,7 +108,9 @@ export function getAllowedNextStates(
 
   if (rol === "superadmin" || rol === "administradora-municipal") {
     if (currentEstado === "completado" || currentEstado === "rechazado") {
-      if (sinRespuestaVecino) return ["en_proceso"];
+      if (sinRespuestaVecino && context?.estadoAnteriorReapertura) {
+        return [context.estadoAnteriorReapertura];
+      }
       return [];
     }
     return FULL_STATUS_TRANSITIONS[currentEstado];
@@ -117,9 +124,10 @@ export function getAllowedNextStates(
     const base = [...DIRECTOR_STATUS_TRANSITIONS[currentEstado]];
     if (
       sinRespuestaVecino &&
-      (currentEstado === "completado" || currentEstado === "rechazado")
+      (currentEstado === "completado" || currentEstado === "rechazado") &&
+      context?.estadoAnteriorReapertura
     ) {
-      base.push("en_proceso");
+      base.push(context.estadoAnteriorReapertura);
     }
     return base;
   }
@@ -203,9 +211,9 @@ export function canEnviarRespuestaFinal(
 }
 
 /**
- * Permiso para revertir el último cambio de estado. Reservado a los roles
- * con visión global (superadmin / administradora-municipal) y solo si aún
- * no se envió el correo al vecino.
+ * Revertir un paso en el historial de estados. Permitido mientras no se haya
+ * enviado correo al vecino, para corregir errores (p. ej. cerrar sin responder).
+ * Incluye admin y director además de superadmin y administradora-municipal.
  */
 export function canRevertirEstado(
   rol: RolUsuario,
@@ -213,5 +221,10 @@ export function canRevertirEstado(
 ): boolean {
   if ((req.respuestasVecino?.length ?? 0) > 0) return false;
   if ((req.historialEstados?.length ?? 0) < 2) return false;
-  return rol === "superadmin" || rol === "administradora-municipal";
+  return (
+    rol === "superadmin" ||
+    rol === "administradora-municipal" ||
+    rol === "director" ||
+    rol === "admin"
+  );
 }
