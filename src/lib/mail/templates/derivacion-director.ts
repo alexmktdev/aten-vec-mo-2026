@@ -7,7 +7,6 @@ interface DerivacionDirectorParams {
   vecino: VecinoData;
   tipoRequerimiento: string;
   direccionMunicipalLabel: string;
-  categoria: string;
   descripcion: string;
   fechaIngreso: string;
 }
@@ -35,7 +34,6 @@ export function getDerivacionDirectorTemplate(params: DerivacionDirectorParams):
     vecino,
     tipoRequerimiento,
     direccionMunicipalLabel,
-    categoria,
     descripcion,
     fechaIngreso,
   } = params;
@@ -96,10 +94,6 @@ export function getDerivacionDirectorTemplate(params: DerivacionDirectorParams):
                     <tr>
                       <td style="padding:9px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:13px;font-weight:700;width:38%;">Tipo</td>
                       <td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${mailText(tipoRequerimiento)}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding:9px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:13px;font-weight:700;">Categoría</td>
-                      <td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${mailText(categoria)}</td>
                     </tr>
                     <tr>
                       <td style="padding:9px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:13px;font-weight:700;">Fecha de ingreso</td>

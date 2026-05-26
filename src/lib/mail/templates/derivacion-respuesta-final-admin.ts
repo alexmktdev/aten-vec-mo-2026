@@ -7,7 +7,6 @@ interface DerivacionRespuestaFinalParams {
   numeroSeguimiento: string;
   vecino: VecinoData;
   tipoRequerimiento: string;
-  direccionMunicipalLabel: string;
   descripcion: string;
   fechaIngreso: string;
   fechaLimite: string;
@@ -31,7 +30,6 @@ export function getDerivacionRespuestaFinalAdminTemplate(
     numeroSeguimiento,
     vecino,
     tipoRequerimiento,
-    direccionMunicipalLabel,
     descripcion,
     fechaIngreso,
     fechaLimite,
@@ -92,7 +90,7 @@ export function getDerivacionRespuestaFinalAdminTemplate(
                 <td style="padding:16px 32px 0;">
                   <div style="background:#f5f3ff;border:1px solid #c4b5fd;border-radius:12px;padding:14px 16px;text-align:center;">
                     <p style="margin:0;color:#5b21b6;font-size:14px;font-weight:700;">
-                      El director de ${mailText(direccionMunicipalLabel)} terminó la gestión del requerimiento. Por favor revise la evidencia, redacte la respuesta y envíela al vecino desde el panel.
+                      El director terminó la gestión del requerimiento. Por favor revise la evidencia, redacte la respuesta y envíela al vecino desde el panel.
                     </p>
                   </div>
                 </td>
@@ -112,10 +110,6 @@ export function getDerivacionRespuestaFinalAdminTemplate(
                     <tr>
                       <td style="padding:9px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:13px;font-weight:700;width:38%;">Tipo</td>
                       <td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${mailText(tipoRequerimiento)}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding:9px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:13px;font-weight:700;">Área que resolvió</td>
-                      <td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${mailText(direccionMunicipalLabel)}</td>
                     </tr>
                     <tr>
                       <td style="padding:9px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:13px;font-weight:700;">Fecha de ingreso</td>

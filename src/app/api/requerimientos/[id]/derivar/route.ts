@@ -94,7 +94,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         vecino: req.vecino,
         tipoRequerimiento: req.tipoRequerimiento,
         direccionMunicipalLabel,
-        categoria: req.categoria,
         descripcion: req.descripcion,
         fechaIngreso: req.fechaIngreso,
         fechaLimite: req.fechaLimite,

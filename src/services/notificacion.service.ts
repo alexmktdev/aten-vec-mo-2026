@@ -12,8 +12,6 @@ interface NotificacionParams {
   numeroSeguimiento: string;
   vecino: VecinoData;
   tipoRequerimiento: string;
-  direccionMunicipalLabel: string;
-  categoria: string;
   descripcion: string;
   fechaIngreso: string;
 }
@@ -65,7 +63,7 @@ export const notificacionService = {
    */
   async enviarDerivacion(
     emailDestinatario: string,
-    params: NotificacionParams & { fechaLimite: string }
+    params: NotificacionParams & { direccionMunicipalLabel: string; fechaLimite: string }
   ): Promise<void> {
     const { subject, html } = getDerivacionDirectorTemplate(params);
     await sendMail(emailDestinatario, subject, html, [getEmbeddedLogoAttachment()]);
@@ -82,7 +80,6 @@ export const notificacionService = {
       numeroSeguimiento: string;
       vecino: VecinoData;
       tipoRequerimiento: string;
-      direccionMunicipalLabel: string;
       descripcion: string;
       fechaIngreso: string | Date;
       fechaLimite: string | Date;
@@ -112,8 +109,6 @@ export const notificacionService = {
       vecino: VecinoData;
       asunto: string;
       mensaje: string;
-      direccionMunicipalLabel: string;
-      categoria: string;
       evidencia?: { tipo: "documento" | "link"; nombre?: string; url?: string };
     },
     evidenciaAdjunta?: { filename: string; content: Buffer }

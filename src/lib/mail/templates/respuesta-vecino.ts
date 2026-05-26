@@ -7,8 +7,6 @@ interface RespuestaVecinoTemplateParams {
   vecino: VecinoData;
   asunto: string;
   mensaje: string;
-  direccionMunicipalLabel: string;
-  categoria: string;
   evidencia?: { tipo: "documento" | "link"; nombre?: string; url?: string };
 }
 
@@ -16,7 +14,7 @@ export function getRespuestaVecinoTemplate(params: RespuestaVecinoTemplateParams
   subject: string;
   html: string;
 } {
-  const { numeroSeguimiento, vecino, asunto, mensaje, direccionMunicipalLabel, categoria, evidencia } = params;
+  const { numeroSeguimiento, vecino, asunto, mensaje, evidencia } = params;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const seguimientoUrl = `${appUrl.replace(/\/$/, "")}/seguimiento`;
   const nombreCompleto = mailText(`${vecino.nombre} ${vecino.primerApellido}`);
@@ -84,14 +82,6 @@ export function getRespuestaVecinoTemplate(params: RespuestaVecinoTemplateParams
                     <tr>
                       <td style="padding:9px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:13px;font-weight:700;width:38%;">Número de seguimiento</td>
                       <td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${mailText(numeroSeguimiento)}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding:9px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:13px;font-weight:700;">Dirección municipal</td>
-                      <td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${mailText(direccionMunicipalLabel)}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding:9px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:13px;font-weight:700;">Categoría</td>
-                      <td style="padding:9px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${mailText(categoria)}</td>
                     </tr>
                   </table>
                 </td>
