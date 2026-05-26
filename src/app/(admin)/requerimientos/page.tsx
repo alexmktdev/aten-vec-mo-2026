@@ -11,7 +11,7 @@ import { RequerimientoStatusBadge } from "@/components/features/requerimientos/R
 import { RequerimientoDTO } from "@/types/requerimiento.types";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
-import { AlertTriangle, History, Pencil, Trash2 } from "lucide-react";
+import { AlertTriangle, Pencil, Trash2 } from "lucide-react";
 import { PaginationNumeric } from "@/components/ui/PaginationNumeric";
 import { getBusinessDaysBetween } from "@/lib/utils/dias-habiles";
 import { canDeleteRequerimiento } from "@/lib/requerimiento-permissions";
@@ -207,7 +207,7 @@ export default function RequerimientosPage() {
     {
       key: "acciones",
       header: "Acciones",
-      className: "min-w-[260px]",
+      className: "min-w-[200px]",
       render: (item: RequerimientoDTO) => (
         <div className="flex items-center gap-2">
           <Button
@@ -220,16 +220,6 @@ export default function RequerimientosPage() {
             }}
           >
             <Pencil className="h-3.5 w-3.5 mr-1" /> Editar
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              goToRequerimiento(item.id, "#historial-estados");
-            }}
-          >
-            <History className="h-3.5 w-3.5 mr-1" /> Historial
           </Button>
           {user && canDeleteRequerimiento(user.rol) && (
             <Button
