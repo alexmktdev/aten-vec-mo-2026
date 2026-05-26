@@ -73,9 +73,11 @@ export default function UsuariosPage() {
     setShowEdit(true);
   };
 
-  const rolColors: Record<string, "purple" | "blue" | "green" | "default"> = {
+  const rolColors: Record<string, "purple" | "blue" | "green" | "yellow" | "default"> = {
     superadmin: "purple",
     admin: "blue",
+    "admin-municipal": "blue",
+    "admin-transparencia": "yellow",
     "administradora-municipal": "blue",
     director: "green",
   };

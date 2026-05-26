@@ -4,16 +4,18 @@ import {
   TipoRequerimiento,
   requiereRespuestaDirectaDirector,
   requiereRespuestaFinalPorAdmin,
+  rolAdminParaTipo,
 } from "@/types/requerimiento.types";
-import { RolUsuario } from "@/types/usuario.types";
+import { RolUsuario, esRolAdminPlataforma } from "@/types/usuario.types";
 import { SessionUser } from "@/types/auth.types";
 
 /**
  * Matriz de transiciones por rol.
  *
- * - admin: NO puede cambiar estado manualmente excepto enviar la respuesta final
- *   cuando un director le derivó un requerimiento de los 4 tipos correspondientes.
- *   La derivación pendiente → derivado se hace con el botón "Derivar".
+ * - admin / admin-municipal / admin-transparencia: NO pueden cambiar estado
+ *   manualmente excepto enviar la respuesta final cuando un director les derivó
+ *   un requerimiento de su tipo. La derivación pendiente → derivado se hace
+ *   con el botón "Derivar".
  *
  * - director: opera entre derivado / en_proceso / esperas / cierre.
  *
@@ -57,20 +59,48 @@ export function canDeleteRequerimiento(rol: RolUsuario): boolean {
   return rol === "superadmin";
 }
 
-export function canDerivarRequerimiento(rol: RolUsuario): boolean {
-  return rol === "superadmin" || rol === "admin" || rol === "administradora-municipal";
+/**
+ * ¿Puede el rol derivar (pendiente → derivado) este tipo de requerimiento?
+ *
+ * - superadmin / administradora-municipal: pueden derivar cualquier tipo.
+ * - admin (legacy) / admin-municipal: pueden derivar tipos de su área
+ *   (Información, Reclamo, Sugerencia, Felicitación) y Solicitud Vecinal.
+ * - admin-transparencia: puede derivar Solicitud de transparencia y Solicitud
+ *   Vecinal.
+ * - director: no deriva desde pendiente (no opera ese estado).
+ *
+ * Si no se especifica el tipo, devuelve true cuando el rol puede derivar AL
+ * MENOS un tipo (útil para mostrar/ocultar el botón a alto nivel).
+ */
+export function canDerivarRequerimiento(
+  rol: RolUsuario,
+  tipo?: TipoRequerimiento | string
+): boolean {
+  if (rol === "superadmin" || rol === "administradora-municipal") return true;
+  if (!esRolAdminPlataforma(rol)) return false;
+
+  if (!tipo) return true;
+
+  const tipoStr = tipo as TipoRequerimiento;
+  if (tipoStr === "Solicitud Vecinal") return true;
+
+  const rolEsperado = rolAdminParaTipo(tipoStr);
+  if (!rolEsperado) return false;
+
+  if (rol === "admin") return rolEsperado === "admin-municipal";
+  return rol === rolEsperado;
 }
 
 /**
- * Indica si el rol puede ENVIAR el correo final al vecino. Para los tipos
- * derivados a admin, además se requiere ser exactamente el admin asignado
- * (ver `canEnviarRespuestaFinal`).
+ * Indica si el rol puede ENVIAR el correo final al vecino a nivel general.
+ * Para los tipos derivados a admin, además se requiere ser exactamente el admin
+ * asignado (ver `canEnviarRespuestaFinal`).
  */
 export function canSendCitizenResponse(rol: RolUsuario): boolean {
   return (
     rol === "superadmin" ||
     rol === "administradora-municipal" ||
-    rol === "admin" ||
+    esRolAdminPlataforma(rol) ||
     rol === "director"
   );
 }
@@ -79,14 +109,25 @@ export function canSendCitizenResponse(rol: RolUsuario): boolean {
  * Edición completa del requerimiento (modal «Editar datos completos»):
  * - En completado / rechazado: nadie
  * - superadmin: en el resto de estados, siempre puede editar
- * - admin / administradora-municipal: solo con estado pendiente
+ * - administradora-municipal: solo con estado pendiente
+ * - admin / admin-municipal / admin-transparencia: solo con estado pendiente
+ *   y siempre que el tipo del requerimiento le corresponda (o sea Solicitud
+ *   Vecinal, que pueden tratar los dos admins).
  * - director: nunca
  */
-export function canEditRequerimientoData(rol: RolUsuario, estado: EstadoRequerimiento): boolean {
+export function canEditRequerimientoData(
+  rol: RolUsuario,
+  estado: EstadoRequerimiento,
+  tipo?: TipoRequerimiento | string
+): boolean {
   if (estado === "completado" || estado === "rechazado") return false;
   if (rol === "superadmin") return true;
   if (rol === "director") return false;
-  if (rol === "admin" || rol === "administradora-municipal") return estado === "pendiente";
+  if (rol === "administradora-municipal") return estado === "pendiente";
+  if (esRolAdminPlataforma(rol)) {
+    if (estado !== "pendiente") return false;
+    return canDerivarRequerimiento(rol, tipo);
+  }
   return false;
 }
 
@@ -116,7 +157,7 @@ export function getAllowedNextStates(
     return FULL_STATUS_TRANSITIONS[currentEstado];
   }
 
-  if (rol === "admin") {
+  if (esRolAdminPlataforma(rol)) {
     return ADMIN_STATUS_TRANSITIONS[currentEstado];
   }
 
@@ -147,7 +188,9 @@ export function canTransitionEstado(
 
 /**
  * Solo el director (o superadmin) puede derivar el requerimiento al admin
- * para la respuesta final, y solo para los 4 tipos que la requieren.
+ * para la respuesta final, y solo para los tipos que la requieren
+ * (Información / Reclamo / Sugerencia / Felicitación / Solicitud de
+ * transparencia).
  */
 export function canDerivarRespuestaFinal(
   user: SessionUser,
@@ -166,11 +209,15 @@ export function canDerivarRespuestaFinal(
 
 /**
  * Quien envía la respuesta final al vecino:
- *  - Si el tipo es Solicitud Vecinal o Solicitud de transparencia, lo hace el
- *    director responsable (o superadmin / administradora-municipal).
+ *  - Si el tipo es Solicitud Vecinal, lo hace el director responsable (o
+ *    superadmin / administradora-municipal).
  *  - Si el tipo es Información / Reclamo / Sugerencia / Felicitación, solo el
- *    admin que el director eligió (adminAsignadoRespuesta.uid === user.uid).
- *    El superadmin y la administradora-municipal pueden hacerlo también.
+ *    admin-municipal que el director eligió (adminAsignadoRespuesta.uid ===
+ *    user.uid). El superadmin y la administradora-municipal pueden hacerlo
+ *    también.
+ *  - Si el tipo es Solicitud de transparencia, solo el admin-transparencia
+ *    asignado por el director de Secretaría Municipal (o superadmin /
+ *    administradora-municipal).
  */
 export function canEnviarRespuestaFinal(
   user: SessionUser,
@@ -201,7 +248,7 @@ export function canEnviarRespuestaFinal(
   if (requiereRespuestaFinalPorAdmin(tipo)) {
     if (req.estado !== "derivado_respuesta_final") return false;
     if (user.rol === "superadmin" || user.rol === "administradora-municipal") return true;
-    if (user.rol === "admin") {
+    if (esRolAdminPlataforma(user.rol)) {
       return !!req.adminAsignadoRespuesta && req.adminAsignadoRespuesta.uid === user.uid;
     }
     return false;
@@ -213,7 +260,8 @@ export function canEnviarRespuestaFinal(
 /**
  * Revertir un paso en el historial de estados. Permitido mientras no se haya
  * enviado correo al vecino, para corregir errores (p. ej. cerrar sin responder).
- * Incluye admin y director además de superadmin y administradora-municipal.
+ * Incluye admin (legacy/municipal/transparencia) y director además de
+ * superadmin y administradora-municipal.
  */
 export function canRevertirEstado(
   rol: RolUsuario,
@@ -225,6 +273,6 @@ export function canRevertirEstado(
     rol === "superadmin" ||
     rol === "administradora-municipal" ||
     rol === "director" ||
-    rol === "admin"
+    esRolAdminPlataforma(rol)
   );
 }

@@ -7,7 +7,7 @@ import { usuarioCreateSchema, usuarioUpdateSchema, UsuarioCreateInput, UsuarioUp
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
-import { ROLES_USUARIO } from "@/types/usuario.types";
+import { ROL_LABELS, ROLES_SELECCIONABLES, ROLES_USUARIO } from "@/types/usuario.types";
 import { DIRECCIONES_MUNICIPALES } from "@/constants/direcciones";
 import { User, Mail, Shield, UserPlus, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
@@ -100,9 +100,14 @@ export function UsuarioCreateStyledForm({
   const direccionPrincipal = useWatch({ control, name: "direccionAsignadas.0.direccion" }) || "";
   const { fields, append, remove } = useFieldArray({ control, name: "direccionAsignadas" });
 
-  const rolOptions = ROLES_USUARIO.map((r) => ({
+  const currentRol = initialValues?.rol as (typeof ROLES_USUARIO)[number] | undefined;
+  const baseRoles = [...ROLES_SELECCIONABLES] as Array<(typeof ROLES_USUARIO)[number]>;
+  if (currentRol && !baseRoles.includes(currentRol)) {
+    baseRoles.unshift(currentRol);
+  }
+  const rolOptions = baseRoles.map((r) => ({
     value: r,
-    label: r.charAt(0).toUpperCase() + r.slice(1).replace(/-/g, " "),
+    label: ROL_LABELS[r] || r,
   }));
 
   const direccionOptions = [

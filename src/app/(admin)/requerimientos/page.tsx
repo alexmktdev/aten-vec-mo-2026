@@ -15,6 +15,7 @@ import { AlertTriangle, History, Pencil, Trash2 } from "lucide-react";
 import { PaginationNumeric } from "@/components/ui/PaginationNumeric";
 import { getBusinessDaysBetween } from "@/lib/utils/dias-habiles";
 import { canDeleteRequerimiento } from "@/lib/requerimiento-permissions";
+import { esRolAdminPlataforma } from "@/types/usuario.types";
 import { ConfirmDeleteModal } from "@/components/ui/ConfirmDeleteModal";
 
 const PAGE_SIZE = 8;
@@ -35,7 +36,7 @@ export default function RequerimientosPage() {
   const effectivePage = currentPage;
   const canFilterByDireccion =
     user?.rol === "superadmin" ||
-    user?.rol === "admin" ||
+    (!!user && esRolAdminPlataforma(user.rol)) ||
     user?.rol === "administradora-municipal";
 
   const sortBy = sortMode === "limite" ? "fechaLimite" as const : "fechaIngreso" as const;

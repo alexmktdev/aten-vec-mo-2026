@@ -31,11 +31,14 @@ interface RouteParams {
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const authResult = await requireRole("superadmin", "admin", "administradora-municipal");
+    const authResult = await requireRole(
+      "superadmin",
+      "admin",
+      "admin-municipal",
+      "admin-transparencia",
+      "administradora-municipal"
+    );
     if (authResult.error) return authResult.error;
-    if (!canDerivarRequerimiento(authResult.user.rol)) {
-      return createErrorResponse(403, "No tiene permisos para derivar requerimientos");
-    }
 
     const { id } = await params;
     const body = await request.json();
@@ -53,6 +56,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
     if (req.estado !== "pendiente") {
       return createErrorResponse(400, "Solo se puede derivar un requerimiento en estado pendiente");
+    }
+
+    if (!canDerivarRequerimiento(authResult.user.rol, req.tipoRequerimiento)) {
+      return createErrorResponse(
+        403,
+        "No tiene permisos para derivar este tipo de requerimiento"
+      );
     }
 
     // Solicitud de transparencia siempre se deriva a Secretaría Municipal.

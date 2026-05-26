@@ -6,7 +6,7 @@ import { usuarioCreateSchema, usuarioUpdateSchema, type UsuarioCreateInput, type
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
-import { ROLES_USUARIO } from "@/types/usuario.types";
+import { ROL_LABELS, ROLES_SELECCIONABLES } from "@/types/usuario.types";
 import { DIRECCIONES_MUNICIPALES } from "@/constants/direcciones";
 
 interface Props {
@@ -34,7 +34,7 @@ export function UsuarioForm({ mode = "create", initialValues, onSubmit, loading,
   const selectedRol = useWatch({ control, name: "rol" });
   const needsDireccion = selectedRol === "director";
 
-  const rolOptions = ROLES_USUARIO.map((r) => ({ value: r, label: r.charAt(0).toUpperCase() + r.slice(1).replace(/-/g, " ") }));
+  const rolOptions = ROLES_SELECCIONABLES.map((r) => ({ value: r, label: ROL_LABELS[r] || r }));
   const direccionOptions = Object.entries(DIRECCIONES_MUNICIPALES).map(([key, val]) => ({ value: key, label: val.label }));
 
   return (

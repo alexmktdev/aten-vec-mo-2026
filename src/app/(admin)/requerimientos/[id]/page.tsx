@@ -41,6 +41,7 @@ import {
   canRevertirEstado,
   getAllowedNextStates,
 } from "@/lib/requerimiento-permissions";
+import { esRolAdminPlataforma } from "@/types/usuario.types";
 import { ApiClientError } from "@/lib/api/fetch-json";
 import { ConfirmDeleteModal } from "@/components/ui/ConfirmDeleteModal";
 import { EvidenciaResolucionForm } from "@/components/features/requerimientos/EvidenciaResolucionForm";
@@ -117,14 +118,17 @@ export default function RequerimientoDetailPage() {
   const esTipoRespuestaDirecta = !!tipo && requiereRespuestaDirectaDirector(tipo);
   const esTipoRespuestaAdmin = !!tipo && requiereRespuestaFinalPorAdmin(tipo);
 
-  const canDerivar = !!user && !!req && canDerivarRequerimiento(user.rol) && req.estado === "pendiente";
+  const canDerivar =
+    !!user && !!req && canDerivarRequerimiento(user.rol, req.tipoRequerimiento) && req.estado === "pendiente";
   const canDelete = !!user && canDeleteRequerimiento(user.rol);
-  const canEditarDatos = !!user && !!req && canEditRequerimientoData(user.rol, req.estado);
+  const canEditarDatos = !!user && !!req && canEditRequerimientoData(user.rol, req.estado, req.tipoRequerimiento);
   const muestraBotonEditarDatos =
     !!user &&
     !!req &&
-    (user.rol === "superadmin" || user.rol === "admin" || user.rol === "administradora-municipal");
-  const isAdmin = user?.rol === "admin";
+    (user.rol === "superadmin" ||
+      esRolAdminPlataforma(user.rol) ||
+      user.rol === "administradora-municipal");
+  const isAdmin = !!user && esRolAdminPlataforma(user.rol);
   const allowedNextStates =
     !!user && !!req ? getAllowedNextStates(user.rol, req.estado, estadoTransitionContext) : [];
   const canChangeEstado =
@@ -346,12 +350,21 @@ export default function RequerimientoDetailPage() {
           <h1 className="admin-title">{req.numeroSeguimiento}</h1>
           <RequerimientoStatusBadge estado={req.estado} />
         </div>
-        {isAdmin && req.estado === "pendiente" && (
+        {isAdmin && req.estado === "pendiente" && canDerivar && (
           <Alert variant="info">
             <p className="text-sm">
               Para pasar este requerimiento a «{ESTADO_LABELS.derivado}», use el botón{" "}
               <strong>Derivar</strong> en el panel de acciones. Al derivar se enviará el correo a la
               dirección correspondiente y el estado cambiará automáticamente.
+            </p>
+          </Alert>
+        )}
+        {isAdmin && req.estado === "pendiente" && !canDerivar && (
+          <Alert>
+            <p className="text-sm text-slate-700">
+              Este requerimiento es de tipo <strong>{req.tipoRequerimiento}</strong> y le corresponde
+              gestionar la derivación a otro rol de administración. Usted lo verá pero no puede
+              derivarlo.
             </p>
           </Alert>
         )}
@@ -379,7 +392,7 @@ export default function RequerimientoDetailPage() {
       {successMsg && <Alert variant="success">{successMsg}</Alert>}
       {errorMsg && <Alert variant="error">{errorMsg}</Alert>}
       {(user?.rol === "director" ||
-        user?.rol === "admin" ||
+        (!!user && esRolAdminPlataforma(user.rol)) ||
         user?.rol === "superadmin" ||
         user?.rol === "administradora-municipal") &&
         req &&
@@ -559,8 +572,8 @@ export default function RequerimientoDetailPage() {
                         ? undefined
                         : req.estado === "completado" || req.estado === "rechazado"
                           ? "No puede editar datos completos en completado o rechazado. Si aún no envió correo al vecino, vuelva primero a «En proceso de solución»."
-                          : user?.rol === "admin" || user?.rol === "administradora-municipal"
-                            ? "Solo puede editar datos completos con el requerimiento en «Pendiente». Si ya derivó, espere a que un director devuelva el caso a pendiente."
+                          : !!user && (esRolAdminPlataforma(user.rol) || user.rol === "administradora-municipal")
+                            ? "Solo puede editar datos completos con el requerimiento en «Pendiente» y siempre que el tipo le corresponda. Si ya derivó, espere a que un director devuelva el caso a pendiente."
                             : undefined
                     }
                     onClick={() => {
@@ -619,7 +632,8 @@ export default function RequerimientoDetailPage() {
               {/* Admin no asignado pero que ve el caso derivado: botón deshabilitado con tooltip */}
               {esTipoRespuestaAdmin &&
                 req.estado === "derivado_respuesta_final" &&
-                user?.rol === "admin" &&
+                !!user &&
+                esRolAdminPlataforma(user.rol) &&
                 !puedeEnviarRespuestaFinal &&
                 !hasRespuestaVecino && (
                   <Button
@@ -824,6 +838,7 @@ export default function RequerimientoDetailPage() {
           open={showDerivarFinal}
           onClose={() => setShowDerivarFinal(false)}
           onSubmit={handleDerivarRespuestaFinal}
+          tipoRequerimiento={req.tipoRequerimiento}
         />
       )}
 

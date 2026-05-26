@@ -21,7 +21,7 @@ export async function PATCH(request: NextRequest, routeParams: RequerimientoRout
     if (access.error) return access.error;
     const { id, user, requerimiento: existing } = access;
 
-    if (!canEditRequerimientoData(user.rol, existing.estado)) {
+    if (!canEditRequerimientoData(user.rol, existing.estado, existing.tipoRequerimiento)) {
       const est = existing.estado;
       let message: string;
       if (user.rol === "director") {
@@ -29,8 +29,11 @@ export async function PATCH(request: NextRequest, routeParams: RequerimientoRout
       } else if (est === "completado" || est === "rechazado") {
         message =
           "No puede editar datos completos mientras el requerimiento está completado o rechazado. Si aún no envió correo al vecino, cambie primero el estado a «en proceso de solución».";
-      } else {
+      } else if (est !== "pendiente") {
         message = "Solo puede editar datos completos cuando el requerimiento está pendiente";
+      } else {
+        message =
+          "Este tipo de requerimiento le corresponde a otro rol de administración. No tiene permisos para editar sus datos.";
       }
       return createErrorResponse(403, message);
     }

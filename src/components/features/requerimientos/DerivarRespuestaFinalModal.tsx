@@ -20,15 +20,22 @@ interface AdminOpt {
   uid: string;
   nombre: string;
   email: string;
+  rol?: string;
 }
 
 interface Props {
   open: boolean;
   onClose: () => void;
   onSubmit: (payload: { adminUid: string; nota?: string }) => Promise<void>;
+  tipoRequerimiento?: string;
 }
 
-export function DerivarRespuestaFinalModal({ open, onClose, onSubmit }: Props) {
+export function DerivarRespuestaFinalModal({
+  open,
+  onClose,
+  onSubmit,
+  tipoRequerimiento,
+}: Props) {
   const [admins, setAdmins] = useState<AdminOpt[]>([]);
   const [loadingAdmins, setLoadingAdmins] = useState(false);
   const [loadError, setLoadError] = useState("");
@@ -42,7 +49,10 @@ export function DerivarRespuestaFinalModal({ open, onClose, onSubmit }: Props) {
     let cancelled = false;
     setLoadError("");
     setLoadingAdmins(true);
-    fetchJson<AdminOpt[]>("/api/usuarios/admins")
+    const url = tipoRequerimiento
+      ? `/api/usuarios/admins?tipo=${encodeURIComponent(tipoRequerimiento)}`
+      : "/api/usuarios/admins";
+    fetchJson<AdminOpt[]>(url)
       .then((data) => {
         if (cancelled) return;
         setAdmins(data);
@@ -61,7 +71,7 @@ export function DerivarRespuestaFinalModal({ open, onClose, onSubmit }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, tipoRequerimiento]);
 
   useEffect(() => {
     if (!open) {
@@ -99,8 +109,9 @@ export function DerivarRespuestaFinalModal({ open, onClose, onSubmit }: Props) {
         <ModalHeader>
           <ModalTitle>Derivar para respuesta final al vecino</ModalTitle>
           <ModalDescription>
-            Elija al admin que se hará cargo de redactar y enviar la respuesta final al vecino. Solo ese admin podrá
-            enviar el correo desde el panel.
+            {tipoRequerimiento === "Solicitud de transparencia"
+              ? "Solo el admin de transparencia puede redactar y enviar la respuesta final de este requerimiento."
+              : "Elija al admin municipal que se hará cargo de redactar y enviar la respuesta final al vecino. Solo ese admin podrá enviar el correo desde el panel."}
           </ModalDescription>
         </ModalHeader>
 
@@ -113,7 +124,9 @@ export function DerivarRespuestaFinalModal({ open, onClose, onSubmit }: Props) {
           {loadError && <Alert variant="error">{loadError}</Alert>}
           {!loadingAdmins && !loadError && options.length === 0 && (
             <Alert variant="warning">
-              No hay administradores activos disponibles para asignar.
+              {tipoRequerimiento === "Solicitud de transparencia"
+                ? "No hay administradores de transparencia activos disponibles."
+                : "No hay administradores municipales activos disponibles."}
             </Alert>
           )}
           {!loadingAdmins && !loadError && options.length > 0 && (

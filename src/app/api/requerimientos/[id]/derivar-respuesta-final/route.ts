@@ -6,6 +6,8 @@ import { createSuccessResponse, createErrorResponse } from "@/lib/utils/response
 import { createRouteLogger } from "@/lib/logger";
 import { sanitizeText, normalizeEmail } from "@/lib/utils/sanitize";
 import { canDerivarRespuestaFinal } from "@/lib/requerimiento-permissions";
+import { esRolAdminPlataforma } from "@/types/usuario.types";
+import { rolAdminParaTipo } from "@/types/requerimiento.types";
 import {
   RequerimientoRouteParams,
   requireRequerimientoWithAccess,
@@ -49,8 +51,24 @@ export async function POST(request: NextRequest, routeParams: RequerimientoRoute
     }
 
     const admin = await usuarioRepository.getById(parsed.data.adminUid);
-    if (!admin || admin.rol !== "admin" || admin.activo === false) {
+    if (!admin || admin.activo === false || !esRolAdminPlataforma(admin.rol)) {
       return createErrorResponse(404, "El admin seleccionado no es válido o no está activo");
+    }
+
+    const rolEsperado = rolAdminParaTipo(existing.tipoRequerimiento);
+    if (rolEsperado) {
+      const aceptaLegacy = rolEsperado === "admin-municipal";
+      const rolesValidos: string[] = aceptaLegacy
+        ? ["admin-municipal", "admin"]
+        : [rolEsperado];
+      if (!rolesValidos.includes(admin.rol)) {
+        return createErrorResponse(
+          400,
+          rolEsperado === "admin-transparencia"
+            ? "Los requerimientos de transparencia se derivan solo a admin-transparencia"
+            : "Este tipo se deriva a admin-municipal"
+        );
+      }
     }
 
     await requerimientoService.derivarRespuestaFinal(

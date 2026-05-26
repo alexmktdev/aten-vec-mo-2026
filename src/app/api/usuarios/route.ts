@@ -15,7 +15,13 @@ const log = createRouteLogger("/api/usuarios");
  */
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await requireRole("superadmin", "admin", "administradora-municipal");
+    const authResult = await requireRole(
+      "superadmin",
+      "admin",
+      "admin-municipal",
+      "admin-transparencia",
+      "administradora-municipal"
+    );
     if (authResult.error) return authResult.error;
 
     const { searchParams } = new URL(request.url);

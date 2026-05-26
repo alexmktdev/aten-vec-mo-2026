@@ -1,6 +1,6 @@
 import { adminDb } from "@/lib/firebase/admin";
 import { COLLECTIONS } from "@/lib/firebase/firestore-collections";
-import { Usuario } from "@/types/usuario.types";
+import { ROLES_ADMINS_PLATAFORMA, RolUsuario, Usuario } from "@/types/usuario.types";
 import { FieldValue } from "firebase-admin/firestore";
 
 const collection = () => adminDb.collection(COLLECTIONS.USUARIOS);
@@ -140,12 +140,31 @@ export const usuarioRepository = {
   },
 
   /**
-   * Get platform admin users (for new requerimiento notifications)
-   * Only role "admin" should receive this email.
+   * Get platform admin users (for new requerimiento notifications).
+   * Incluye admin (legacy), admin-municipal y admin-transparencia.
    */
   async getAdmins(): Promise<Usuario[]> {
     const snapshot = await collection()
-      .where("rol", "==", "admin")
+      .where("rol", "in", ROLES_ADMINS_PLATAFORMA as readonly string[])
+      .where("activo", "==", true)
+      .get();
+
+    return snapshot.docs.map(
+      (doc) => ({ id: doc.id, ...doc.data() }) as Usuario
+    );
+  },
+
+  /**
+   * Devuelve los admins activos cuyo rol está incluido en `roles`. Usado por
+   * el modal «Derivar para respuesta final» para mostrar solo los admins del
+   * tipo correspondiente al requerimiento.
+   */
+  async getAdminsByRoles(roles: RolUsuario[]): Promise<Usuario[]> {
+    const unique = Array.from(new Set(roles));
+    if (unique.length === 0) return [];
+
+    const snapshot = await collection()
+      .where("rol", "in", unique as readonly string[])
       .where("activo", "==", true)
       .get();
 

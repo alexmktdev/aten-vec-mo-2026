@@ -28,7 +28,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/graficas", label: "Gráficas resumen", icon: ChartPie, section: "General", roles: [...ROLES_USUARIO] },
   { href: "/requerimientos", label: "Requerimientos", icon: FileText, section: "Administración", roles: [...ROLES_USUARIO] },
   { href: "/reportes", label: "Reportes", icon: BarChart3, section: "Administración", roles: [...ROLES_ACCESO_REPORTES] },
-  { href: "/usuarios", label: "Usuarios", icon: Users, section: "Usuarios", roles: ["superadmin", "admin", "administradora-municipal"] },
+  { href: "/usuarios", label: "Usuarios", icon: Users, section: "Usuarios", roles: ["superadmin", "admin", "admin-municipal", "admin-transparencia", "administradora-municipal"] },
   { href: "/usuarios/nuevo", label: "Crear usuario", icon: UserPlus, section: "Usuarios", roles: ["superadmin"] },
 ];
 
