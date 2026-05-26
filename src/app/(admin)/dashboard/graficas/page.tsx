@@ -159,22 +159,6 @@ function GraficasGrid({ payload }: { payload: DashboardChartsPayload }) {
       >
         <FiscalPieChart data={payload.ingresosPorMes} height={300} />
       </ChartSection>
-
-      <ChartSection
-        id="cat-abiertos"
-        title="Categorías — casos abiertos"
-        description="Dónde está el trabajo pendiente según tipo de trámite / categoría."
-      >
-        <FiscalPieChart data={payload.categoriasAbiertos} height={300} />
-      </ChartSection>
-
-      <ChartSection
-        id="cat-cerrados"
-        title="Categorías — casos cerrados"
-        description="Qué tipos de problemas ya se cerraron (mix histórico reciente en el universo visible)."
-      >
-        <FiscalPieChart data={payload.categoriasCerrados} height={300} />
-      </ChartSection>
     </div>
   );
 }

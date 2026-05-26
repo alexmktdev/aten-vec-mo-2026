@@ -10,7 +10,6 @@ type ReportFilters = {
   estado?: string;
   tipo?: string;
   direccion?: string;
-  categoria?: string;
   fechaDesde?: string;
   fechaHasta?: string;
 };
@@ -20,7 +19,6 @@ export default function ReportesPage() {
   const [estado, setEstado] = useState("");
   const [tipo, setTipo] = useState("");
   const [direccion, setDireccion] = useState("");
-  const [categoria, setCategoria] = useState("");
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
   const [exporting, setExporting] = useState(false);
@@ -30,7 +28,6 @@ export default function ReportesPage() {
       estado,
       tipo,
       direccion,
-      categoria,
       fechaDesde,
       fechaHasta,
       ...filters,
@@ -39,7 +36,6 @@ export default function ReportesPage() {
     if (active.estado) params.set("estado", active.estado);
     if (active.tipo) params.set("tipo", active.tipo);
     if (active.direccion) params.set("direccion", active.direccion);
-    if (active.categoria) params.set("categoria", active.categoria);
     if (active.fechaDesde) params.set("fechaDesde", active.fechaDesde);
     if (active.fechaHasta) params.set("fechaHasta", active.fechaHasta);
     return params;
@@ -77,7 +73,6 @@ export default function ReportesPage() {
     setEstado("");
     setTipo("");
     setDireccion("");
-    setCategoria("");
     setFechaDesde("");
     setFechaHasta("");
   };
@@ -119,16 +114,11 @@ export default function ReportesPage() {
           estado={estado}
           tipo={tipo}
           direccion={direccion}
-          categoria={categoria}
           fechaDesde={fechaDesde}
           fechaHasta={fechaHasta}
           onEstadoChange={setEstado}
           onTipoChange={setTipo}
-          onDireccionChange={(value) => {
-            setDireccion(value);
-            setCategoria("");
-          }}
-          onCategoriaChange={setCategoria}
+          onDireccionChange={setDireccion}
           onFechaDesdeChange={setFechaDesde}
           onFechaHastaChange={setFechaHasta}
           onResetFilters={handleResetFilters}

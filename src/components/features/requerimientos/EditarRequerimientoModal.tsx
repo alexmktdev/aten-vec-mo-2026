@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Modal,
@@ -17,7 +17,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
 import { FileUpload } from "@/components/ui/FileUpload";
 import { Alert } from "@/components/ui/Alert";
-import { DIRECCIONES_MUNICIPALES, getCategorias, getDireccionLabel } from "@/constants/direcciones";
+import { DIRECCIONES_MUNICIPALES, getDireccionLabel } from "@/constants/direcciones";
 import { REGIONES_CHILE, RequerimientoDTO, TIPOS_INMUEBLE, TIPOS_REQUERIMIENTO } from "@/types/requerimiento.types";
 import { formatRut } from "@/lib/utils/rut";
 import {
@@ -44,8 +44,6 @@ export function EditarRequerimientoModal({ open, requerimiento, onClose, onSubmi
   const {
     register,
     handleSubmit,
-    setValue,
-    control,
     formState: { errors, isSubmitting },
   } = useForm<RequerimientoAdminEditFormInput>({
     resolver: zodResolver(requerimientoAdminEditFormSchema),
@@ -65,24 +63,14 @@ export function EditarRequerimientoModal({ open, requerimiento, onClose, onSubmi
       },
       tipoRequerimiento: requerimiento.tipoRequerimiento as typeof TIPOS_REQUERIMIENTO[number],
       direccionMunicipal: requerimiento.direccionMunicipal,
-      categoria: requerimiento.categoria,
       descripcion: requerimiento.descripcion,
     },
   });
-
-  const selectedDireccion = useWatch({ control, name: "direccionMunicipal" });
-  const categorias = selectedDireccion ? getCategorias(selectedDireccion) : [];
 
   const regionOptions = REGIONES_CHILE.map((r) => ({ value: r, label: r }));
   const inmuebleOptions = TIPOS_INMUEBLE.map((t) => ({ value: t, label: t }));
   const tipoReqOptions = TIPOS_REQUERIMIENTO.map((t) => ({ value: t, label: t }));
   const direccionOptions = Object.entries(DIRECCIONES_MUNICIPALES).map(([key, val]) => ({ value: key, label: val.label }));
-  const categoriaOptions = categorias.map((c) => ({ value: c, label: c }));
-
-  const handleDireccionChange = (value: string) => {
-    setValue("direccionMunicipal", value);
-    setValue("categoria", "");
-  };
 
   const handlePdfChange = (file: File | null) => {
     setPdfError("");
@@ -157,7 +145,6 @@ export function EditarRequerimientoModal({ open, requerimiento, onClose, onSubmi
         tipoRequerimiento: data.tipoRequerimiento,
         direccionMunicipal: data.direccionMunicipal,
         direccionMunicipalLabel: getDireccionLabel(data.direccionMunicipal),
-        categoria: data.categoria,
         descripcion: data.descripcion,
         documentos,
       });
@@ -216,18 +203,8 @@ export function EditarRequerimientoModal({ open, requerimiento, onClose, onSubmi
                   required
                   options={direccionOptions}
                   placeholder="Seleccione dirección"
-                  value={selectedDireccion}
-                  onChange={(e) => handleDireccionChange(e.target.value)}
+                  {...register("direccionMunicipal")}
                   error={errors.direccionMunicipal?.message}
-                />
-                <Select
-                  label="Categoría"
-                  required
-                  options={categoriaOptions}
-                  placeholder={selectedDireccion ? "Seleccione categoría" : "Primero seleccione dirección"}
-                  disabled={!selectedDireccion}
-                  {...register("categoria")}
-                  error={errors.categoria?.message}
                 />
                 <div className="md:col-span-2">
                   <Textarea

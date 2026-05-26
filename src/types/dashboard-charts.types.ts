@@ -27,8 +27,4 @@ export type DashboardChartsPayload = {
   estadosDistribucion: DashboardPieSlice[];
   /** Ingresos por mes (últimos 12 meses con actividad). */
   ingresosPorMes: DashboardPieSlice[];
-  /** Casos abiertos por categoría. */
-  categoriasAbiertos: DashboardPieSlice[];
-  /** Casos cerrados por categoría. */
-  categoriasCerrados: DashboardPieSlice[];
 };

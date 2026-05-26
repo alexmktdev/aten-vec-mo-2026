@@ -90,7 +90,6 @@ export default function RequerimientosPage() {
         `${item.vecino.nombre} ${item.vecino.primerApellido}`,
         item.vecino.rut,
         item.direccionMunicipalLabel,
-        item.categoria,
       ]
         .join(" ")
         .toLowerCase();
@@ -130,11 +129,6 @@ export default function RequerimientosPage() {
       render: (item: RequerimientoDTO) => (
         <span className="text-sm">{item.direccionMunicipalLabel}</span>
       ),
-    },
-    {
-      key: "categoria",
-      header: "Categoría",
-      className: "min-w-[170px]",
     },
     {
       key: "estado",

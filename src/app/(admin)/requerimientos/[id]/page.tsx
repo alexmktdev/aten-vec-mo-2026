@@ -387,12 +387,6 @@ export default function RequerimientoDetailPage() {
                   <dt className="text-slate-500">Dirección Municipal</dt>
                   <dd className="font-medium">{req.direccionMunicipalLabel || "Pendiente de derivación"}</dd>
                 </div>
-                {req.categoria && (
-                  <div>
-                    <dt className="text-slate-500">Categoría</dt>
-                    <dd className="font-medium">{req.categoria}</dd>
-                  </div>
-                )}
                 <div><dt className="text-slate-500">Fecha Ingreso</dt><dd className="font-medium">{new Date(req.fechaIngreso).toLocaleDateString("es-CL")}</dd></div>
                 <div><dt className="text-slate-500">Fecha Límite</dt><dd className="font-medium">{new Date(req.fechaLimite).toLocaleDateString("es-CL")}</dd></div>
                 <div><dt className="text-slate-500">Días Hábiles Restantes</dt><dd className="font-medium">{req.vencido ? "Vencido" : req.diasHabilesRestantes}</dd></div>

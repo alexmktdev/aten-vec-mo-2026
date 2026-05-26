@@ -19,7 +19,6 @@ export function getBaseRequerimientoFiltersFromRequest(request: NextRequest) {
     estado: (searchParams.get("estado") as EstadoRequerimiento) || undefined,
     tipoRequerimiento: (searchParams.get("tipo") as TipoRequerimiento) || undefined,
     direccionMunicipal: searchParams.get("direccion") || undefined,
-    categoria: searchParams.get("categoria") || undefined,
     fechaDesde: toOptionalDate(searchParams.get("fechaDesde")),
     fechaHasta: toOptionalDate(searchParams.get("fechaHasta")),
   };

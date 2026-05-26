@@ -59,7 +59,8 @@ export type RequerimientoFormInput = z.infer<typeof requerimientoFormSchema>;
 
 /**
  * Schema del formulario de edición admin: igual al público pero exige dirección
- * y categoría (el admin debe poder corregir/asignar estos campos).
+ * municipal (el admin debe poder corregir/asignar la dirección al derivar).
+ * Categoría no se solicita ni se valida.
  */
 export const requerimientoAdminEditFormSchema = z
   .object({
@@ -68,7 +69,6 @@ export const requerimientoAdminEditFormSchema = z
       message: "Debe seleccionar un tipo de requerimiento",
     }),
     direccionMunicipal: z.string().min(1, "Debe seleccionar una dirección municipal"),
-    categoria: z.string().min(1, "Debe seleccionar una categoría"),
     descripcion: z
       .string()
       .min(10, "La descripción debe tener al menos 10 caracteres")

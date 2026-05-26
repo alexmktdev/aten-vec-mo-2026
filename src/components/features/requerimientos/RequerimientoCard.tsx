@@ -2,7 +2,7 @@ import { RequerimientoDTO } from "@/types/requerimiento.types";
 import { Card, CardContent } from "@/components/ui/Card";
 import { RequerimientoStatusBadge } from "./RequerimientoStatusBadge";
 import { AlertaVencimiento } from "./AlertaVencimiento";
-import { Calendar, MapPin, Tag } from "lucide-react";
+import { Calendar, MapPin } from "lucide-react";
 
 interface Props {
   requerimiento: RequerimientoDTO;
@@ -24,7 +24,6 @@ export function RequerimientoCard({ requerimiento, onClick }: Props) {
         <p className="text-sm text-slate-700 line-clamp-2 mb-3">{requerimiento.descripcion}</p>
         <div className="flex flex-wrap gap-3 text-xs text-slate-500">
           <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{requerimiento.direccionMunicipalLabel}</span>
-          <span className="flex items-center gap-1"><Tag className="h-3 w-3" />{requerimiento.categoria}</span>
           <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{fecha}</span>
         </div>
         <AlertaVencimiento diasHabilesRestantes={requerimiento.diasHabilesRestantes} vencido={requerimiento.vencido} />

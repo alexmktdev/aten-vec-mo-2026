@@ -46,7 +46,7 @@ export function RequerimientoFilters({
           type="text"
           value={busqueda}
           onChange={(e) => onBusquedaChange(e.target.value)}
-          placeholder="Buscar por N°, vecino, RUT, dirección o categoría"
+          placeholder="Buscar por N°, vecino, RUT o dirección"
         />
       </div>
       <div className="w-full sm:w-auto sm:min-w-[220px]">

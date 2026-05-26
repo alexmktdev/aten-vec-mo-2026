@@ -181,9 +181,7 @@ export async function buildEstadisticasCompletoBuffer(
     ["Fiscalizacion_direcciones", "Métricas por dirección: volúmenes, tiempos y respuesta al vecino"],
     ["Antiguedad_abiertos", "Buckets de antigüedad para casos abiertos (todas las direcciones)"],
     ["Ingresos_y_cierres_mes", "Serie mensual de ingresos y cierres"],
-    ["Por_categoria_estado", "Conteos largo formato: categoría × estado"],
     ["Por_tipo_estado", "Conteos largo formato: tipo × estado"],
-    ["Dir_categoria_estado", "Conteos largo: dirección × categoría × estado (pivot / BI)"],
     ["Tiempos_transicion", "Días entre cambios de estado (trazabilidad)"],
     ["Resumen_global", "Totales globales"],
     ["Por_direccion_conteos", "Cantidades por dirección y estado"],
@@ -316,33 +314,6 @@ export async function buildEstadisticasCompletoBuffer(
   }
   addAoATable(wb, "Ingresos_y_cierres_mes", mesRows, { numericCols: new Set([2, 3]) });
 
-  // --- Largo: categoría × estado ---
-  const catEstMap = new Map<string, number>();
-  for (const r of rows) {
-    const cat = r.categoria || "Sin categoría";
-    const k = `${cat}\t${r.estado}`;
-    catEstMap.set(k, (catEstMap.get(k) || 0) + 1);
-  }
-  const catEstRows: Record<string, string | number>[] = [];
-  for (const [k, n] of catEstMap) {
-    const [categoria, estado] = k.split("\t");
-    catEstRows.push({
-      categoria,
-      estadoCodigo: estado,
-      estadoEtiqueta: ESTADO_LABELS[estado as EstadoRequerimiento] || estado,
-      cantidad: n,
-      pct_sobre_total: pct(n, global.total),
-    });
-  }
-  catEstRows.sort((a, b) => String(a.categoria).localeCompare(String(b.categoria), "es"));
-  addJsonTable(wb, "Por_categoria_estado", catEstRows, {
-    categoria: "Categoría",
-    estadoCodigo: "Estado (código)",
-    estadoEtiqueta: "Estado",
-    cantidad: "Cantidad",
-    pct_sobre_total: "% sobre total",
-  }, { numericKeys: ["cantidad"], percentKeys: ["pct_sobre_total"] });
-
   // --- Largo: tipo × estado ---
   const tipEstMap = new Map<string, number>();
   for (const r of rows) {
@@ -371,38 +342,6 @@ export async function buildEstadisticasCompletoBuffer(
     cantidad: "Cantidad",
     pct_sobre_total: "% sobre total",
   }, { numericKeys: ["cantidad"], percentKeys: ["pct_sobre_total"] });
-
-  // --- Largo: dirección × categoría × estado ---
-  const dceMap = new Map<string, number>();
-  for (const r of rows) {
-    const dk = dirKey(r);
-    const cat = r.categoria || "Sin categoría";
-    const k = `${dk}\t${cat}\t${r.estado}`;
-    dceMap.set(k, (dceMap.get(k) || 0) + 1);
-  }
-  const dceRows: Record<string, string | number>[] = [];
-  for (const [k, n] of dceMap) {
-    const [direccion, categoria, estado] = k.split("\t");
-    dceRows.push({
-      direccionMunicipalLabel: direccion,
-      categoria,
-      estadoCodigo: estado,
-      estadoEtiqueta: ESTADO_LABELS[estado as EstadoRequerimiento] || estado,
-      cantidad: n,
-    });
-  }
-  dceRows.sort((a, b) => {
-    const d = String(a.direccionMunicipalLabel).localeCompare(String(b.direccionMunicipalLabel), "es");
-    if (d !== 0) return d;
-    return String(a.categoria).localeCompare(String(b.categoria), "es");
-  });
-  addJsonTable(wb, "Dir_categoria_estado", dceRows, {
-    direccionMunicipalLabel: "Dirección municipal",
-    categoria: "Categoría",
-    estadoCodigo: "Estado (código)",
-    estadoEtiqueta: "Estado",
-    cantidad: "Cantidad",
-  }, { numericKeys: ["cantidad"] });
 
   // --- Tiempos entre transiciones de estado ---
   const transRows: Record<string, string | number>[] = [];
@@ -601,7 +540,6 @@ export async function buildEstadisticasCompletoBuffer(
       estadoCodigo: r.estado,
       estadoEtiqueta: ESTADO_LABELS[r.estado],
       tipoRequerimiento: r.tipoRequerimiento,
-      categoria: r.categoria,
       descripcion: r.descripcion,
       direccionMunicipal: r.direccionMunicipal,
       direccionMunicipalLabel: r.direccionMunicipalLabel,
@@ -654,7 +592,6 @@ export async function buildEstadisticasCompletoBuffer(
     estadoCodigo: "Estado (código)",
     estadoEtiqueta: "Estado",
     tipoRequerimiento: "Tipo",
-    categoria: "Categoría",
     descripcion: "Descripción",
     direccionMunicipal: "Dirección municipal (código)",
     direccionMunicipalLabel: "Dirección municipal",

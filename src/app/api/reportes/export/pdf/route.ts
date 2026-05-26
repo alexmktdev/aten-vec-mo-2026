@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
     doc.text(`Generado: ${now.toLocaleDateString("es-CL")} ${now.toLocaleTimeString("es-CL")}`, 14, 22);
     doc.text(`Total de registros analizados: ${rows.length}`, 14, 27);
     doc.text(
-      `Filtros: Estado=${parsed.data.estado || "Todos"} | Tipo=${parsed.data.tipoRequerimiento || "Todos"} | Dirección=${parsed.data.direccionMunicipal || "Todas"} | Categoría=${parsed.data.categoria || "Todas"} | Desde=${parsed.data.fechaDesde ? parsed.data.fechaDesde.toLocaleDateString("es-CL") : "-"} | Hasta=${parsed.data.fechaHasta ? parsed.data.fechaHasta.toLocaleDateString("es-CL") : "-"}`,
+      `Filtros: Estado=${parsed.data.estado || "Todos"} | Tipo=${parsed.data.tipoRequerimiento || "Todos"} | Dirección=${parsed.data.direccionMunicipal || "Todas"} | Desde=${parsed.data.fechaDesde ? parsed.data.fechaDesde.toLocaleDateString("es-CL") : "-"} | Hasta=${parsed.data.fechaHasta ? parsed.data.fechaHasta.toLocaleDateString("es-CL") : "-"}`,
       14,
       32
     );
@@ -177,13 +177,12 @@ export async function GET(request: NextRequest) {
       theme: "grid",
       styles: { fontSize: 7.2, cellPadding: 1.5 },
       headStyles: { fillColor: [30, 58, 138] },
-      head: [["N°", "Vecino", "RUT", "Dirección", "Categoría", "Tipo", "Estado", "Fecha Ingreso"]],
+      head: [["N°", "Vecino", "RUT", "Dirección", "Tipo", "Estado", "Fecha Ingreso"]],
       body: sortedRows.map((r) => [
         r.numeroSeguimiento,
         `${r.vecino.nombre} ${r.vecino.primerApellido}`,
         r.vecino.rut,
         r.direccionMunicipalLabel,
-        r.categoria,
         r.tipoRequerimiento,
         ESTADO_LABELS[r.estado] || r.estado,
         new Date(r.fechaIngreso).toLocaleDateString("es-CL"),

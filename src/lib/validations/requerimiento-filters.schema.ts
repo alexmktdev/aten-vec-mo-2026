@@ -5,7 +5,6 @@ export const requerimientoFiltersSchema = z.object({
   estado: z.enum(ESTADOS_REQUERIMIENTO).optional(),
   tipoRequerimiento: z.enum(TIPOS_REQUERIMIENTO).optional(),
   direccionMunicipal: z.string().min(1).optional(),
-  categoria: z.string().min(1).optional(),
   fechaDesde: z.date().optional(),
   fechaHasta: z.date().optional(),
   limit: z.number().int().min(1).max(200).optional(),

@@ -115,15 +115,6 @@ function countByDir(rows: Norm[]): DashboardPieSlice[] {
   return mapToSlices(m);
 }
 
-function countByName(rows: Norm[], key: (r: Norm) => string, maxSlices = 10): DashboardPieSlice[] {
-  const m = new Map<string, number>();
-  for (const r of rows) {
-    const k = key(r);
-    m.set(k, (m.get(k) || 0) + 1);
-  }
-  return mapToSlices(m, maxSlices);
-}
-
 function estadosPie(rows: Norm[]): DashboardPieSlice[] {
   const labels: Record<string, string> = {
     pendiente: "Pendiente",
@@ -198,15 +189,5 @@ export function buildDashboardChartsPayload(raw: ChartSourceRow[]): DashboardCha
     cards,
     estadosDistribucion: estadosPie(rows),
     ingresosPorMes: ingresosPorMesPie(rows, now),
-    categoriasAbiertos: countByName(
-      rows.filter(abierto),
-      (r) => r.categoria,
-      10
-    ),
-    categoriasCerrados: countByName(
-      rows.filter((r) => !abierto(r)),
-      (r) => r.categoria,
-      10
-    ),
   };
 }
