@@ -88,6 +88,9 @@ type ConteoDireccion = {
   pendiente: number;
   derivado: number;
   en_proceso: number;
+  en_espera_1: number;
+  en_espera_2: number;
+  derivado_respuesta_final: number;
   completado: number;
   rechazado: number;
   urgentesActivos: number;
@@ -99,6 +102,9 @@ function conteoVacio(): ConteoDireccion {
     pendiente: 0,
     derivado: 0,
     en_proceso: 0,
+    en_espera_1: 0,
+    en_espera_2: 0,
+    derivado_respuesta_final: 0,
     completado: 0,
     rechazado: 0,
     urgentesActivos: 0,

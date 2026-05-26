@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
 import { requerimientoService } from "@/services/requerimiento.service";
 import { requerimientoUpdateSchema } from "@/lib/validations/requerimiento.schema";
-import { requireAuth } from "@/lib/auth-guard";
 import { createSuccessResponse, createErrorResponse } from "@/lib/utils/response";
 import { createRouteLogger } from "@/lib/logger";
 import { sanitizeText } from "@/lib/utils/sanitize";
 import { canDeleteRequerimiento, canTransitionEstado } from "@/lib/requerimiento-permissions";
+import type { EstadoRequerimiento } from "@/types/requerimiento.types";
 import {
   RequerimientoRouteParams,
   requireRequerimientoWithAccess,
@@ -55,9 +55,10 @@ export async function PATCH(request: NextRequest, routeParams: RequerimientoRout
     const transitionContext = {
       hasRespuestaVecino: (existing.respuestasVecino?.length ?? 0) > 0,
     };
+    const nextEstado = parsed.data.estado as EstadoRequerimiento | undefined;
     if (
-      parsed.data.estado &&
-      !canTransitionEstado(user.rol, existing.estado, parsed.data.estado, transitionContext)
+      nextEstado &&
+      !canTransitionEstado(user.rol, existing.estado, nextEstado, transitionContext)
     ) {
       return createErrorResponse(403, "No tiene permisos para realizar este cambio de estado");
     }
@@ -89,10 +90,10 @@ export async function PATCH(request: NextRequest, routeParams: RequerimientoRout
     }
 
     // Update status if provided
-    if (parsed.data.estado) {
+    if (nextEstado) {
       await requerimientoService.updateEstado(
         id,
-        parsed.data.estado,
+        nextEstado,
         user.uid,
         parsed.data.nota,
         existing

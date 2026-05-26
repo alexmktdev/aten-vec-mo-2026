@@ -1,7 +1,11 @@
 import { adminDb } from "@/lib/firebase/admin";
 import { COLLECTIONS } from "@/lib/firebase/firestore-collections";
 import type { ChartSourceRow } from "@/lib/dashboard/chart-analytics";
-import { Requerimiento, EstadoRequerimiento } from "@/types/requerimiento.types";
+import {
+  Requerimiento,
+  EstadoRequerimiento,
+  AdminAsignadoRespuesta,
+} from "@/types/requerimiento.types";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import logger from "@/lib/logger";
 import { incrementMetric } from "@/lib/metrics";
@@ -322,27 +326,51 @@ export const requerimientoRepository = {
   },
 
   /**
-   * Add a status change to the history
+   * Add a status change to the history (con extras opcionales: fechaLimite, adminAsignadoRespuesta, limpieza).
    */
   async addEstadoToHistorial(
     id: string,
     estado: EstadoRequerimiento,
     usuarioId?: string,
-    nota?: string
+    nota?: string,
+    extras?: {
+      fechaLimite?: Date;
+      adminAsignadoRespuesta?: AdminAsignadoRespuesta | null;
+    }
   ): Promise<void> {
-    await collection()
-      .doc(id)
-      .update({
+    const update: Record<string, unknown> = {
+      estado,
+      historialEstados: FieldValue.arrayUnion({
         estado,
-        historialEstados: FieldValue.arrayUnion({
-          estado,
-          fecha: Timestamp.now(),
-          ...(usuarioId && { usuarioId }),
-          ...(nota && { nota }),
-        }),
-        actualizadoEn: FieldValue.serverTimestamp(),
-        ...(estado === "completado" && { fechaResolucion: FieldValue.serverTimestamp() }),
-      });
+        fecha: Timestamp.now(),
+        ...(usuarioId && { usuarioId }),
+        ...(nota && { nota }),
+      }),
+      actualizadoEn: FieldValue.serverTimestamp(),
+    };
+
+    if (estado === "completado") {
+      update.fechaResolucion = FieldValue.serverTimestamp();
+    }
+
+    if (extras?.fechaLimite) {
+      update.fechaLimite = Timestamp.fromDate(extras.fechaLimite);
+    }
+
+    if (extras && "adminAsignadoRespuesta" in extras) {
+      if (extras.adminAsignadoRespuesta === null) {
+        update.adminAsignadoRespuesta = FieldValue.delete();
+      } else if (extras.adminAsignadoRespuesta) {
+        update.adminAsignadoRespuesta = {
+          ...extras.adminAsignadoRespuesta,
+          asignadoEn: extras.adminAsignadoRespuesta.asignadoEn instanceof Date
+            ? Timestamp.fromDate(extras.adminAsignadoRespuesta.asignadoEn)
+            : extras.adminAsignadoRespuesta.asignadoEn,
+        };
+      }
+    }
+
+    await collection().doc(id).update(update);
   },
 
   /**
@@ -360,6 +388,9 @@ export const requerimientoRepository = {
     pendiente: number;
     derivado: number;
     en_proceso: number;
+    en_espera_1: number;
+    en_espera_2: number;
+    derivado_respuesta_final: number;
     completado: number;
     rechazado: number;
     urgentesActivos: number;
@@ -380,6 +411,9 @@ export const requerimientoRepository = {
       pendiente: 0,
       derivado: 0,
       en_proceso: 0,
+      en_espera_1: 0,
+      en_espera_2: 0,
+      derivado_respuesta_final: 0,
       completado: 0,
       rechazado: 0,
       urgentesActivos: 0,
@@ -387,7 +421,16 @@ export const requerimientoRepository = {
 
     const now = new Date();
     now.setHours(0, 0, 0, 0);
-    const estadoKeys = new Set<string>(["pendiente", "derivado", "en_proceso", "completado", "rechazado"]);
+    const estadoKeys = new Set<string>([
+      "pendiente",
+      "derivado",
+      "en_proceso",
+      "en_espera_1",
+      "en_espera_2",
+      "derivado_respuesta_final",
+      "completado",
+      "rechazado",
+    ]);
     snapshot.docs.forEach((doc) => {
       const data = doc.data();
       stats.total++;

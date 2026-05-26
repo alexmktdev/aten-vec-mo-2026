@@ -1,7 +1,14 @@
 /**
  * Cálculo de días hábiles (lunes a viernes, excluyendo feriados).
- * Los requerimientos tienen 20 días hábiles para ser respondidos.
+ *
+ * Plazos del workflow actual:
+ *  - Base al ingresar: 2 semanas hábiles (10 días hábiles)
+ *  - +Espera 1: agrega 2 semanas hábiles más al plazo vigente
+ *  - +Espera 2: agrega otras 2 semanas hábiles más
  */
+
+export const DIAS_HABILES_BASE = 10;
+export const DIAS_HABILES_POR_SEMANA = 5;
 
 // Feriados fijos de Chile (mes-día)
 const FERIADOS_FIJOS: string[] = [
@@ -94,10 +101,44 @@ export function getDiasHabilesRestantes(fechaLimite: Date): number {
 }
 
 /**
- * Calcula la fecha límite (20 días hábiles desde el ingreso)
+ * Calcula la fecha límite base del requerimiento al momento del ingreso.
+ * Plazo: 2 semanas hábiles (10 días hábiles).
  */
 export function calcularFechaLimite(fechaIngreso: Date): Date {
-  return addBusinessDays(fechaIngreso, 20);
+  return addBusinessDays(fechaIngreso, DIAS_HABILES_BASE);
+}
+
+/**
+ * Extiende una fecha límite existente sumando N semanas hábiles.
+ */
+export function extenderFechaLimiteSemanas(
+  fechaLimiteActual: Date,
+  semanas: number
+): Date {
+  const dias = Math.max(0, Math.round(semanas)) * DIAS_HABILES_POR_SEMANA;
+  return addBusinessDays(fechaLimiteActual, dias);
+}
+
+/**
+ * Retrocede una fecha límite restando N semanas hábiles. Útil al revertir
+ * una transición que había extendido el plazo (espera 1 / espera 2).
+ */
+export function reducirFechaLimiteSemanas(
+  fechaLimiteActual: Date,
+  semanas: number
+): Date {
+  const dias = Math.max(0, Math.round(semanas)) * DIAS_HABILES_POR_SEMANA;
+  return subtractBusinessDays(fechaLimiteActual, dias);
+}
+
+function subtractBusinessDays(startDate: Date, days: number): Date {
+  const result = new Date(startDate);
+  let removed = 0;
+  while (removed < days) {
+    result.setDate(result.getDate() - 1);
+    if (isBusinessDay(result)) removed++;
+  }
+  return result;
 }
 
 /**

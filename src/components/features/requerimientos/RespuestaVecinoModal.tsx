@@ -10,16 +10,28 @@ import {
   ModalTitle,
 } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDeleteModal } from "@/components/ui/ConfirmDeleteModal";
+
+export type CierreRespuesta = "completado" | "rechazado";
+
+export interface RespuestaVecinoPayload {
+  emailDestino: string;
+  asunto: string;
+  mensaje: string;
+  cierre?: CierreRespuesta;
+}
 
 interface Props {
   open: boolean;
   onClose: () => void;
   defaultEmail: string;
   numeroSeguimiento: string;
-  onSubmit: (payload: { emailDestino: string; asunto: string; mensaje: string }) => Promise<void>;
+  /** Si es true, el modal exige al usuario elegir cierre (completado/rechazado). */
+  requireCierre?: boolean;
+  onSubmit: (payload: RespuestaVecinoPayload) => Promise<void>;
 }
 
 export function RespuestaVecinoModal({
@@ -27,11 +39,13 @@ export function RespuestaVecinoModal({
   onClose,
   defaultEmail,
   numeroSeguimiento,
+  requireCierre = false,
   onSubmit,
 }: Props) {
   const [emailDestino, setEmailDestino] = useState(defaultEmail);
   const [asunto, setAsunto] = useState(`Respuesta a su requerimiento ${numeroSeguimiento}`);
   const [mensaje, setMensaje] = useState("");
+  const [cierre, setCierre] = useState<CierreRespuesta | "">("");
   const [error, setError] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
@@ -47,6 +61,10 @@ export function RespuestaVecinoModal({
     }
     if (mensaje.trim().length < 20) {
       setError("Ingrese una respuesta más completa para el vecino");
+      return false;
+    }
+    if (requireCierre && !cierre) {
+      setError("Debe indicar si el cierre es completado o rechazado");
       return false;
     }
     setError("");
@@ -65,6 +83,7 @@ export function RespuestaVecinoModal({
         emailDestino: emailDestino.trim(),
         asunto: asunto.trim(),
         mensaje: mensaje.trim(),
+        cierre: requireCierre && cierre ? cierre : undefined,
       });
       setShowConfirm(false);
       onClose();
@@ -84,6 +103,9 @@ export function RespuestaVecinoModal({
             <ModalTitle>Enviar respuesta al vecino</ModalTitle>
             <ModalDescription>
               Este correo quedará registrado en el requerimiento y se enviará al vecino como respuesta formal.
+              {requireCierre
+                ? " Al enviar, el requerimiento se cerrará como Completado o Rechazado según indique."
+                : ""}
             </ModalDescription>
           </ModalHeader>
 
@@ -112,6 +134,19 @@ export function RespuestaVecinoModal({
               placeholder="Escriba aquí la respuesta que se enviará al vecino..."
               required
             />
+            {requireCierre && (
+              <Select
+                label="Cierre del requerimiento"
+                value={cierre}
+                onChange={(e) => setCierre(e.target.value as CierreRespuesta)}
+                options={[
+                  { value: "completado", label: "Requerimiento Completado" },
+                  { value: "rechazado", label: "Requerimiento Rechazado" },
+                ]}
+                placeholder="Seleccione el resultado del requerimiento"
+                required
+              />
+            )}
           </div>
 
           <ModalFooter>
@@ -138,6 +173,14 @@ export function RespuestaVecinoModal({
               ¿Está seguro de que desea enviar esta respuesta al vecino? Revise el correo, el asunto y el mensaje con
               atención antes de confirmar.
             </p>
+            {requireCierre && cierre && (
+              <p>
+                El requerimiento quedará registrado como{" "}
+                <strong>
+                  {cierre === "completado" ? "Requerimiento Completado" : "Requerimiento Rechazado"}
+                </strong>.
+              </p>
+            )}
             <p>
               Una vez enviado, el correo quedará registrado en el requerimiento y <strong>no habrá vuelta atrás</strong>:
               no se podrá deshacer ni anular el envío.

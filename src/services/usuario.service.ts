@@ -39,11 +39,63 @@ function toUsuarioDTO(user: Usuario): UsuarioDTO {
   };
 }
 
+export class UsuarioConflictError extends Error {
+  status = 409;
+  details?: unknown;
+  constructor(message: string, details?: unknown) {
+    super(message);
+    this.name = "UsuarioConflictError";
+    this.details = details;
+  }
+}
+
+/**
+ * Verifica que las direcciones asignadas a un director no tengan ya otro
+ * director activo. Lanza UsuarioConflictError si hay conflicto.
+ *
+ * @param excludeUid Para edición: uid del usuario que se está actualizando.
+ */
+async function ensureSoloDirectorPorDireccion(
+  rol: string,
+  direcciones: string[],
+  activo: boolean,
+  excludeUid?: string
+): Promise<void> {
+  if (rol !== "director" || !activo || direcciones.length === 0) return;
+
+  const existentes = await usuarioRepository.getDirectoresActivosByDirecciones(direcciones);
+  const conflictos = existentes
+    .filter((u) => u.id !== excludeUid)
+    .flatMap((u) =>
+      (u.direccionAsignadas ?? (u.direccionAsignada ? [u.direccionAsignada] : []))
+        .filter((d) => direcciones.includes(d))
+        .map((d) => ({ direccion: d, director: u.nombre, email: u.email }))
+    );
+
+  if (conflictos.length > 0) {
+    const detalle = conflictos
+      .map((c) => `${getDireccionLabel(c.direccion)} (ya asignada a ${c.director})`)
+      .join(", ");
+    throw new UsuarioConflictError(
+      `Cada dirección puede tener un único director activo. Conflictos: ${detalle}`,
+      conflictos
+    );
+  }
+}
+
 export const usuarioService = {
   /**
    * Create a new user — Firebase Auth + Firestore + Custom Claims
    */
   async create(input: UsuarioCreateInput): Promise<UsuarioDTO> {
+    const direccionesInput = input.direccionAsignadas && input.direccionAsignadas.length > 0
+      ? input.direccionAsignadas
+      : input.direccionAsignada
+        ? [input.direccionAsignada]
+        : [];
+
+    await ensureSoloDirectorPorDireccion(input.rol, direccionesInput, true);
+
     // 1. Create Firebase Auth user
     const authUser = await adminAuth.createUser({
       email: input.email,
@@ -164,6 +216,13 @@ export const usuarioService = {
       : input.direccionAsignada
         ? [input.direccionAsignada]
         : [];
+
+    await ensureSoloDirectorPorDireccion(
+      input.rol,
+      direcciones,
+      existing.activo !== false,
+      uid
+    );
     const claims: Record<string, unknown> = { rol: input.rol };
     if (direcciones.length > 0) {
       claims.direccionAsignada = direcciones[0];

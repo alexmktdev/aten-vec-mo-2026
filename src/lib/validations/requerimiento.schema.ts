@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { validateRut } from "@/lib/utils/rut";
-import { TIPOS_REQUERIMIENTO, TIPOS_INMUEBLE, REGIONES_CHILE } from "@/types/requerimiento.types";
-import { DIRECCIONES_KEYS, isValidCategoria } from "@/constants/direcciones";
+import {
+  TIPOS_REQUERIMIENTO,
+  TIPOS_INMUEBLE,
+  REGIONES_CHILE,
+  ESTADOS_REQUERIMIENTO,
+} from "@/types/requerimiento.types";
+import { DIRECCIONES_KEYS } from "@/constants/direcciones";
 
 // Vecino sub-schema
 const vecinoSchema = z.object({
@@ -30,8 +35,33 @@ const vecinoSchema = z.object({
   }),
 });
 
-// Schema completo del formulario público
+// Schema completo del formulario público (sin dirección ni categoría)
 export const requerimientoFormSchema = z
+  .object({
+    vecino: vecinoSchema,
+    tipoRequerimiento: z.enum(TIPOS_REQUERIMIENTO as unknown as [string, ...string[]], {
+      message: "Debe seleccionar un tipo de requerimiento",
+    }),
+    descripcion: z
+      .string()
+      .min(10, "La descripción debe tener al menos 10 caracteres")
+      .max(1500, "La descripción no puede exceder los 1500 caracteres"),
+  })
+  .refine(
+    (data) => data.vecino.email === data.vecino.confirmarEmail,
+    {
+      message: "Los correos electrónicos no coinciden",
+      path: ["vecino", "confirmarEmail"],
+    }
+  );
+
+export type RequerimientoFormInput = z.infer<typeof requerimientoFormSchema>;
+
+/**
+ * Schema del formulario de edición admin: igual al público pero exige dirección
+ * y categoría (el admin debe poder corregir/asignar estos campos).
+ */
+export const requerimientoAdminEditFormSchema = z
   .object({
     vecino: vecinoSchema,
     tipoRequerimiento: z.enum(TIPOS_REQUERIMIENTO as unknown as [string, ...string[]], {
@@ -50,30 +80,23 @@ export const requerimientoFormSchema = z
       message: "Los correos electrónicos no coinciden",
       path: ["vecino", "confirmarEmail"],
     }
-  )
-  .refine(
-    (data) => {
-      if (!data.direccionMunicipal || !data.categoria) return true;
-      return isValidCategoria(data.direccionMunicipal, data.categoria);
-    },
-    {
-      message: "La categoría seleccionada no corresponde a la dirección municipal elegida",
-      path: ["categoria"],
-    }
   );
 
-export type RequerimientoFormInput = z.infer<typeof requerimientoFormSchema>;
+export type RequerimientoAdminEditFormInput = z.infer<typeof requerimientoAdminEditFormSchema>;
 
 // Schema para el backend (sin confirmarEmail)
 export const requerimientoCreateSchema = z.object({
   vecino: vecinoSchema.omit({ confirmarEmail: true }),
   tipoRequerimiento: z.enum(TIPOS_REQUERIMIENTO as unknown as [string, ...string[]]),
-  direccionMunicipal: z.string().refine(
-    (val) => DIRECCIONES_KEYS.includes(val as (typeof DIRECCIONES_KEYS)[number]),
-    { message: "Dirección municipal inválida" }
-  ),
+  direccionMunicipal: z
+    .string()
+    .optional()
+    .refine(
+      (val) => !val || DIRECCIONES_KEYS.includes(val as (typeof DIRECCIONES_KEYS)[number]),
+      { message: "Dirección municipal inválida" }
+    ),
   direccionMunicipalLabel: z.string().optional(),
-  categoria: z.string().min(1),
+  categoria: z.string().optional(),
   descripcion: z.string().min(10).max(1500),
   documentos: z
     .array(
@@ -91,14 +114,26 @@ export const requerimientoCreateSchema = z.object({
 
 export type RequerimientoCreateInput = z.infer<typeof requerimientoCreateSchema>;
 
-export const requerimientoAdminEditSchema = requerimientoCreateSchema;
+/**
+ * Edición admin: aquí la dirección sí es obligatoria (el admin debe asignarla
+ * para poder derivar correctamente al área correspondiente).
+ */
+export const requerimientoAdminEditSchema = requerimientoCreateSchema.extend({
+  direccionMunicipal: z
+    .string()
+    .min(1, "Debe seleccionar una dirección municipal")
+    .refine(
+      (val) => DIRECCIONES_KEYS.includes(val as (typeof DIRECCIONES_KEYS)[number]),
+      { message: "Dirección municipal inválida" }
+    ),
+});
 
 export type RequerimientoAdminEditInput = z.infer<typeof requerimientoAdminEditSchema>;
 
-// Schema para actualización de estado
+// Schema para actualización de estado (incluye los nuevos estados)
 export const requerimientoUpdateSchema = z.object({
   estado: z
-    .enum(["pendiente", "derivado", "en_proceso", "completado", "rechazado"])
+    .enum(ESTADOS_REQUERIMIENTO as unknown as [string, ...string[]])
     .optional(),
   nota: z.string().max(1000).optional(),
 });

@@ -1,20 +1,35 @@
 import { requerimientoRepository, RequerimientoFilters } from "@/repositories/requerimiento.repository";
-import { Requerimiento, RequerimientoDTO, EstadoRequerimiento, VecinoData, TipoRequerimiento, DocumentoRequerimiento, RespuestaVecinoInput } from "@/types/requerimiento.types";
+import {
+  Requerimiento,
+  RequerimientoDTO,
+  EstadoRequerimiento,
+  VecinoData,
+  TipoRequerimiento,
+  DocumentoRequerimiento,
+  RespuestaVecinoInput,
+  AdminAsignadoRespuesta,
+} from "@/types/requerimiento.types";
 import { r2Service } from "@/services/r2.service";
 
 // Input type that accepts Zod-parsed data (Zod v4 infers enums as string)
 interface CreateInput {
   vecino: Omit<VecinoData, 'tipoInmueble'> & { tipoInmueble: string };
   tipoRequerimiento: string;
-  direccionMunicipal: string;
+  direccionMunicipal?: string;
   direccionMunicipalLabel?: string;
-  categoria: string;
+  categoria?: string;
   descripcion: string;
   documentos?: DocumentoRequerimiento[];
 }
 type UpdateDataInput = CreateInput;
 import { generateNumeroSeguimiento } from "@/lib/utils/numero-seguimiento";
-import { calcularFechaLimite, getDiasHabilesRestantes, isVencido } from "@/lib/utils/dias-habiles";
+import {
+  calcularFechaLimite,
+  extenderFechaLimiteSemanas,
+  reducirFechaLimiteSemanas,
+  getDiasHabilesRestantes,
+  isVencido,
+} from "@/lib/utils/dias-habiles";
 import { getDireccionLabel } from "@/constants/direcciones";
 import { buildDashboardChartsPayload } from "@/lib/dashboard/chart-analytics";
 import type { DashboardChartsPayload } from "@/types/dashboard-charts.types";
@@ -32,6 +47,15 @@ function timestampToString(ts: Timestamp | Date | string | undefined): string {
   return "";
 }
 
+function toDateFromAny(value: Date | string | { toDate?: () => Date }): Date {
+  if (value instanceof Date) return value;
+  if (typeof value === "string") return new Date(value);
+  if (value && typeof (value as { toDate?: () => Date }).toDate === "function") {
+    return (value as { toDate: () => Date }).toDate();
+  }
+  return new Date();
+}
+
 function invalidateDashboardAndListCaches(): void {
   invalidateCacheByPrefix("requerimientos:list:");
   invalidateCacheByPrefix("dashboard:stats:");
@@ -39,6 +63,34 @@ function invalidateDashboardAndListCaches(): void {
   invalidateCacheByPrefix("dashboard:charts:");
   invalidateCacheByPrefix("dashboard:urgentes:");
   invalidateCacheByPrefix("reports:data:");
+}
+
+/**
+ * Calcula la nueva fecha límite cuando un cambio de estado debe afectar el plazo.
+ * - Avanzar a en_espera_1 o en_espera_2: extiende 2 semanas hábiles.
+ * - Volver desde un en_espera_* hacia un estado anterior: NO se devuelve aquí
+ *   automáticamente; la compensación se hace solo en `revertirEstado` para que
+ *   las idas y vueltas por error en transición directa no recorten plazos sin querer.
+ * - Cualquier otro cambio: sin efecto.
+ *
+ * Retorna null cuando no hay que modificar la fecha.
+ */
+function computeNuevaFechaLimitePorTransicion(
+  fechaLimiteActual: Date,
+  estadoActual: EstadoRequerimiento,
+  estadoDestino: EstadoRequerimiento
+): Date | null {
+  if (estadoDestino === "en_espera_1" && estadoActual !== "en_espera_1" && estadoActual !== "en_espera_2") {
+    return extenderFechaLimiteSemanas(fechaLimiteActual, 2);
+  }
+  if (estadoDestino === "en_espera_2" && estadoActual === "en_espera_1") {
+    return extenderFechaLimiteSemanas(fechaLimiteActual, 2);
+  }
+  if (estadoDestino === "en_espera_2" && estadoActual !== "en_espera_1" && estadoActual !== "en_espera_2") {
+    // Salto directo a espera 2 (caso excepcional admin/superadmin): solo 2 semanas extra.
+    return extenderFechaLimiteSemanas(fechaLimiteActual, 2);
+  }
+  return null;
 }
 
 function getTimeFromDateLike(value: string | Date | undefined): number {
@@ -97,6 +149,15 @@ function toRequerimientoDTO(req: Requerimiento): RequerimientoDTO {
           usuarioId: req.evidenciaResolucion.usuarioId,
         }
       : undefined,
+    adminAsignadoRespuesta: req.adminAsignadoRespuesta
+      ? {
+          uid: req.adminAsignadoRespuesta.uid,
+          nombre: req.adminAsignadoRespuesta.nombre,
+          email: req.adminAsignadoRespuesta.email,
+          asignadoEn: timestampToString(req.adminAsignadoRespuesta.asignadoEn),
+          asignadoPor: req.adminAsignadoRespuesta.asignadoPor,
+        }
+      : undefined,
     fechaIngreso: timestampToString(req.fechaIngreso),
     fechaLimite: timestampToString(req.fechaLimite),
     fechaResolucion: req.fechaResolucion ? timestampToString(req.fechaResolucion) : undefined,
@@ -117,15 +178,17 @@ export const requerimientoService = {
     const numeroSeguimiento = await generateNumeroSeguimiento();
     const now = new Date();
     const fechaLimite = calcularFechaLimite(now);
-    const direccionMunicipalLabel = input.direccionMunicipalLabel || getDireccionLabel(input.direccionMunicipal);
+    const direccionMunicipal = input.direccionMunicipal || "";
+    const direccionMunicipalLabel = input.direccionMunicipalLabel
+      || (direccionMunicipal ? getDireccionLabel(direccionMunicipal) : "");
 
     const requerimientoData = {
       numeroSeguimiento,
       vecino: input.vecino as unknown as VecinoData,
       tipoRequerimiento: input.tipoRequerimiento as TipoRequerimiento,
-      direccionMunicipal: input.direccionMunicipal,
+      direccionMunicipal,
       direccionMunicipalLabel,
-      categoria: input.categoria,
+      categoria: input.categoria || "",
       descripcion: input.descripcion,
       documentos: input.documentos || [],
       estado: "pendiente" as const,
@@ -156,15 +219,18 @@ export const requerimientoService = {
    * after the HTTP response is sent (emails won't block the user).
    */
   async afterCreate(input: CreateInput, numeroSeguimiento: string): Promise<void> {
-    const direccionMunicipalLabel = input.direccionMunicipalLabel || getDireccionLabel(input.direccionMunicipal);
+    const direccionMunicipal = input.direccionMunicipal || "";
+    const direccionMunicipalLabel = input.direccionMunicipalLabel
+      || (direccionMunicipal ? getDireccionLabel(direccionMunicipal) : "");
+    const categoria = input.categoria || "";
     const now = new Date();
 
     await Promise.allSettled([
       dashboardMetricsService.onCreate({
         tipoRequerimiento: input.tipoRequerimiento as TipoRequerimiento,
-        direccionMunicipal: input.direccionMunicipal,
+        direccionMunicipal,
         direccionMunicipalLabel,
-        categoria: input.categoria,
+        categoria,
         estado: "pendiente",
       } as Requerimiento),
       notificacionService.enviarConfirmacionVecino({
@@ -172,7 +238,7 @@ export const requerimientoService = {
         vecino: input.vecino as unknown as VecinoData,
         tipoRequerimiento: input.tipoRequerimiento,
         direccionMunicipalLabel,
-        categoria: input.categoria,
+        categoria,
         descripcion: input.descripcion,
         fechaIngreso: now.toLocaleDateString("es-CL"),
       }),
@@ -181,7 +247,7 @@ export const requerimientoService = {
         vecino: input.vecino as unknown as VecinoData,
         tipoRequerimiento: input.tipoRequerimiento,
         direccionMunicipalLabel,
-        categoria: input.categoria,
+        categoria,
         descripcion: input.descripcion,
         fechaIngreso: now.toLocaleDateString("es-CL"),
       }),
@@ -230,6 +296,11 @@ export const requerimientoService = {
   /**
    * Update requerimiento status.
    * Accepts optional `existing` to skip re-reading the doc from Firestore.
+   *
+   * Si el estado destino es "en_espera_1" o "en_espera_2" la fecha límite
+   * vigente se extiende automáticamente en 2 semanas hábiles. Si la transición
+   * proviene de uno de esos estados hacia un estado anterior, se devuelve el
+   * plazo (compensación). Otras transiciones no afectan el plazo.
    */
   async updateEstado(
     id: string,
@@ -240,10 +311,159 @@ export const requerimientoService = {
   ): Promise<void> {
     const current = existing ?? await requerimientoRepository.getById(id);
     if (!current) return;
-    await requerimientoRepository.addEstadoToHistorial(id, estado, usuarioId, nota);
+    if (current.estado === estado) return;
+
+    const fechaLimite = computeNuevaFechaLimitePorTransicion(
+      toDateFromAny(current.fechaLimite),
+      current.estado as EstadoRequerimiento,
+      estado
+    );
+
+    // Si el estado destino sale de derivado_respuesta_final hacia un estado
+    // anterior, limpiamos al admin asignado (la responsabilidad vuelve al director).
+    const limpiarAdminAsignado =
+      current.estado === "derivado_respuesta_final" &&
+      estado !== "derivado_respuesta_final" &&
+      estado !== "completado" &&
+      estado !== "rechazado";
+
+    await requerimientoRepository.addEstadoToHistorial(id, estado, usuarioId, nota, {
+      fechaLimite: fechaLimite ?? undefined,
+      adminAsignadoRespuesta: limpiarAdminAsignado ? null : undefined,
+    });
     await dashboardMetricsService.onEstadoChange(current as unknown as Requerimiento, estado);
     logger.info({ id, estado, usuarioId }, "Requerimiento status updated");
     invalidateDashboardAndListCaches();
+  },
+
+  /**
+   * El director deriva el requerimiento a un admin específico para que envíe
+   * la respuesta final al vecino. Solo aplica a los tipos:
+   * Información / Reclamo / Sugerencia / Felicitación.
+   */
+  async derivarRespuestaFinal(
+    id: string,
+    admin: { uid: string; nombre: string; email: string },
+    directorUid: string,
+    nota?: string,
+    existing?: RequerimientoDTO
+  ): Promise<void> {
+    const current = existing ?? await requerimientoRepository.getById(id);
+    if (!current) throw new Error("Requerimiento no encontrado");
+
+    if (
+      current.estado !== "en_proceso" &&
+      current.estado !== "en_espera_1" &&
+      current.estado !== "en_espera_2"
+    ) {
+      throw new Error("Solo se puede derivar a respuesta final desde en proceso o espera");
+    }
+
+    const asignacion: AdminAsignadoRespuesta = {
+      uid: admin.uid,
+      nombre: admin.nombre,
+      email: admin.email,
+      asignadoEn: new Date(),
+      asignadoPor: directorUid,
+    };
+
+    await requerimientoRepository.addEstadoToHistorial(
+      id,
+      "derivado_respuesta_final",
+      directorUid,
+      nota || `Derivado a ${admin.nombre} (${admin.email}) para respuesta final`,
+      { adminAsignadoRespuesta: asignacion }
+    );
+
+    await dashboardMetricsService.onEstadoChange(
+      current as unknown as Requerimiento,
+      "derivado_respuesta_final"
+    );
+
+    try {
+      await notificacionService.enviarDerivacionRespuestaFinal(admin.email, {
+        adminNombre: admin.nombre,
+        numeroSeguimiento: current.numeroSeguimiento,
+        vecino: current.vecino,
+        tipoRequerimiento: current.tipoRequerimiento,
+        direccionMunicipalLabel: current.direccionMunicipalLabel,
+        descripcion: current.descripcion,
+        fechaIngreso: toDateFromAny(current.fechaIngreso),
+        fechaLimite: toDateFromAny(current.fechaLimite),
+        evidencia: current.evidenciaResolucion
+          ? {
+              tipo: current.evidenciaResolucion.tipo,
+              nombre: current.evidenciaResolucion.nombre,
+              url:
+                current.evidenciaResolucion.tipo === "link"
+                  ? current.evidenciaResolucion.url
+                  : undefined,
+            }
+          : undefined,
+      });
+    } catch (err) {
+      logger.error({ err, id, adminEmail: admin.email }, "Failed to notify admin for final response");
+    }
+
+    invalidateDashboardAndListCaches();
+  },
+
+  /**
+   * Revierte el último cambio de estado del requerimiento, con compensación
+   * de plazo y limpieza de adminAsignadoRespuesta cuando corresponde.
+   * Política: solo si NO se envió respuesta al vecino.
+   */
+  async revertirEstado(
+    id: string,
+    usuarioId: string,
+    existing?: RequerimientoDTO
+  ): Promise<{ estadoAntes: EstadoRequerimiento; estadoDespues: EstadoRequerimiento }> {
+    const current = existing ?? await requerimientoRepository.getById(id);
+    if (!current) throw new Error("Requerimiento no encontrado");
+    if ((current.respuestasVecino?.length || 0) > 0) {
+      throw new Error("No se puede revertir: ya se envió respuesta al vecino");
+    }
+    const hist = current.historialEstados || [];
+    if (hist.length < 2) {
+      throw new Error("No hay un estado anterior al cual revertir");
+    }
+    const estadoAntes = current.estado as EstadoRequerimiento;
+    const previo = hist[hist.length - 2].estado as EstadoRequerimiento;
+
+    // Compensación de plazo: si estoy saliendo de en_espera_1/2, devuelvo 2 semanas hábiles.
+    const fechaLimiteActual = toDateFromAny(current.fechaLimite);
+    let nuevaFechaLimite: Date | undefined;
+    if (estadoAntes === "en_espera_2" && previo !== "en_espera_2") {
+      nuevaFechaLimite = reducirFechaLimiteSemanas(fechaLimiteActual, 2);
+    } else if (estadoAntes === "en_espera_1" && previo !== "en_espera_1") {
+      nuevaFechaLimite = reducirFechaLimiteSemanas(fechaLimiteActual, 2);
+    } else if (
+      (previo === "en_espera_1" || previo === "en_espera_2") &&
+      estadoAntes !== "en_espera_1" &&
+      estadoAntes !== "en_espera_2"
+    ) {
+      // Si volvemos hacia en_espera, debemos restaurar las semanas que se habían
+      // descontado al avanzar (no es habitual, pero matemáticamente coherente).
+      nuevaFechaLimite = extenderFechaLimiteSemanas(fechaLimiteActual, 2);
+    }
+
+    const limpiarAdmin = estadoAntes === "derivado_respuesta_final";
+
+    await requerimientoRepository.addEstadoToHistorial(
+      id,
+      previo,
+      usuarioId,
+      `[REVERSIÓN] ${estadoAntes} -> ${previo}`,
+      {
+        fechaLimite: nuevaFechaLimite,
+        adminAsignadoRespuesta: limpiarAdmin ? null : undefined,
+      }
+    );
+
+    await dashboardMetricsService.onEstadoChange(current as unknown as Requerimiento, previo);
+    invalidateDashboardAndListCaches();
+    logger.info({ id, estadoAntes, previo, usuarioId }, "Estado revertido");
+    return { estadoAntes, estadoDespues: previo };
   },
 
   /**
@@ -261,21 +481,23 @@ export const requerimientoService = {
       throw new Error("Requerimiento no encontrado");
     }
 
-    const direccionMunicipalLabel = input.direccionMunicipalLabel || getDireccionLabel(input.direccionMunicipal);
+    const direccionMunicipal = input.direccionMunicipal ?? "";
+    const categoria = input.categoria ?? "";
+    const direccionMunicipalLabel = input.direccionMunicipalLabel || (direccionMunicipal ? getDireccionLabel(direccionMunicipal) : "");
 
     await requerimientoRepository.update(id, {
       vecino: input.vecino as unknown as VecinoData,
       tipoRequerimiento: input.tipoRequerimiento as TipoRequerimiento,
-      direccionMunicipal: input.direccionMunicipal,
+      direccionMunicipal,
       direccionMunicipalLabel,
-      categoria: input.categoria,
+      categoria,
       descripcion: input.descripcion,
       documentos: input.documentos || [],
     });
 
     await dashboardMetricsService.onDataChange(
       current as unknown as Requerimiento,
-      { estado: current.estado, direccionMunicipalLabel, categoria: input.categoria } as unknown as Requerimiento,
+      { estado: current.estado, direccionMunicipalLabel, categoria } as unknown as Requerimiento,
     );
 
     logger.info({ id }, "Requerimiento data updated");
@@ -311,7 +533,7 @@ export const requerimientoService = {
 
   async enviarRespuestaVecino(
     id: string,
-    input: RespuestaVecinoInput,
+    input: RespuestaVecinoInput & { cierre?: "completado" | "rechazado" },
     usuarioId: string,
     existing?: RequerimientoDTO
   ): Promise<void> {
@@ -319,8 +541,18 @@ export const requerimientoService = {
     if (!current) {
       throw new Error("Requerimiento no encontrado");
     }
-    if (current.estado !== "completado" && current.estado !== "rechazado") {
-      throw new Error("Solo se puede enviar respuesta al vecino cuando el requerimiento está completado o rechazado");
+
+    const estado = current.estado as EstadoRequerimiento;
+    const estadoPermiteEnvio: EstadoRequerimiento[] = [
+      "en_proceso",
+      "en_espera_1",
+      "en_espera_2",
+      "derivado_respuesta_final",
+      "completado",
+      "rechazado",
+    ];
+    if (!estadoPermiteEnvio.includes(estado)) {
+      throw new Error("El estado actual del requerimiento no permite enviar la respuesta al vecino");
     }
     if ((current.respuestasVecino?.length || 0) > 0) {
       throw new Error("Ya existe una respuesta enviada al vecino para este requerimiento");
@@ -368,6 +600,25 @@ export const requerimientoService = {
       usuarioId,
     });
 
+    // Si nos pasaron un estado de cierre, lo registramos como historial.
+    if (
+      input.cierre &&
+      input.cierre !== current.estado &&
+      (input.cierre === "completado" || input.cierre === "rechazado")
+    ) {
+      await requerimientoRepository.addEstadoToHistorial(
+        id,
+        input.cierre,
+        usuarioId,
+        `Cierre por envío de respuesta al vecino`,
+        { adminAsignadoRespuesta: null }
+      );
+      await dashboardMetricsService.onEstadoChange(
+        current as unknown as Requerimiento,
+        input.cierre
+      );
+    }
+
     logger.info({ id, usuarioId, emailDestino: input.emailDestino }, "Citizen response registered");
     invalidateDashboardAndListCaches();
   },
@@ -380,8 +631,9 @@ export const requerimientoService = {
   ): Promise<void> {
     const current = existing ?? await requerimientoRepository.getById(id);
     if (!current) throw new Error("Requerimiento no encontrado");
-    if (current.estado !== "en_proceso") {
-      throw new Error("Solo se puede adjuntar evidencia cuando el requerimiento está en proceso de solución");
+    const estadosOk: EstadoRequerimiento[] = ["en_proceso", "en_espera_1", "en_espera_2"];
+    if (!estadosOk.includes(current.estado as EstadoRequerimiento)) {
+      throw new Error("Solo se puede adjuntar evidencia mientras el requerimiento está en proceso o en espera");
     }
 
     await requerimientoRepository.update(id, {
@@ -399,8 +651,9 @@ export const requerimientoService = {
   async clearEvidenciaResolucion(id: string, existing?: RequerimientoDTO): Promise<void> {
     const current = existing ?? await requerimientoRepository.getById(id);
     if (!current) throw new Error("Requerimiento no encontrado");
-    if (current.estado !== "en_proceso") {
-      throw new Error("Solo puede eliminar evidencia cuando el requerimiento está en proceso de solución");
+    const estadosOk: EstadoRequerimiento[] = ["en_proceso", "en_espera_1", "en_espera_2"];
+    if (!estadosOk.includes(current.estado as EstadoRequerimiento)) {
+      throw new Error("Solo puede eliminar evidencia mientras el requerimiento está en proceso o en espera");
     }
     if (!current.evidenciaResolucion) {
       return;
@@ -428,7 +681,18 @@ export const requerimientoService = {
    * Dashboard stats — usa métricas pre-agregadas (1 doc) cuando no hay restricción;
    * solo necesita scan completo como fallback o para urgentesActivos (no pre-agregado).
    */
-  async getStats(direccionRestriccion?: string[]) {
+  async getStats(direccionRestriccion?: string[]): Promise<{
+    total: number;
+    pendiente: number;
+    derivado: number;
+    en_proceso: number;
+    en_espera_1: number;
+    en_espera_2: number;
+    derivado_respuesta_final: number;
+    completado: number;
+    rechazado: number;
+    urgentesActivos: number;
+  }> {
     const cacheKey = `dashboard:stats:${direccionRestriccion?.sort().join(",") ?? "global"}`;
     return cached(cacheKey, 120_000, async () => {
       if (!direccionRestriccion || direccionRestriccion.length === 0) {

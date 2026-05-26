@@ -11,6 +11,8 @@ import {
   useDeleteRequerimiento,
   useEnviarRespuestaVecino,
   useDeleteEvidenciaResolucion,
+  useDerivarRespuestaFinal,
+  useRevertirEstado,
 } from "@/hooks/useRequerimientos";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -20,13 +22,29 @@ import { Textarea } from "@/components/ui/Textarea";
 import { Alert } from "@/components/ui/Alert";
 import { RequerimientoStatusBadge } from "@/components/features/requerimientos/RequerimientoStatusBadge";
 import { AlertaVencimiento } from "@/components/features/requerimientos/AlertaVencimiento";
-import { ESTADO_LABELS, ESTADOS_REQUERIMIENTO, EstadoRequerimiento } from "@/types/requerimiento.types";
+import {
+  ESTADO_LABELS,
+  ESTADOS_REQUERIMIENTO,
+  EstadoRequerimiento,
+  ESTADOS_PERMITEN_EVIDENCIA,
+  requiereRespuestaDirectaDirector,
+  requiereRespuestaFinalPorAdmin,
+} from "@/types/requerimiento.types";
 import { RequerimientoCreateInput } from "@/lib/validations/requerimiento.schema";
-import { ArrowLeft, Loader2, Mail, Pencil, Send, Trash2 } from "lucide-react";
-import { canDeleteRequerimiento, canDerivarRequerimiento, canEditRequerimientoData, canSendCitizenResponse, getAllowedNextStates } from "@/lib/requerimiento-permissions";
+import { ArrowLeft, Loader2, Mail, Pencil, Send, Trash2, Undo2, Users } from "lucide-react";
+import {
+  canDeleteRequerimiento,
+  canDerivarRequerimiento,
+  canDerivarRespuestaFinal,
+  canEditRequerimientoData,
+  canEnviarRespuestaFinal,
+  canRevertirEstado,
+  getAllowedNextStates,
+} from "@/lib/requerimiento-permissions";
 import { ApiClientError } from "@/lib/api/fetch-json";
 import { ConfirmDeleteModal } from "@/components/ui/ConfirmDeleteModal";
 import { EvidenciaResolucionForm } from "@/components/features/requerimientos/EvidenciaResolucionForm";
+import type { CierreRespuesta } from "@/components/features/requerimientos/RespuestaVecinoModal";
 
 const DerivacionModal = dynamic(
   () => import("@/components/features/requerimientos/DerivacionModal").then((mod) => mod.DerivacionModal),
@@ -43,6 +61,14 @@ const EditarRequerimientoModal = dynamic(
   { ssr: false }
 );
 
+const DerivarRespuestaFinalModal = dynamic(
+  () =>
+    import("@/components/features/requerimientos/DerivarRespuestaFinalModal").then(
+      (mod) => mod.DerivarRespuestaFinalModal
+    ),
+  { ssr: false }
+);
+
 export default function RequerimientoDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -55,13 +81,17 @@ export default function RequerimientoDetailPage() {
   const deleteMutation = useDeleteRequerimiento();
   const respuestaMutation = useEnviarRespuestaVecino();
   const deleteEvidenciaMutation = useDeleteEvidenciaResolucion();
+  const derivarFinalMutation = useDerivarRespuestaFinal();
+  const revertirMutation = useRevertirEstado();
 
   const [newEstado, setNewEstado] = useState("");
   const [nota, setNota] = useState("");
   const [showEditar, setShowEditar] = useState(false);
   const [showDerivar, setShowDerivar] = useState(false);
+  const [showDerivarFinal, setShowDerivarFinal] = useState(false);
   const [showRespuesta, setShowRespuesta] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showRevertirConfirm, setShowRevertirConfirm] = useState(false);
   const [showPendienteEvidenciaModal, setShowPendienteEvidenciaModal] = useState(false);
   const [pendienteEvidenciaNota, setPendienteEvidenciaNota] = useState<string | undefined>();
   const [pendienteEvidenciaActionLoading, setPendienteEvidenciaActionLoading] = useState(false);
@@ -73,35 +103,52 @@ export default function RequerimientoDetailPage() {
     setNota("");
   }, [id]);
 
+  const hasRespuestaVecino = !!req && (req.respuestasVecino?.length || 0) > 0;
+  const estadoTransitionContext = { hasRespuestaVecino };
+  const tipo = req?.tipoRequerimiento;
+  const esTipoRespuestaDirecta = !!tipo && requiereRespuestaDirectaDirector(tipo);
+  const esTipoRespuestaAdmin = !!tipo && requiereRespuestaFinalPorAdmin(tipo);
+
   const canDerivar = !!user && !!req && canDerivarRequerimiento(user.rol) && req.estado === "pendiente";
   const canDelete = !!user && canDeleteRequerimiento(user.rol);
-  const canResponderVecino = !!user && !!req && canSendCitizenResponse(user.rol) && (req.estado === "completado" || req.estado === "rechazado");
-  const puedeEditarDatosAhora = !!user && !!req && canEditRequerimientoData(user.rol, req.estado);
+  const canEditarDatos = !!user && !!req && canEditRequerimientoData(user.rol, req.estado);
   const muestraBotonEditarDatos =
     !!user &&
     !!req &&
     (user.rol === "superadmin" || user.rol === "admin" || user.rol === "administradora-municipal");
-  const hasRespuestaVecino = !!req && (req.respuestasVecino?.length || 0) > 0;
-  const estadoTransitionContext = { hasRespuestaVecino };
   const isAdmin = user?.rol === "admin";
   const allowedNextStates =
     !!user && !!req ? getAllowedNextStates(user.rol, req.estado, estadoTransitionContext) : [];
-  const canChangeEstado = allowedNextStates.length > 0 && !(hasRespuestaVecino && (req?.estado === "completado" || req?.estado === "rechazado"));
+  const canChangeEstado =
+    allowedNextStates.length > 0 &&
+    !(hasRespuestaVecino && (req?.estado === "completado" || req?.estado === "rechazado"));
+
+  const puedeDerivarFinal = !!user && !!req && canDerivarRespuestaFinal(user, req);
+  const puedeEnviarRespuestaFinal = !!user && !!req && canEnviarRespuestaFinal(user, req);
+  const puedeRevertir = !!user && !!req && canRevertirEstado(user.rol, req);
+
+  const evidenciaPermitida =
+    !!req && ESTADOS_PERMITEN_EVIDENCIA.includes(req.estado);
+  const evidenciaPuedeGestionar =
+    !!user && evidenciaPermitida && (user.rol === "director" || user.rol === "superadmin");
+
   const isProcessingAction =
     updateMutation.isPending ||
     derivarMutation.isPending ||
     respuestaMutation.isPending ||
     deleteMutation.isPending ||
     updateDatosMutation.isPending ||
+    derivarFinalMutation.isPending ||
+    revertirMutation.isPending ||
     pendienteEvidenciaActionLoading;
 
-  const getErrorMessage = (error: unknown): string => {
-    if (error instanceof ApiClientError) {
-      const details = Array.isArray(error.details) ? error.details : [];
+  const getErrorMessage = (err: unknown): string => {
+    if (err instanceof ApiClientError) {
+      const details = Array.isArray(err.details) ? err.details : [];
       const firstIssue = details.length > 0 && typeof details[0]?.message === "string" ? details[0].message : null;
-      return firstIssue || error.message || "Error al actualizar el requerimiento";
+      return firstIssue || err.message || "Error al actualizar el requerimiento";
     }
-    if (error instanceof Error) return error.message;
+    if (err instanceof Error) return err.message;
     return "Error al actualizar el requerimiento";
   };
 
@@ -112,7 +159,9 @@ export default function RequerimientoDetailPage() {
 
     if (
       estadoEnviar === "pendiente" &&
-      req.estado === "en_proceso" &&
+      (req.estado === "en_proceso" ||
+        req.estado === "en_espera_1" ||
+        req.estado === "en_espera_2") &&
       req.evidenciaResolucion
     ) {
       setPendienteEvidenciaNota(nota.trim() || undefined);
@@ -131,8 +180,8 @@ export default function RequerimientoDetailPage() {
       setNewEstado("");
       setNota("");
       setTimeout(() => setSuccessMsg(""), 3000);
-    } catch (error) {
-      setErrorMsg(getErrorMessage(error));
+    } catch (err) {
+      setErrorMsg(getErrorMessage(err));
     }
   };
 
@@ -153,8 +202,8 @@ export default function RequerimientoDetailPage() {
       setNota("");
       setSuccessMsg("Evidencia eliminada y requerimiento vuelto a pendiente");
       setTimeout(() => setSuccessMsg(""), 4000);
-    } catch (error) {
-      setErrorMsg(getErrorMessage(error));
+    } catch (err) {
+      setErrorMsg(getErrorMessage(err));
       setShowPendienteEvidenciaModal(false);
     } finally {
       setPendienteEvidenciaActionLoading(false);
@@ -168,19 +217,52 @@ export default function RequerimientoDetailPage() {
       setSuccessMsg("Requerimiento derivado exitosamente");
       setNewEstado("");
       setTimeout(() => setSuccessMsg(""), 3000);
-    } catch (error) {
-      setErrorMsg(getErrorMessage(error));
+    } catch (err) {
+      setErrorMsg(getErrorMessage(err));
     }
   };
 
-  const handleEnviarRespuesta = async (payload: { emailDestino: string; asunto: string; mensaje: string }) => {
+  const handleDerivarRespuestaFinal = async (payload: { adminUid: string; nota?: string }) => {
+    setErrorMsg("");
+    try {
+      await derivarFinalMutation.mutateAsync({ id, ...payload });
+      setSuccessMsg("Requerimiento derivado al admin para respuesta final");
+      setTimeout(() => setSuccessMsg(""), 3000);
+    } catch (err) {
+      setErrorMsg(getErrorMessage(err));
+      throw err;
+    }
+  };
+
+  const handleEnviarRespuesta = async (payload: {
+    emailDestino: string;
+    asunto: string;
+    mensaje: string;
+    cierre?: CierreRespuesta;
+  }) => {
     setErrorMsg("");
     try {
       await respuestaMutation.mutateAsync({ id, payload });
       setSuccessMsg("Correo de respuesta enviado y registrado en el requerimiento");
       setTimeout(() => setSuccessMsg(""), 3000);
-    } catch (error) {
-      setErrorMsg(getErrorMessage(error));
+    } catch (err) {
+      setErrorMsg(getErrorMessage(err));
+      throw err;
+    }
+  };
+
+  const handleRevertir = async () => {
+    setErrorMsg("");
+    try {
+      const result = await revertirMutation.mutateAsync(id);
+      setShowRevertirConfirm(false);
+      setSuccessMsg(
+        `Estado revertido: ${ESTADO_LABELS[result.estadoAntes]} → ${ESTADO_LABELS[result.estadoDespues]}`
+      );
+      setTimeout(() => setSuccessMsg(""), 5000);
+    } catch (err) {
+      setErrorMsg(getErrorMessage(err));
+      setShowRevertirConfirm(false);
     }
   };
 
@@ -191,7 +273,12 @@ export default function RequerimientoDetailPage() {
   };
 
   if (isLoading) {
-    return <div className="animate-pulse space-y-6"><div className="h-8 bg-slate-100 rounded w-48" /><div className="h-64 bg-slate-100 rounded-2xl" /></div>;
+    return (
+      <div className="animate-pulse space-y-6">
+        <div className="h-8 bg-slate-100 rounded w-48" />
+        <div className="h-64 bg-slate-100 rounded-2xl" />
+      </div>
+    );
   }
 
   if (error || !req) {
@@ -199,9 +286,9 @@ export default function RequerimientoDetailPage() {
   }
 
   const estadoOptions = req && user
-    ? [req.estado, ...getAllowedNextStates(user.rol, req.estado, estadoTransitionContext)].filter(
-        (estado, index, arr) => arr.indexOf(estado) === index
-      ).map((estado) => ({ value: estado, label: ESTADO_LABELS[estado] }))
+    ? [req.estado, ...getAllowedNextStates(user.rol, req.estado, estadoTransitionContext)]
+        .filter((estado, index, arr) => arr.indexOf(estado) === index)
+        .map((estado) => ({ value: estado, label: ESTADO_LABELS[estado] }))
     : ESTADOS_REQUERIMIENTO.map((e) => ({ value: e, label: ESTADO_LABELS[e] }));
 
   const handleActualizarDatos = async (payload: RequerimientoCreateInput) => {
@@ -209,6 +296,8 @@ export default function RequerimientoDetailPage() {
     setSuccessMsg("Datos del requerimiento actualizados exitosamente");
     setTimeout(() => setSuccessMsg(""), 3000);
   };
+
+  const requireCierreEnRespuesta = !(req.estado === "completado" || req.estado === "rechazado");
 
   return (
     <div className="space-y-6">
@@ -229,12 +318,21 @@ export default function RequerimientoDetailPage() {
             </p>
           </Alert>
         )}
-        {isAdmin && req.estado !== "pendiente" && (
+        {isAdmin && req.estado !== "pendiente" && req.estado !== "derivado_respuesta_final" && (
           <Alert>
             <p className="text-sm text-slate-700">
               Como administrador, usted no puede modificar el estado manualmente. Si la derivación fue
               incorrecta, el director de la dirección asignada puede devolver el requerimiento a «{ESTADO_LABELS.pendiente}»
               para que pueda derivar nuevamente.
+            </p>
+          </Alert>
+        )}
+        {req.estado === "derivado_respuesta_final" && req.adminAsignadoRespuesta && (
+          <Alert variant="info">
+            <p className="text-sm">
+              Derivado a <strong>{req.adminAsignadoRespuesta.nombre}</strong> (
+              {req.adminAsignadoRespuesta.email}) para enviar la respuesta final al vecino. Solo ese admin
+              podrá enviar el correo desde el panel.
             </p>
           </Alert>
         )}
@@ -285,8 +383,16 @@ export default function RequerimientoDetailPage() {
             <CardContent>
               <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mb-4">
                 <div><dt className="text-slate-500">Tipo</dt><dd className="font-medium">{req.tipoRequerimiento}</dd></div>
-                <div><dt className="text-slate-500">Dirección Municipal</dt><dd className="font-medium">{req.direccionMunicipalLabel}</dd></div>
-                <div><dt className="text-slate-500">Categoría</dt><dd className="font-medium">{req.categoria}</dd></div>
+                <div>
+                  <dt className="text-slate-500">Dirección Municipal</dt>
+                  <dd className="font-medium">{req.direccionMunicipalLabel || "Pendiente de derivación"}</dd>
+                </div>
+                {req.categoria && (
+                  <div>
+                    <dt className="text-slate-500">Categoría</dt>
+                    <dd className="font-medium">{req.categoria}</dd>
+                  </div>
+                )}
                 <div><dt className="text-slate-500">Fecha Ingreso</dt><dd className="font-medium">{new Date(req.fechaIngreso).toLocaleDateString("es-CL")}</dd></div>
                 <div><dt className="text-slate-500">Fecha Límite</dt><dd className="font-medium">{new Date(req.fechaLimite).toLocaleDateString("es-CL")}</dd></div>
                 <div><dt className="text-slate-500">Días Hábiles Restantes</dt><dd className="font-medium">{req.vencido ? "Vencido" : req.diasHabilesRestantes}</dd></div>
@@ -314,9 +420,9 @@ export default function RequerimientoDetailPage() {
                           <p className="text-xs text-slate-500">{(doc.tamanio / 1024 / 1024).toFixed(2)} MB</p>
                         </div>
                       </div>
-                      <a 
-                        href={`/api/documentos?key=${encodeURIComponent(doc.nombreR2)}&requerimientoId=${encodeURIComponent(req.id)}`} 
-                        target="_blank" 
+                      <a
+                        href={`/api/documentos?key=${encodeURIComponent(doc.nombreR2)}&requerimientoId=${encodeURIComponent(req.id)}`}
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="text-sm text-blue-600 font-medium hover:text-blue-800 px-3 py-1 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
                       >
@@ -330,14 +436,14 @@ export default function RequerimientoDetailPage() {
           )}
 
           {/* Evidencia de resolución */}
-          {req.estado === "en_proceso" && !!user && (user.rol === "director" || user.rol === "superadmin") && (
+          {evidenciaPuedeGestionar && (
             <EvidenciaResolucionForm
               requerimientoId={req.id}
               canManage
               evidenciaExistente={req.evidenciaResolucion}
             />
           )}
-          {req.estado !== "en_proceso" && req.evidenciaResolucion && (
+          {!evidenciaPuedeGestionar && req.evidenciaResolucion && (
             <EvidenciaResolucionForm
               requerimientoId={req.id}
               evidenciaExistente={req.evidenciaResolucion}
@@ -412,9 +518,9 @@ export default function RequerimientoDetailPage() {
                   <Button
                     variant="outline"
                     size="full"
-                    disabled={!puedeEditarDatosAhora || updateDatosMutation.isPending}
+                    disabled={!canEditarDatos || updateDatosMutation.isPending}
                     title={
-                      puedeEditarDatosAhora
+                      canEditarDatos
                         ? undefined
                         : req.estado === "completado" || req.estado === "rechazado"
                           ? "No puede editar datos completos en completado o rechazado. Si aún no envió correo al vecino, vuelva primero a «En proceso de solución»."
@@ -423,27 +529,11 @@ export default function RequerimientoDetailPage() {
                             : undefined
                     }
                     onClick={() => {
-                      if (puedeEditarDatosAhora) setShowEditar(true);
+                      if (canEditarDatos) setShowEditar(true);
                     }}
                   >
                     <Pencil className="h-4 w-4 mr-2" /> Editar datos completos
                   </Button>
-                  {req.estado === "completado" || req.estado === "rechazado"
-                    ? (user?.rol === "superadmin" ||
-                        user?.rol === "admin" ||
-                        user?.rol === "administradora-municipal") && (
-                        <p className="text-xs text-slate-500">
-                          En «{ESTADO_LABELS[req.estado]}» no está permitida la edición completa de datos. Si aún no envió
-                          correo al vecino, use «Cambiar estado» para volver a «{ESTADO_LABELS.en_proceso}».
-                        </p>
-                      )
-                    : (user?.rol === "admin" || user?.rol === "administradora-municipal") &&
-                      req.estado !== "pendiente" && (
-                        <p className="text-xs text-slate-500">
-                          La edición completa solo está disponible con estado «{ESTADO_LABELS.pendiente}». Tras derivar,
-                          deberá esperar a que un director devuelva el requerimiento a pendiente si hubo un error.
-                        </p>
-                      )}
                 </div>
               )}
 
@@ -457,24 +547,76 @@ export default function RequerimientoDetailPage() {
                 </Button>
               )}
 
-              {canResponderVecino && (
+              {/* Derivar para respuesta final (Información/Reclamo/Sugerencia/Felicitación) */}
+              {esTipoRespuestaAdmin && puedeDerivarFinal && (
+                <Button
+                  variant="secondary"
+                  size="full"
+                  onClick={() => setShowDerivarFinal(true)}
+                  className="bg-purple-100 text-purple-900 hover:bg-purple-200"
+                >
+                  <Users className="h-4 w-4 mr-2" /> Derivar para respuesta final al requerimiento
+                </Button>
+              )}
+
+              {/* Respuesta directa (Solicitud Vecinal / Transparencia) */}
+              {esTipoRespuestaDirecta && puedeEnviarRespuestaFinal && (
                 <Button
                   size="full"
-                  variant={hasRespuestaVecino ? "secondary" : "default"}
-                  className={
-                    hasRespuestaVecino
-                      ? "cursor-not-allowed bg-slate-200 text-slate-500 hover:bg-slate-200 hover:text-slate-500"
-                      : "bg-blue-900 hover:bg-blue-950 text-white"
-                  }
-                  disabled={hasRespuestaVecino}
-                  onClick={() => {
-                    if (!hasRespuestaVecino) {
-                      setShowRespuesta(true);
-                    }
-                  }}
+                  className="bg-blue-900 hover:bg-blue-950 text-white"
+                  onClick={() => setShowRespuesta(true)}
                 >
-                  <Mail className="h-4 w-4 mr-2" />
-                  {hasRespuestaVecino ? "Respuesta ya enviada" : "Enviar respuesta al vecino"}
+                  <Mail className="h-4 w-4 mr-2" /> Responder al vecino
+                </Button>
+              )}
+
+              {/* Respuesta final al requerimiento (admin asignado en los 4 tipos derivables) */}
+              {esTipoRespuestaAdmin && puedeEnviarRespuestaFinal && (
+                <Button
+                  size="full"
+                  className="bg-blue-900 hover:bg-blue-950 text-white"
+                  onClick={() => setShowRespuesta(true)}
+                >
+                  <Mail className="h-4 w-4 mr-2" /> Respuesta final al requerimiento
+                </Button>
+              )}
+
+              {/* Admin no asignado pero que ve el caso derivado: botón deshabilitado con tooltip */}
+              {esTipoRespuestaAdmin &&
+                req.estado === "derivado_respuesta_final" &&
+                user?.rol === "admin" &&
+                !puedeEnviarRespuestaFinal &&
+                !hasRespuestaVecino && (
+                  <Button
+                    size="full"
+                    variant="secondary"
+                    disabled
+                    className="bg-slate-200 text-slate-500 hover:bg-slate-200 cursor-not-allowed"
+                    title={
+                      req.adminAsignadoRespuesta
+                        ? `Asignado a ${req.adminAsignadoRespuesta.nombre} (${req.adminAsignadoRespuesta.email})`
+                        : "Solo el admin asignado por el director puede enviar la respuesta final"
+                    }
+                  >
+                    <Mail className="h-4 w-4 mr-2" /> Respuesta final al requerimiento
+                  </Button>
+                )}
+
+              {hasRespuestaVecino && (
+                <Alert variant="success">
+                  <p className="text-sm">
+                    Ya se envió la respuesta final al vecino. No es posible enviar otra respuesta.
+                  </p>
+                </Alert>
+              )}
+
+              {puedeRevertir && (
+                <Button
+                  variant="outline"
+                  size="full"
+                  onClick={() => setShowRevertirConfirm(true)}
+                >
+                  <Undo2 className="h-4 w-4 mr-2" /> Revertir último cambio de estado
                 </Button>
               )}
 
@@ -574,19 +716,53 @@ export default function RequerimientoDetailPage() {
         loading={deleteMutation.isPending}
       />
 
+      <ConfirmDeleteModal
+        open={showRevertirConfirm}
+        onOpenChange={setShowRevertirConfirm}
+        title="Revertir último cambio de estado"
+        confirmLabel="Sí, revertir"
+        cancelLabel="Cancelar"
+        danger={false}
+        description={
+          <div className="space-y-3 text-sm text-slate-600">
+            <p>
+              Se eliminará el último cambio de estado y se restaurará el estado anterior. Si el estado actual era
+              «{ESTADO_LABELS.en_espera_1}» o «{ESTADO_LABELS.en_espera_2}», se devolverán 2 semanas hábiles al
+              plazo. Si era «{ESTADO_LABELS.derivado_respuesta_final}», se quitará el admin asignado.
+            </p>
+            <p>
+              Esta acción no se puede deshacer y queda registrada en el historial.
+            </p>
+          </div>
+        }
+        onConfirm={handleRevertir}
+        loading={revertirMutation.isPending}
+      />
+
       <DerivacionModal
         key={`derivar-${id}-${showDerivar ? "open" : "closed"}-${req.direccionMunicipal}`}
         open={showDerivar}
         onClose={() => setShowDerivar(false)}
         onSubmit={handleDerivar}
         direccionMunicipalInicial={req.direccionMunicipal}
+        tipoRequerimiento={req.tipoRequerimiento}
       />
+
+      {showDerivarFinal && (
+        <DerivarRespuestaFinalModal
+          open={showDerivarFinal}
+          onClose={() => setShowDerivarFinal(false)}
+          onSubmit={handleDerivarRespuestaFinal}
+        />
+      )}
+
       {showRespuesta && (
         <RespuestaVecinoModal
           open={showRespuesta}
           onClose={() => setShowRespuesta(false)}
           defaultEmail={req.vecino.email}
           numeroSeguimiento={req.numeroSeguimiento}
+          requireCierre={requireCierreEnRespuesta}
           onSubmit={handleEnviarRespuesta}
         />
       )}

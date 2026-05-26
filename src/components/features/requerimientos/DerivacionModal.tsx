@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalDescription, ModalFooter } from "@/components/ui/Modal";
+import { Alert } from "@/components/ui/Alert";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
@@ -12,13 +13,35 @@ interface Props {
   onClose: () => void;
   onSubmit: (payload: { direccionMunicipal: string; emailDestinatario: string }) => Promise<void>;
   direccionMunicipalInicial: string;
+  /** Si el requerimiento es Solicitud de transparencia, se fuerza Secretaría Municipal. */
+  tipoRequerimiento?: string;
 }
 
-export function DerivacionModal({ open, onClose, onSubmit, direccionMunicipalInicial }: Props) {
-  const [direccionMunicipal, setDireccionMunicipal] = useState(direccionMunicipalInicial || "");
-  const [email, setEmail] = useState(getCorreoDireccion(direccionMunicipalInicial || ""));
+const TRANSPARENCIA_DIRECCION = "SECRETARIA";
+
+export function DerivacionModal({
+  open,
+  onClose,
+  onSubmit,
+  direccionMunicipalInicial,
+  tipoRequerimiento,
+}: Props) {
+  const esTransparencia = tipoRequerimiento === "Solicitud de transparencia";
+
+  const direccionInicial = esTransparencia
+    ? TRANSPARENCIA_DIRECCION
+    : direccionMunicipalInicial || "";
+  const [direccionMunicipal, setDireccionMunicipal] = useState(direccionInicial);
+  const [email, setEmail] = useState(getCorreoDireccion(direccionInicial));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const options = useMemo(() => {
+    if (esTransparencia) {
+      return DIRECCIONES_DERIVACION_OPTIONS.filter((o) => o.value === TRANSPARENCIA_DIRECCION);
+    }
+    return DIRECCIONES_DERIVACION_OPTIONS;
+  }, [esTransparencia]);
 
   const handleSubmit = async () => {
     if (!direccionMunicipal) {
@@ -35,8 +58,8 @@ export function DerivacionModal({ open, onClose, onSubmit, direccionMunicipalIni
       await onSubmit({ direccionMunicipal, emailDestinatario: email });
       setEmail("");
       onClose();
-    } catch {
-      setError("Error al derivar el requerimiento");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al derivar el requerimiento");
     } finally {
       setLoading(false);
     }
@@ -48,21 +71,31 @@ export function DerivacionModal({ open, onClose, onSubmit, direccionMunicipalIni
         <ModalHeader>
           <ModalTitle>Derivar Requerimiento</ModalTitle>
           <ModalDescription>
-            Seleccione la dirección y confirme el correo del director para enviar la derivación.
+            {esTransparencia
+              ? "Las solicitudes de transparencia se derivan a Secretaría Municipal."
+              : "Seleccione la dirección y confirme el correo del director para enviar la derivación."}
           </ModalDescription>
         </ModalHeader>
         <div className="space-y-4">
+          {esTransparencia && (
+            <Alert variant="info">
+              Este requerimiento es <strong>Solicitud de transparencia</strong>. Se deriva siempre a{" "}
+              <strong>Secretaría Municipal</strong>.
+            </Alert>
+          )}
           <Select
             label="Dirección municipal"
             value={direccionMunicipal}
             onChange={(e) => {
+              if (esTransparencia) return;
               const nextDireccion = e.target.value;
               setDireccionMunicipal(nextDireccion);
               setEmail(getCorreoDireccion(nextDireccion));
               setError("");
             }}
-            options={DIRECCIONES_DERIVACION_OPTIONS}
+            options={options}
             placeholder="Seleccione dirección"
+            disabled={esTransparencia}
             required
           />
           <Input

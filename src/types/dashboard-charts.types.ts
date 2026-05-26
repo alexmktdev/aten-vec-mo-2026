@@ -12,6 +12,9 @@ export type DashboardChartCardId =
   | "pendiente"
   | "derivado"
   | "en_proceso"
+  | "en_espera_1"
+  | "en_espera_2"
+  | "derivado_respuesta_final"
   | "completado"
   | "rechazado"
   | "urgentesActivos";

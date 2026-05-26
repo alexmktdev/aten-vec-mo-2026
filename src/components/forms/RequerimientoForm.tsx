@@ -5,7 +5,6 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Script from "next/script";
 import { requerimientoFormSchema, type RequerimientoFormInput } from "@/lib/validations/requerimiento.schema";
-import { DIRECCIONES_MUNICIPALES, getCategorias, getDireccionLabel } from "@/constants/direcciones";
 import { TIPOS_REQUERIMIENTO, REGIONES_CHILE, TIPOS_INMUEBLE } from "@/types/requerimiento.types";
 import { formatRut } from "@/lib/utils/rut";
 import { Input } from "@/components/ui/Input";
@@ -15,7 +14,7 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Alert } from "@/components/ui/Alert";
 import { FileUpload } from "@/components/ui/FileUpload";
-import { CheckCircle, Info } from "lucide-react";
+import { CheckCircle } from "lucide-react";
 
 const MAX_PDF_SIZE = Math.floor(2.5 * 1024 * 1024);
 const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "";
@@ -63,7 +62,6 @@ export function RequerimientoForm() {
   const {
     register,
     handleSubmit,
-    setValue,
     control,
     formState: { errors, isSubmitting },
     reset,
@@ -72,15 +70,11 @@ export function RequerimientoForm() {
     defaultValues: {
       vecino: { nombre: "", primerApellido: "", segundoApellido: "", rut: "", telefono: "", email: "", confirmarEmail: "", region: "" as typeof REGIONES_CHILE[number], comuna: "", direccion: "", tipoInmueble: "" as typeof TIPOS_INMUEBLE[number] },
       tipoRequerimiento: "" as typeof TIPOS_REQUERIMIENTO[number],
-      direccionMunicipal: "",
-      categoria: "",
       descripcion: "",
     },
   });
 
-  const selectedDireccion = useWatch({ control, name: "direccionMunicipal" });
   const descripcionValue = useWatch({ control, name: "descripcion" }) || "";
-  const categorias = selectedDireccion ? getCategorias(selectedDireccion) : [];
 
   useEffect(() => {
     window.onRecaptchaSuccess = (token: string) => {
@@ -146,11 +140,6 @@ export function RequerimientoForm() {
 
     return () => window.clearInterval(interval);
   }, [isSubmitting, submitProgress]);
-
-  const handleDireccionChange = (value: string) => {
-    setValue("direccionMunicipal", value);
-    setValue("categoria", "");
-  };
 
   const handlePdfChange = (file: File | null) => {
     setPdfError("");
@@ -228,9 +217,6 @@ export function RequerimientoForm() {
           tipoInmueble: data.vecino.tipoInmueble,
         },
         tipoRequerimiento: data.tipoRequerimiento,
-        direccionMunicipal: data.direccionMunicipal,
-        direccionMunicipalLabel: getDireccionLabel(data.direccionMunicipal),
-        categoria: data.categoria,
         descripcion: data.descripcion,
         documentos,
         recaptchaToken: captchaToken,
@@ -296,8 +282,6 @@ export function RequerimientoForm() {
   const regionOptions = REGIONES_CHILE.map((r) => ({ value: r, label: r }));
   const inmuebleOptions = TIPOS_INMUEBLE.map((t) => ({ value: t, label: t }));
   const tipoReqOptions = TIPOS_REQUERIMIENTO.map((t) => ({ value: t, label: t }));
-  const direccionOptions = Object.entries(DIRECCIONES_MUNICIPALES).map(([key, val]) => ({ value: key, label: val.label }));
-  const categoriaOptions = categorias.map((c) => ({ value: c, label: c }));
 
   return (
     <>
@@ -341,33 +325,10 @@ export function RequerimientoForm() {
           <CardTitle>Datos del Requerimiento</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 flex items-start gap-3">
-            <Info className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
-            <p className="text-sm text-blue-800">
-              Primero seleccione la dirección municipal correspondiente. Luego el sistema mostrará las categorías relacionadas.
-            </p>
-          </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Select label="Tipo de Requerimiento" required options={tipoReqOptions} placeholder="Seleccione tipo" {...register("tipoRequerimiento")} error={errors.tipoRequerimiento?.message} />
-            <Select
-              label="Dirección Municipal"
-              required
-              options={direccionOptions}
-              placeholder="Seleccione dirección"
-              value={selectedDireccion}
-              onChange={(e) => handleDireccionChange(e.target.value)}
-              error={errors.direccionMunicipal?.message}
-            />
-            <Select
-              label="Categoría"
-              required
-              options={categoriaOptions}
-              placeholder={selectedDireccion ? "Seleccione categoría" : "Primero seleccione dirección"}
-              disabled={!selectedDireccion}
-              {...register("categoria")}
-              error={errors.categoria?.message}
-            />
+            <div className="md:col-span-2">
+              <Select label="Tipo de Requerimiento" required options={tipoReqOptions} placeholder="Seleccione tipo" {...register("tipoRequerimiento")} error={errors.tipoRequerimiento?.message} />
+            </div>
             <div className="md:col-span-2">
               <FileUpload
                 label="Documento PDF (opcional)"

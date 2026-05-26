@@ -1,16 +1,21 @@
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import { requerimientoService } from "@/services/requerimiento.service";
 import { requerimientoRespuestaSchema } from "@/lib/validations/requerimiento.schema";
 import { createErrorResponse, createSuccessResponse } from "@/lib/utils/response";
 import { createRouteLogger } from "@/lib/logger";
 import { normalizeEmail, sanitizeMultilineText, sanitizeText } from "@/lib/utils/sanitize";
-import { canSendCitizenResponse } from "@/lib/requerimiento-permissions";
+import { canEnviarRespuestaFinal } from "@/lib/requerimiento-permissions";
 import {
   RequerimientoRouteParams,
   requireRequerimientoWithAccess,
 } from "@/lib/api/requerimiento-route-guards";
 
 const log = createRouteLogger("/api/requerimientos/[id]/respuesta");
+
+const respuestaConCierreSchema = requerimientoRespuestaSchema.extend({
+  cierre: z.enum(["completado", "rechazado"]).optional(),
+});
 
 export async function POST(request: NextRequest, routeParams: RequerimientoRouteParams) {
   try {
@@ -19,9 +24,14 @@ export async function POST(request: NextRequest, routeParams: RequerimientoRoute
     });
     if (access.error) return access.error;
     const { id, user, requerimiento: existing } = access;
-    if (!canSendCitizenResponse(user.rol)) {
-      return createErrorResponse(403, "No tiene permisos para responder al vecino");
+
+    if (!canEnviarRespuestaFinal(user, existing)) {
+      return createErrorResponse(
+        403,
+        "No tiene permisos para enviar la respuesta final al vecino para este requerimiento"
+      );
     }
+
     const body = await request.json();
 
     if (typeof body.emailDestino === "string") {
@@ -34,7 +44,7 @@ export async function POST(request: NextRequest, routeParams: RequerimientoRoute
       body.mensaje = sanitizeMultilineText(body.mensaje);
     }
 
-    const parsed = requerimientoRespuestaSchema.safeParse(body);
+    const parsed = respuestaConCierreSchema.safeParse(body);
     if (!parsed.success) {
       return createErrorResponse(400, "Datos inválidos", parsed.error.issues);
     }
@@ -48,7 +58,7 @@ export async function POST(request: NextRequest, routeParams: RequerimientoRoute
     if (message === "Ya existe una respuesta enviada al vecino para este requerimiento") {
       return createErrorResponse(409, message);
     }
-    if (message === "Solo se puede enviar respuesta al vecino cuando el requerimiento está completado o rechazado") {
+    if (message === "El estado actual del requerimiento no permite enviar la respuesta al vecino") {
       return createErrorResponse(400, message);
     }
     return createErrorResponse(500, "No fue posible enviar la respuesta al vecino");

@@ -17,6 +17,8 @@ import {
   Flame,
   Building2,
   BadgeCheck,
+  PauseCircle,
+  Users,
 } from "lucide-react";
 
 type RankTheme = "blue" | "orange" | "slate" | "green";
@@ -67,7 +69,7 @@ export default function DashboardPage() {
       </p>
 
       <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {!statsReady && [1, 2, 3, 4, 5, 6, 7].map((i) => (
+        {!statsReady && [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
           <div key={i} className="rounded-2xl bg-white p-4 shadow-sm animate-pulse">
             <div className="mb-3 h-4 w-24 rounded bg-slate-100" />
             <div className="h-8 w-16 rounded bg-slate-100" />
@@ -106,6 +108,30 @@ export default function DashboardPage() {
               color="orange"
               trend="Estado: En proceso de solución"
               onClick={() => openCardChart("en_proceso")}
+            />
+            <StatsCard
+              title="En Espera 1"
+              value={stats?.en_espera_1 || 0}
+              icon={PauseCircle}
+              color="orange"
+              trend="Estado: Requerimiento en espera 1"
+              onClick={() => openCardChart("en_espera_1")}
+            />
+            <StatsCard
+              title="En Espera 2"
+              value={stats?.en_espera_2 || 0}
+              icon={PauseCircle}
+              color="orange"
+              trend="Estado: Requerimiento en espera 2"
+              onClick={() => openCardChart("en_espera_2")}
+            />
+            <StatsCard
+              title="Derivados Respuesta Final"
+              value={stats?.derivado_respuesta_final || 0}
+              icon={Users}
+              color="blue"
+              trend="Estado: Derivado para respuesta final"
+              onClick={() => openCardChart("derivado_respuesta_final")}
             />
             <StatsCard
               title="Completados"

@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { usuarioService } from "@/services/usuario.service";
+import { usuarioService, UsuarioConflictError } from "@/services/usuario.service";
 import { usuarioCreateSchema } from "@/lib/validations/usuario.schema";
 import { requireRole } from "@/lib/auth-guard";
 import { createSuccessResponse, createErrorResponse } from "@/lib/utils/response";
@@ -55,12 +55,15 @@ export async function POST(request: NextRequest) {
     const user = await usuarioService.create(parsed.data as Parameters<typeof usuarioService.create>[0]);
     return createSuccessResponse(user, "Usuario creado exitosamente", 201);
   } catch (error: unknown) {
+    if (error instanceof UsuarioConflictError) {
+      return createErrorResponse(409, error.message);
+    }
     const firebaseError = error as { code?: string; message?: string; errorInfo?: { code?: string; message?: string } };
     const errorCode = firebaseError?.errorInfo?.code || firebaseError?.code || "";
     const errorMessage = firebaseError?.errorInfo?.message || firebaseError?.message || "Error al crear usuario";
-    
+
     log.error({ errorCode, errorMessage }, "Error creating user");
-    
+
     if (errorCode.includes("email-already-exists")) {
       return createErrorResponse(400, "El correo electrónico ya está registrado");
     }

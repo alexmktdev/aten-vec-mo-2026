@@ -1,38 +1,56 @@
-import { EstadoRequerimiento } from "@/types/requerimiento.types";
+import {
+  EstadoRequerimiento,
+  RequerimientoDTO,
+  TipoRequerimiento,
+  requiereRespuestaDirectaDirector,
+  requiereRespuestaFinalPorAdmin,
+} from "@/types/requerimiento.types";
 import { RolUsuario } from "@/types/usuario.types";
+import { SessionUser } from "@/types/auth.types";
 
 /**
- * Admin: NO puede cambiar estado manualmente.
- * La única forma de pasar de pendiente → derivado es con el botón Derivar (acción + correo).
+ * Matriz de transiciones por rol.
+ *
+ * - admin: NO puede cambiar estado manualmente excepto enviar la respuesta final
+ *   cuando un director le derivó un requerimiento de los 4 tipos correspondientes.
+ *   La derivación pendiente → derivado se hace con el botón "Derivar".
+ *
+ * - director: opera entre derivado / en_proceso / esperas / cierre.
+ *
+ * - superadmin y administradora-municipal: todas las transiciones.
  */
 const ADMIN_STATUS_TRANSITIONS: Record<EstadoRequerimiento, EstadoRequerimiento[]> = {
   pendiente: [],
   derivado: [],
   en_proceso: [],
+  en_espera_1: [],
+  en_espera_2: [],
+  // El estado se actualiza cuando el admin envía la respuesta final.
+  derivado_respuesta_final: ["completado", "rechazado"],
   completado: [],
   rechazado: [],
 };
 
-/**
- * Director:
- * - derivado → pendiente (admin derivó mal) o en_proceso
- * - en_proceso → pendiente (categoría/dirección equivocada), completado o rechazado
- * - completado / rechazado → en_proceso solo si aún NO se envió correo al vecino (hasRespuestaVecino)
- */
 const DIRECTOR_STATUS_TRANSITIONS: Record<EstadoRequerimiento, EstadoRequerimiento[]> = {
   pendiente: [],
   derivado: ["pendiente", "en_proceso"],
-  en_proceso: ["pendiente", "completado", "rechazado"],
+  en_proceso: ["en_espera_1", "completado", "rechazado"],
+  en_espera_1: ["en_espera_2", "completado", "rechazado"],
+  en_espera_2: ["completado", "rechazado"],
+  derivado_respuesta_final: [],
   completado: [],
   rechazado: [],
 };
 
-const ALL_STATUS_TRANSITIONS: Record<EstadoRequerimiento, EstadoRequerimiento[]> = {
-  pendiente: ["derivado", "en_proceso", "completado", "rechazado"],
-  derivado: ["pendiente", "en_proceso", "completado", "rechazado"],
-  en_proceso: ["pendiente", "derivado", "completado", "rechazado"],
-  completado: ["pendiente", "derivado", "en_proceso", "rechazado"],
-  rechazado: ["pendiente", "derivado", "en_proceso", "completado"],
+const FULL_STATUS_TRANSITIONS: Record<EstadoRequerimiento, EstadoRequerimiento[]> = {
+  pendiente: ["derivado"],
+  derivado: ["pendiente", "en_proceso"],
+  en_proceso: ["en_espera_1", "completado", "rechazado", "derivado_respuesta_final"],
+  en_espera_1: ["en_espera_2", "completado", "rechazado", "derivado_respuesta_final"],
+  en_espera_2: ["completado", "rechazado", "derivado_respuesta_final"],
+  derivado_respuesta_final: ["completado", "rechazado"],
+  completado: [],
+  rechazado: [],
 };
 
 export function canDeleteRequerimiento(rol: RolUsuario): boolean {
@@ -40,33 +58,38 @@ export function canDeleteRequerimiento(rol: RolUsuario): boolean {
 }
 
 export function canDerivarRequerimiento(rol: RolUsuario): boolean {
-  return rol === "superadmin" || rol === "admin";
+  return rol === "superadmin" || rol === "admin" || rol === "administradora-municipal";
 }
 
+/**
+ * Indica si el rol puede ENVIAR el correo final al vecino. Para los tipos
+ * derivados a admin, además se requiere ser exactamente el admin asignado
+ * (ver `canEnviarRespuestaFinal`).
+ */
 export function canSendCitizenResponse(rol: RolUsuario): boolean {
-  return rol === "superadmin" || rol === "director" || rol === "administradora-municipal";
+  return (
+    rol === "superadmin" ||
+    rol === "administradora-municipal" ||
+    rol === "admin" ||
+    rol === "director"
+  );
 }
 
 /**
  * Edición completa del requerimiento (modal «Editar datos completos»):
- * - En completado / rechazado: nadie (ni siquiera superadmin); solo puede corregirse volviendo antes a «en proceso» si aún no hay correo al vecino
+ * - En completado / rechazado: nadie
  * - superadmin: en el resto de estados, siempre puede editar
  * - admin / administradora-municipal: solo con estado pendiente
  * - director: nunca
  */
 export function canEditRequerimientoData(rol: RolUsuario, estado: EstadoRequerimiento): boolean {
-  if (estado === "completado" || estado === "rechazado") {
-    return false;
-  }
+  if (estado === "completado" || estado === "rechazado") return false;
   if (rol === "superadmin") return true;
   if (rol === "director") return false;
-  if (rol === "admin" || rol === "administradora-municipal") {
-    return estado === "pendiente";
-  }
+  if (rol === "admin" || rol === "administradora-municipal") return estado === "pendiente";
   return false;
 }
 
-/** Contexto opcional para transiciones que dependen del historial (ej. correo al vecino ya enviado). */
 export interface EstadoTransitionContext {
   hasRespuestaVecino?: boolean;
 }
@@ -80,11 +103,10 @@ export function getAllowedNextStates(
 
   if (rol === "superadmin" || rol === "administradora-municipal") {
     if (currentEstado === "completado" || currentEstado === "rechazado") {
-      // Solo puede deshacer el cierre volviendo a «en proceso», y solo antes del correo al vecino
       if (sinRespuestaVecino) return ["en_proceso"];
       return [];
     }
-    return ALL_STATUS_TRANSITIONS[currentEstado];
+    return FULL_STATUS_TRANSITIONS[currentEstado];
   }
 
   if (rol === "admin") {
@@ -113,4 +135,83 @@ export function canTransitionEstado(
 ): boolean {
   if (from === to) return true;
   return getAllowedNextStates(rol, from, context).includes(to);
+}
+
+/**
+ * Solo el director (o superadmin) puede derivar el requerimiento al admin
+ * para la respuesta final, y solo para los 4 tipos que la requieren.
+ */
+export function canDerivarRespuestaFinal(
+  user: SessionUser,
+  req: Pick<RequerimientoDTO, "estado" | "tipoRequerimiento">
+): boolean {
+  if (!requiereRespuestaFinalPorAdmin(req.tipoRequerimiento)) return false;
+  if (
+    req.estado !== "en_proceso" &&
+    req.estado !== "en_espera_1" &&
+    req.estado !== "en_espera_2"
+  ) {
+    return false;
+  }
+  return user.rol === "superadmin" || user.rol === "director";
+}
+
+/**
+ * Quien envía la respuesta final al vecino:
+ *  - Si el tipo es Solicitud Vecinal o Solicitud de transparencia, lo hace el
+ *    director responsable (o superadmin / administradora-municipal).
+ *  - Si el tipo es Información / Reclamo / Sugerencia / Felicitación, solo el
+ *    admin que el director eligió (adminAsignadoRespuesta.uid === user.uid).
+ *    El superadmin y la administradora-municipal pueden hacerlo también.
+ */
+export function canEnviarRespuestaFinal(
+  user: SessionUser,
+  req: Pick<
+    RequerimientoDTO,
+    "estado" | "tipoRequerimiento" | "adminAsignadoRespuesta" | "respuestasVecino"
+  >
+): boolean {
+  if ((req.respuestasVecino?.length ?? 0) > 0) return false;
+
+  const tipo = req.tipoRequerimiento as TipoRequerimiento;
+
+  if (requiereRespuestaDirectaDirector(tipo)) {
+    if (
+      req.estado !== "en_proceso" &&
+      req.estado !== "en_espera_1" &&
+      req.estado !== "en_espera_2"
+    ) {
+      return false;
+    }
+    return (
+      user.rol === "director" ||
+      user.rol === "superadmin" ||
+      user.rol === "administradora-municipal"
+    );
+  }
+
+  if (requiereRespuestaFinalPorAdmin(tipo)) {
+    if (req.estado !== "derivado_respuesta_final") return false;
+    if (user.rol === "superadmin" || user.rol === "administradora-municipal") return true;
+    if (user.rol === "admin") {
+      return !!req.adminAsignadoRespuesta && req.adminAsignadoRespuesta.uid === user.uid;
+    }
+    return false;
+  }
+
+  return false;
+}
+
+/**
+ * Permiso para revertir el último cambio de estado. Reservado a los roles
+ * con visión global (superadmin / administradora-municipal) y solo si aún
+ * no se envió el correo al vecino.
+ */
+export function canRevertirEstado(
+  rol: RolUsuario,
+  req: Pick<RequerimientoDTO, "respuestasVecino" | "historialEstados">
+): boolean {
+  if ((req.respuestasVecino?.length ?? 0) > 0) return false;
+  if ((req.historialEstados?.length ?? 0) < 2) return false;
+  return rol === "superadmin" || rol === "administradora-municipal";
 }

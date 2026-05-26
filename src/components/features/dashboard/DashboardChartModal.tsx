@@ -36,6 +36,21 @@ const CARD_COPY: Record<
     subtitle: "Casos en solución activa, por dirección municipal.",
     hash: "en_proceso",
   },
+  en_espera_1: {
+    title: "En espera 1 por dirección",
+    subtitle: "Casos en el primer estado de espera (plazo extendido +2 semanas hábiles).",
+    hash: "en_espera_1",
+  },
+  en_espera_2: {
+    title: "En espera 2 por dirección",
+    subtitle: "Casos en el segundo estado de espera (plazo extendido +2 semanas hábiles adicionales).",
+    hash: "en_espera_2",
+  },
+  derivado_respuesta_final: {
+    title: "Derivados a respuesta final",
+    subtitle: "Casos que el director derivó a un admin para que envíe la respuesta final al vecino.",
+    hash: "derivado_respuesta_final",
+  },
   completado: {
     title: "Completados por dirección",
     subtitle: "Cierres efectivos según dirección que tenía el caso.",

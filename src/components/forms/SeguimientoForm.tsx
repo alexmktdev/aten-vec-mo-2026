@@ -12,26 +12,26 @@ import { Badge } from "@/components/ui/Badge";
 import { ESTADO_LABELS, ESTADO_COLORS, EstadoRequerimiento } from "@/types/requerimiento.types";
 import { cn } from "@/lib/utils";
 import { formatRut } from "@/lib/utils/rut";
-import { Search, Calendar, MapPin, Tag, FileText } from "lucide-react";
+import { Search, Calendar, FileText } from "lucide-react";
 
 interface SeguimientoResult {
   numeroSeguimiento: string;
   estado: EstadoRequerimiento;
   tipoRequerimiento: string;
-  direccionMunicipalLabel: string;
-  categoria: string;
+  direccionMunicipalLabel?: string;
+  categoria?: string;
   descripcion: string;
   fechaIngreso: string;
-  fechaLimite: string;
-  diasHabilesRestantes?: number;
-  vencido?: boolean;
 }
 
 /** Avance visual del trámite: porcentaje de relleno y color de la barra (alineado con cada estado). */
 const BARRA_ESTADO: Record<EstadoRequerimiento, { porcentaje: number; fill: string }> = {
-  pendiente: { porcentaje: 25, fill: "bg-amber-400" },
-  derivado: { porcentaje: 50, fill: "bg-blue-600" },
-  en_proceso: { porcentaje: 75, fill: "bg-orange-500" },
+  pendiente: { porcentaje: 15, fill: "bg-amber-400" },
+  derivado: { porcentaje: 35, fill: "bg-blue-600" },
+  en_proceso: { porcentaje: 55, fill: "bg-orange-500" },
+  en_espera_1: { porcentaje: 65, fill: "bg-orange-500" },
+  en_espera_2: { porcentaje: 75, fill: "bg-orange-500" },
+  derivado_respuesta_final: { porcentaje: 90, fill: "bg-purple-600" },
   completado: { porcentaje: 100, fill: "bg-emerald-500" },
   rechazado: { porcentaje: 100, fill: "bg-red-500" },
 };
@@ -58,7 +58,9 @@ export function SeguimientoForm() {
     }
   };
 
-  const estadoColor = result ? (ESTADO_COLORS[result.estado] as "yellow" | "blue" | "orange" | "green" | "red") : "default";
+  const estadoColor = result
+    ? (ESTADO_COLORS[result.estado] as "yellow" | "blue" | "orange" | "green" | "red" | "purple")
+    : "default";
 
   return (
     <div className="space-y-8">
@@ -131,16 +133,6 @@ export function SeguimientoForm() {
                 <Calendar className="h-4 w-4 text-slate-400" />
                 <span className="font-medium">Fecha ingreso:</span>
                 <span>{new Date(result.fechaIngreso).toLocaleDateString("es-CL")}</span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-600">
-                <MapPin className="h-4 w-4 text-slate-400" />
-                <span className="font-medium">Dirección:</span>
-                <span>{result.direccionMunicipalLabel}</span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-600">
-                <Tag className="h-4 w-4 text-slate-400" />
-                <span className="font-medium">Categoría:</span>
-                <span>{result.categoria}</span>
               </div>
               <div className="flex items-center gap-2 text-slate-600">
                 <FileText className="h-4 w-4 text-slate-400" />

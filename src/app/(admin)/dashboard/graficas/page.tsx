@@ -52,6 +52,21 @@ const CARD_SECTIONS: {
     description: "Trabajo activo de resolución por dirección.",
   },
   {
+    id: "en_espera_1",
+    title: "En espera 1 por dirección",
+    description: "Casos en el primer estado de espera (con plazo extendido en 2 semanas hábiles).",
+  },
+  {
+    id: "en_espera_2",
+    title: "En espera 2 por dirección",
+    description: "Casos en el segundo estado de espera (con plazo extendido en 2 semanas hábiles adicionales).",
+  },
+  {
+    id: "derivado_respuesta_final",
+    title: "Derivados para respuesta final",
+    description: "Casos que el director ya derivó a un admin para que envíe el correo final al vecino.",
+  },
+  {
     id: "completado",
     title: "Completados por dirección",
     description: "Cierres positivos: qué dirección resuelve más casos en términos absolutos (en su universo).",

@@ -26,6 +26,9 @@ interface DashboardStats {
   pendiente: number;
   derivado: number;
   en_proceso: number;
+  en_espera_1: number;
+  en_espera_2: number;
+  derivado_respuesta_final: number;
   completado: number;
   rechazado: number;
   urgentesActivos: number;
@@ -188,15 +191,17 @@ export function useUpdateRequerimientoDatos() {
     },
     onSuccess: (_, variables) => {
       const { id, payload } = variables;
-      const label = payload.direccionMunicipalLabel ?? getDireccionLabel(payload.direccionMunicipal);
+      const direccion = payload.direccionMunicipal || "";
+      const label = payload.direccionMunicipalLabel
+        ?? (direccion ? getDireccionLabel(direccion) : "");
 
       patchRowInAllRequerimientosQueries(queryClient, id, (r) => ({
         ...r,
         vecino: payload.vecino as RequerimientoDTO["vecino"],
         tipoRequerimiento: payload.tipoRequerimiento as RequerimientoDTO["tipoRequerimiento"],
-        direccionMunicipal: payload.direccionMunicipal,
+        direccionMunicipal: direccion,
         direccionMunicipalLabel: label,
-        categoria: payload.categoria,
+        categoria: payload.categoria || "",
         descripcion: payload.descripcion,
         documentos: payload.documentos ?? r.documentos,
       }));
@@ -207,9 +212,9 @@ export function useUpdateRequerimientoDatos() {
           ...prev,
           vecino: payload.vecino as RequerimientoDTO["vecino"],
           tipoRequerimiento: payload.tipoRequerimiento as RequerimientoDTO["tipoRequerimiento"],
-          direccionMunicipal: payload.direccionMunicipal,
+          direccionMunicipal: direccion,
           direccionMunicipalLabel: label,
-          categoria: payload.categoria,
+          categoria: payload.categoria || "",
           descripcion: payload.descripcion,
           documentos: payload.documentos ?? prev.documentos,
         };
@@ -217,6 +222,41 @@ export function useUpdateRequerimientoDatos() {
 
       queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
       queryClient.invalidateQueries({ queryKey: ["requerimiento", id] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+    },
+  });
+}
+
+export function useDerivarRespuestaFinal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, adminUid, nota }: { id: string; adminUid: string; nota?: string }) => {
+      return fetchJson(`/api/requerimientos/${id}/derivar-respuesta-final`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminUid, nota }),
+      });
+    },
+    onSettled: (_data, _err, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["requerimiento", variables?.id] });
+      queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+    },
+  });
+}
+
+export function useRevertirEstado() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      return fetchJson<{ estadoAntes: EstadoRequerimiento; estadoDespues: EstadoRequerimiento }>(
+        `/api/requerimientos/${id}/revertir`,
+        { method: "POST" }
+      );
+    },
+    onSettled: (_data, _err, id) => {
+      queryClient.invalidateQueries({ queryKey: ["requerimiento", id] });
+      queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
     },
   });
@@ -330,7 +370,13 @@ export function useDeleteRequerimiento() {
 export function useEnviarRespuestaVecino() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, payload }: { id: string; payload: RespuestaVecinoInput }) => {
+    mutationFn: async ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: RespuestaVecinoInput & { cierre?: "completado" | "rechazado" };
+    }) => {
       return fetchJson(`/api/requerimientos/${id}/respuesta`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

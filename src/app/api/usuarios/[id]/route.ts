@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { requireRole } from "@/lib/auth-guard";
 import { createErrorResponse, createSuccessResponse } from "@/lib/utils/response";
 import { createRouteLogger } from "@/lib/logger";
-import { usuarioService } from "@/services/usuario.service";
+import { usuarioService, UsuarioConflictError } from "@/services/usuario.service";
 import { usuarioUpdateSchema } from "@/lib/validations/usuario.schema";
 import { sanitizeText, normalizeEmail } from "@/lib/utils/sanitize";
 
@@ -29,6 +29,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (!updated) return createErrorResponse(404, "Usuario no encontrado");
     return createSuccessResponse(updated, "Usuario actualizado exitosamente");
   } catch (error: unknown) {
+    if (error instanceof UsuarioConflictError) {
+      return createErrorResponse(409, error.message);
+    }
     const firebaseError = error as { code?: string; message?: string; errorInfo?: { code?: string; message?: string } };
     const errorCode = firebaseError?.errorInfo?.code || firebaseError?.code || "";
     const errorMessage = firebaseError?.errorInfo?.message || firebaseError?.message || "Error al actualizar usuario";

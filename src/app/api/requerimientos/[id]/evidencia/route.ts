@@ -50,8 +50,16 @@ export async function POST(request: NextRequest, routeParams: RequerimientoRoute
       return createErrorResponse(403, "Solo el director o superadmin pueden adjuntar evidencia de resolución");
     }
 
-    if (access.requerimiento.estado !== "en_proceso") {
-      return createErrorResponse(400, "Solo se puede adjuntar evidencia cuando el requerimiento está en proceso de solución");
+    const estadoActual = access.requerimiento.estado;
+    if (
+      estadoActual !== "en_proceso" &&
+      estadoActual !== "en_espera_1" &&
+      estadoActual !== "en_espera_2"
+    ) {
+      return createErrorResponse(
+        400,
+        "Solo se puede adjuntar evidencia mientras el requerimiento está en proceso o en espera"
+      );
     }
 
     const body = await request.json();
@@ -94,10 +102,15 @@ export async function DELETE(_request: NextRequest, routeParams: RequerimientoRo
       return createErrorResponse(403, "No tiene permisos para eliminar la evidencia de resolución");
     }
 
-    if (access.requerimiento.estado !== "en_proceso") {
+    const estadoActualDelete = access.requerimiento.estado;
+    if (
+      estadoActualDelete !== "en_proceso" &&
+      estadoActualDelete !== "en_espera_1" &&
+      estadoActualDelete !== "en_espera_2"
+    ) {
       return createErrorResponse(
         400,
-        "Solo puede eliminar evidencia cuando el requerimiento está en proceso de solución"
+        "Solo puede eliminar evidencia mientras el requerimiento está en proceso o en espera"
       );
     }
 

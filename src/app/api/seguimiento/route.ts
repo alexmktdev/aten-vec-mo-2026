@@ -41,18 +41,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Return limited data for public view
+    // Return limited data for public view (sin datos internos de plazo)
     return createSuccessResponse({
       numeroSeguimiento: req.numeroSeguimiento,
       estado: req.estado,
       tipoRequerimiento: req.tipoRequerimiento,
-      direccionMunicipalLabel: req.direccionMunicipalLabel,
-      categoria: req.categoria,
       descripcion: req.descripcion,
       fechaIngreso: req.fechaIngreso,
-      fechaLimite: req.fechaLimite,
-      diasHabilesRestantes: req.diasHabilesRestantes,
-      vencido: req.vencido,
     });
   } catch (error) {
     log.error({ error }, "Error in seguimiento query");

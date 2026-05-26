@@ -7,7 +7,16 @@ import type {
 
 const DAY_MS = 86_400_000;
 
-const ESTADO_KEYS = new Set<string>(["pendiente", "derivado", "en_proceso", "completado", "rechazado"]);
+const ESTADO_KEYS = new Set<string>([
+  "pendiente",
+  "derivado",
+  "en_proceso",
+  "en_espera_1",
+  "en_espera_2",
+  "derivado_respuesta_final",
+  "completado",
+  "rechazado",
+]);
 
 /** Fila mínima leída de Firestore para armar gráficos (sin DTO completo). */
 export type ChartSourceRow = Record<string, unknown>;
@@ -120,6 +129,9 @@ function estadosPie(rows: Norm[]): DashboardPieSlice[] {
     pendiente: "Pendiente",
     derivado: "Derivado",
     en_proceso: "En proceso",
+    en_espera_1: "En espera 1",
+    en_espera_2: "En espera 2",
+    derivado_respuesta_final: "Derivado respuesta final",
     completado: "Completado",
     rechazado: "Rechazado",
   };
@@ -173,6 +185,9 @@ export function buildDashboardChartsPayload(raw: ChartSourceRow[]): DashboardCha
     pendiente: byEstado("pendiente"),
     derivado: byEstado("derivado"),
     en_proceso: byEstado("en_proceso"),
+    en_espera_1: byEstado("en_espera_1"),
+    en_espera_2: byEstado("en_espera_2"),
+    derivado_respuesta_final: byEstado("derivado_respuesta_final"),
     completado: byEstado("completado"),
     rechazado: byEstado("rechazado"),
     urgentesActivos: countByDir(urgentes),

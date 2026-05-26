@@ -55,6 +55,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return createErrorResponse(400, "Solo se puede derivar un requerimiento en estado pendiente");
     }
 
+    // Solicitud de transparencia siempre se deriva a Secretaría Municipal.
+    if (
+      req.tipoRequerimiento === "Solicitud de transparencia" &&
+      parsed.data.direccionMunicipal !== "SECRETARIA"
+    ) {
+      return createErrorResponse(
+        400,
+        "Los requerimientos de Solicitud de transparencia se derivan a Secretaría Municipal"
+      );
+    }
+
     const correoSugerido = getCorreoDireccion(parsed.data.direccionMunicipal);
     if (!correoSugerido) {
       return createErrorResponse(400, "No existe correo configurado para la dirección seleccionada");

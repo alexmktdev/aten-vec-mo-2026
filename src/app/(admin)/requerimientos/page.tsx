@@ -189,9 +189,9 @@ export default function RequerimientosPage() {
         }
 
         const diasSinResponder = getBusinessDaysBetween(new Date(item.fechaIngreso), new Date());
-        // Rojo ≥20 hábiles, ámbar 10–19, azul <10; no depende del vencimiento por fecha límite.
-        const isCritico = diasSinResponder >= 20;
-        const isAlerta = !isCritico && diasSinResponder >= 10;
+        // Rojo ≥10 hábiles (2 semanas, plazo base), ámbar 5–9, azul <5.
+        const isCritico = diasSinResponder >= 10;
+        const isAlerta = !isCritico && diasSinResponder >= 5;
 
         return (
           <span

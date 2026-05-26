@@ -20,7 +20,11 @@ import { Alert } from "@/components/ui/Alert";
 import { DIRECCIONES_MUNICIPALES, getCategorias, getDireccionLabel } from "@/constants/direcciones";
 import { REGIONES_CHILE, RequerimientoDTO, TIPOS_INMUEBLE, TIPOS_REQUERIMIENTO } from "@/types/requerimiento.types";
 import { formatRut } from "@/lib/utils/rut";
-import { requerimientoFormSchema, RequerimientoCreateInput, RequerimientoFormInput } from "@/lib/validations/requerimiento.schema";
+import {
+  requerimientoAdminEditFormSchema,
+  RequerimientoCreateInput,
+  RequerimientoAdminEditFormInput,
+} from "@/lib/validations/requerimiento.schema";
 
 const MAX_PDF_SIZE = Math.floor(2.5 * 1024 * 1024);
 
@@ -43,8 +47,8 @@ export function EditarRequerimientoModal({ open, requerimiento, onClose, onSubmi
     setValue,
     control,
     formState: { errors, isSubmitting },
-  } = useForm<RequerimientoFormInput>({
-    resolver: zodResolver(requerimientoFormSchema),
+  } = useForm<RequerimientoAdminEditFormInput>({
+    resolver: zodResolver(requerimientoAdminEditFormSchema),
     defaultValues: {
       vecino: {
         nombre: requerimiento.vecino.nombre,
@@ -95,7 +99,7 @@ export function EditarRequerimientoModal({ open, requerimiento, onClose, onSubmi
     setPdfFile(file);
   };
 
-  const submitForm = async (data: RequerimientoFormInput) => {
+  const submitForm = async (data: RequerimientoAdminEditFormInput) => {
     setSubmitError("");
 
     try {

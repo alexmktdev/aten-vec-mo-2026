@@ -111,6 +111,35 @@ export const usuarioRepository = {
   },
 
   /**
+   * Devuelve los directores activos que tienen alguna de las direcciones
+   * indicadas asignadas (campo escalar o campo array). Útil para validar que
+   * cada dirección tenga un único director activo.
+   */
+  async getDirectoresActivosByDirecciones(direcciones: string[]): Promise<Usuario[]> {
+    const unique = Array.from(new Set(direcciones.filter(Boolean)));
+    if (unique.length === 0) return [];
+
+    const queries = unique.map((dir) =>
+      collection()
+        .where("rol", "==", "director")
+        .where("activo", "==", true)
+        .where("direccionAsignadas", "array-contains", dir)
+        .get()
+    );
+
+    const snapshots = await Promise.all(queries);
+    const map = new Map<string, Usuario>();
+    snapshots.forEach((snap) => {
+      snap.docs.forEach((doc) => {
+        if (!map.has(doc.id)) {
+          map.set(doc.id, { id: doc.id, ...doc.data() } as Usuario);
+        }
+      });
+    });
+    return Array.from(map.values());
+  },
+
+  /**
    * Get platform admin users (for new requerimiento notifications)
    * Only role "admin" should receive this email.
    */

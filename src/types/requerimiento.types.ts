@@ -4,6 +4,9 @@ export const ESTADOS_REQUERIMIENTO = [
   "pendiente",
   "derivado",
   "en_proceso",
+  "en_espera_1",
+  "en_espera_2",
+  "derivado_respuesta_final",
   "completado",
   "rechazado",
 ] as const;
@@ -15,11 +18,33 @@ export const TIPOS_REQUERIMIENTO = [
   "Reclamo",
   "Sugerencia",
   "Felicitación",
-  "Solicitud",
-  "Denuncia",
+  "Solicitud Vecinal",
+  "Solicitud de transparencia",
 ] as const;
 
 export type TipoRequerimiento = (typeof TIPOS_REQUERIMIENTO)[number];
+
+/** Tipos cuya respuesta final al vecino la envía un admin (no el director). */
+export const TIPOS_RESPUESTA_FINAL_ADMIN: readonly TipoRequerimiento[] = [
+  "Información",
+  "Reclamo",
+  "Sugerencia",
+  "Felicitación",
+];
+
+/** Tipos cuya respuesta final al vecino la envía el propio director. */
+export const TIPOS_RESPUESTA_DIRECTA_DIRECTOR: readonly TipoRequerimiento[] = [
+  "Solicitud Vecinal",
+  "Solicitud de transparencia",
+];
+
+export function requiereRespuestaFinalPorAdmin(tipo: string): boolean {
+  return TIPOS_RESPUESTA_FINAL_ADMIN.includes(tipo as TipoRequerimiento);
+}
+
+export function requiereRespuestaDirectaDirector(tipo: string): boolean {
+  return TIPOS_RESPUESTA_DIRECTA_DIRECTOR.includes(tipo as TipoRequerimiento);
+}
 
 export const TIPOS_INMUEBLE = ["Casa", "Departamento", "Oficina"] as const;
 
@@ -98,6 +123,14 @@ export interface EvidenciaResolucion {
   usuarioId: string;
 }
 
+export interface AdminAsignadoRespuesta {
+  uid: string;
+  nombre: string;
+  email: string;
+  asignadoEn: Timestamp | Date | string;
+  asignadoPor: string;
+}
+
 export interface Requerimiento {
   id: string;
   numeroSeguimiento: string;
@@ -113,6 +146,7 @@ export interface Requerimiento {
   notas: NotaRequerimiento[];
   respuestasVecino?: RespuestaVecino[];
   evidenciaResolucion?: EvidenciaResolucion;
+  adminAsignadoRespuesta?: AdminAsignadoRespuesta;
   fechaIngreso: Timestamp | Date | string;
   fechaLimite: Timestamp | Date | string;
   fechaResolucion?: Timestamp | Date | string;
@@ -159,6 +193,13 @@ export interface RequerimientoDTO {
     fecha: string;
     usuarioId: string;
   };
+  adminAsignadoRespuesta?: {
+    uid: string;
+    nombre: string;
+    email: string;
+    asignadoEn: string;
+    asignadoPor: string;
+  };
   fechaIngreso: string;
   fechaLimite: string;
   fechaResolucion?: string;
@@ -171,9 +212,9 @@ export interface RequerimientoDTO {
 export interface RequerimientoCreateInput {
   vecino: VecinoData;
   tipoRequerimiento: TipoRequerimiento;
-  direccionMunicipal: string;
-  direccionMunicipalLabel: string;
-  categoria: string;
+  direccionMunicipal?: string;
+  direccionMunicipalLabel?: string;
+  categoria?: string;
   descripcion: string;
   documentos: DocumentoRequerimiento[];
 }
@@ -199,6 +240,9 @@ export const ESTADO_LABELS: Record<EstadoRequerimiento, string> = {
   pendiente: "Pendiente",
   derivado: "Derivado al área correspondiente",
   en_proceso: "En proceso de solución",
+  en_espera_1: "Requerimiento en espera 1",
+  en_espera_2: "Requerimiento en espera 2",
+  derivado_respuesta_final: "Derivado para respuesta final",
   completado: "Requerimiento Completado",
   rechazado: "Requerimiento Rechazado",
 };
@@ -207,6 +251,28 @@ export const ESTADO_COLORS: Record<EstadoRequerimiento, string> = {
   pendiente: "yellow",
   derivado: "blue",
   en_proceso: "orange",
+  en_espera_1: "orange",
+  en_espera_2: "orange",
+  derivado_respuesta_final: "purple",
   completado: "green",
   rechazado: "red",
 };
+
+/** Estados en que el director puede subir/reemplazar evidencia. */
+export const ESTADOS_PERMITEN_EVIDENCIA: readonly EstadoRequerimiento[] = [
+  "en_proceso",
+  "en_espera_1",
+  "en_espera_2",
+];
+
+/** Estados desde los que se puede pasar a un estado de espera o cerrar. */
+export const ESTADOS_TRABAJO_DIRECTOR: readonly EstadoRequerimiento[] = [
+  "en_proceso",
+  "en_espera_1",
+  "en_espera_2",
+];
+
+/** Estados considerados "en curso" (no cerrados). */
+export function isEstadoCerrado(estado: EstadoRequerimiento): boolean {
+  return estado === "completado" || estado === "rechazado";
+}

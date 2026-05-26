@@ -182,6 +182,9 @@ export const dashboardMetricsService = {
     pendiente: number;
     derivado: number;
     en_proceso: number;
+    en_espera_1: number;
+    en_espera_2: number;
+    derivado_respuesta_final: number;
     completado: number;
     rechazado: number;
   } | null> {
@@ -196,6 +199,9 @@ export const dashboardMetricsService = {
       pendiente: Number(data.estado?.pendiente || 0),
       derivado: Number(data.estado?.derivado || 0),
       en_proceso: Number(data.estado?.en_proceso || 0),
+      en_espera_1: Number(data.estado?.en_espera_1 || 0),
+      en_espera_2: Number(data.estado?.en_espera_2 || 0),
+      derivado_respuesta_final: Number(data.estado?.derivado_respuesta_final || 0),
       completado: Number(data.estado?.completado || 0),
       rechazado: Number(data.estado?.rechazado || 0),
     };

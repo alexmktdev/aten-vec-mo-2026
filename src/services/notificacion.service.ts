@@ -2,6 +2,7 @@ import { getEmbeddedLogoAttachment, sendMail } from "@/lib/mail/mailer";
 import { getConfirmacionVecinoTemplate } from "@/lib/mail/templates/confirmacion-vecino";
 import { getAvisoAdminTemplate } from "@/lib/mail/templates/aviso-admin";
 import { getDerivacionDirectorTemplate } from "@/lib/mail/templates/derivacion-director";
+import { getDerivacionRespuestaFinalAdminTemplate } from "@/lib/mail/templates/derivacion-respuesta-final-admin";
 import { getRespuestaVecinoTemplate } from "@/lib/mail/templates/respuesta-vecino";
 import { usuarioRepository } from "@/repositories/usuario.repository";
 import { VecinoData } from "@/types/requerimiento.types";
@@ -71,6 +72,36 @@ export const notificacionService = {
     logger.info(
       { email: emailDestinatario, numero: params.numeroSeguimiento },
       "Derivation email sent"
+    );
+  },
+
+  async enviarDerivacionRespuestaFinal(
+    emailAdmin: string,
+    params: {
+      adminNombre: string;
+      numeroSeguimiento: string;
+      vecino: VecinoData;
+      tipoRequerimiento: string;
+      direccionMunicipalLabel: string;
+      descripcion: string;
+      fechaIngreso: string | Date;
+      fechaLimite: string | Date;
+      evidencia?: { tipo: "documento" | "link"; nombre?: string; url?: string };
+    }
+  ): Promise<void> {
+    const { subject, html } = getDerivacionRespuestaFinalAdminTemplate({
+      ...params,
+      fechaIngreso: typeof params.fechaIngreso === "string"
+        ? params.fechaIngreso
+        : params.fechaIngreso.toISOString(),
+      fechaLimite: typeof params.fechaLimite === "string"
+        ? params.fechaLimite
+        : params.fechaLimite.toISOString(),
+    });
+    await sendMail(emailAdmin, subject, html, [getEmbeddedLogoAttachment()]);
+    logger.info(
+      { email: emailAdmin, numero: params.numeroSeguimiento },
+      "Final response derivation email sent to admin"
     );
   },
 
