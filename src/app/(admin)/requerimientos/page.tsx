@@ -16,6 +16,8 @@ import { PaginationNumeric } from "@/components/ui/PaginationNumeric";
 import { getBusinessDaysBetween } from "@/lib/utils/dias-habiles";
 import { canDeleteRequerimiento } from "@/lib/requerimiento-permissions";
 import { esRolAdminPlataforma } from "@/types/usuario.types";
+import { DIRECCIONES_MUNICIPALES } from "@/constants/direcciones";
+import { getDireccionLabel } from "@/constants/direcciones";
 import { ConfirmDeleteModal } from "@/components/ui/ConfirmDeleteModal";
 
 const PAGE_SIZE = 8;
@@ -34,10 +36,33 @@ export default function RequerimientosPage() {
   const { user } = useAuth();
   const deleteMutation = useDeleteRequerimiento();
   const effectivePage = currentPage;
-  const canFilterByDireccion =
+  const direccionesAsignadasDirector = useMemo(() => {
+    if (user?.rol !== "director") return [];
+    const fromArray = user.direccionAsignadas?.filter(Boolean) ?? [];
+    if (fromArray.length > 0) return fromArray;
+    return user.direccionAsignada ? [user.direccionAsignada] : [];
+  }, [user]);
+
+  const canFilterAllDirecciones =
     user?.rol === "superadmin" ||
     (!!user && esRolAdminPlataforma(user.rol)) ||
     user?.rol === "administradora-municipal";
+
+  const canFilterByMisDirecciones =
+    user?.rol === "director" && direccionesAsignadasDirector.length > 1;
+
+  const showDireccionFilter = canFilterAllDirecciones || canFilterByMisDirecciones;
+
+  const direccionOptionsDirector = useMemo(
+    () =>
+      direccionesAsignadasDirector.map((key) => ({
+        value: key,
+        label:
+          DIRECCIONES_MUNICIPALES[key as keyof typeof DIRECCIONES_MUNICIPALES]?.label ||
+          getDireccionLabel(key),
+      })),
+    [direccionesAsignadasDirector]
+  );
 
   const sortBy = sortMode === "limite" ? "fechaLimite" as const : "fechaIngreso" as const;
   const sortDir = sortMode === "antiguos" ? "asc" as const : "desc" as const;
@@ -252,7 +277,8 @@ export default function RequerimientosPage() {
           direccion={direccion}
           busqueda={busqueda}
           sortMode={sortMode}
-          showDireccionFilter={canFilterByDireccion}
+          showDireccionFilter={showDireccionFilter}
+          direccionOptions={canFilterByMisDirecciones ? direccionOptionsDirector : undefined}
           onEstadoChange={(v) => {
             setEstado(v);
             setCurrentPage(1);

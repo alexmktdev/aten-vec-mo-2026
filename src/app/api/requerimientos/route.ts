@@ -28,6 +28,13 @@ export async function GET(request: NextRequest) {
     }
 
     const direccionRestriccion = getDireccionRestriccion(authResult.user);
+    if (
+      parsedFilters.data.direccionMunicipal &&
+      direccionRestriccion?.length &&
+      !direccionRestriccion.includes(parsedFilters.data.direccionMunicipal)
+    ) {
+      return createErrorResponse(403, "No tiene permisos para filtrar por esa dirección");
+    }
     // Lista sin unstable_cache: dirección/categoría deben reflejarse al instante tras editar un requerimiento.
     const result = await requerimientoService.list(parsedFilters.data, direccionRestriccion);
 

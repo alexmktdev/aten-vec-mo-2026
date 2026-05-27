@@ -41,11 +41,18 @@ function buildFilteredQuery(
   let query = collection().orderBy(sortField, sortDir);
 
   if (direccionRestriccion && direccionRestriccion.length > 0) {
-    if (direccionRestriccion.length === 1) {
+    if (
+      filters.direccionMunicipal &&
+      direccionRestriccion.includes(filters.direccionMunicipal)
+    ) {
+      query = query.where("direccionMunicipal", "==", filters.direccionMunicipal);
+    } else if (direccionRestriccion.length === 1) {
       query = query.where("direccionMunicipal", "==", direccionRestriccion[0]);
     } else {
       query = query.where("direccionMunicipal", "in", direccionRestriccion.slice(0, 10));
     }
+  } else if (filters.direccionMunicipal) {
+    query = query.where("direccionMunicipal", "==", filters.direccionMunicipal);
   }
 
   if (filters.estado) {
@@ -54,10 +61,6 @@ function buildFilteredQuery(
 
   if (filters.tipoRequerimiento) {
     query = query.where("tipoRequerimiento", "==", filters.tipoRequerimiento);
-  }
-
-  if (filters.direccionMunicipal && (!direccionRestriccion || direccionRestriccion.length === 0)) {
-    query = query.where("direccionMunicipal", "==", filters.direccionMunicipal);
   }
 
   if (filters.categoria) {
@@ -94,7 +97,7 @@ function applyInMemoryFilters(
       if (direccionRestriccion && direccionRestriccion.length > 0 && !direccionRestriccion.includes(req.direccionMunicipal)) return false;
       if (filters.estado && req.estado !== filters.estado) return false;
       if (filters.tipoRequerimiento && req.tipoRequerimiento !== filters.tipoRequerimiento) return false;
-      if (filters.direccionMunicipal && (!direccionRestriccion || direccionRestriccion.length === 0) && req.direccionMunicipal !== filters.direccionMunicipal) return false;
+      if (filters.direccionMunicipal && req.direccionMunicipal !== filters.direccionMunicipal) return false;
       if (filters.categoria && req.categoria !== filters.categoria) return false;
 
       const fechaIngreso = new Date(req.fechaIngreso as string | Date);

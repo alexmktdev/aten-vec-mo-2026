@@ -6,12 +6,19 @@ import { Button } from "@/components/ui/Button";
 import { DIRECCIONES_MUNICIPALES } from "@/constants/direcciones";
 import { ESTADOS_REQUERIMIENTO, ESTADO_LABELS } from "@/types/requerimiento.types";
 
+interface DireccionOption {
+  value: string;
+  label: string;
+}
+
 interface Props {
   estado: string;
   direccion: string;
   busqueda: string;
   sortMode: "recientes" | "antiguos" | "limite";
   showDireccionFilter?: boolean;
+  /** Si se define, reemplaza el listado municipal completo (p. ej. solo direcciones del director). */
+  direccionOptions?: DireccionOption[];
   onEstadoChange: (val: string) => void;
   onDireccionChange: (val: string) => void;
   onBusquedaChange: (val: string) => void;
@@ -24,6 +31,7 @@ export function RequerimientoFilters({
   busqueda,
   sortMode,
   showDireccionFilter = true,
+  direccionOptions: direccionOptionsProp,
   onEstadoChange,
   onDireccionChange,
   onBusquedaChange,
@@ -34,10 +42,16 @@ export function RequerimientoFilters({
     ...ESTADOS_REQUERIMIENTO.map((e) => ({ value: e, label: ESTADO_LABELS[e] })),
   ];
 
-  const direccionOptions = [
-    { value: "", label: "Todas las direcciones" },
-    ...Object.entries(DIRECCIONES_MUNICIPALES).map(([key, val]) => ({ value: key, label: val.label })),
-  ];
+  const todasLabel = direccionOptionsProp ? "Todas mis direcciones" : "Todas las direcciones";
+  const direccionSelectOptions = direccionOptionsProp
+    ? [{ value: "", label: todasLabel }, ...direccionOptionsProp]
+    : [
+        { value: "", label: todasLabel },
+        ...Object.entries(DIRECCIONES_MUNICIPALES).map(([key, val]) => ({
+          value: key,
+          label: val.label,
+        })),
+      ];
 
   return (
     <div className="flex flex-wrap gap-4">
@@ -55,7 +69,7 @@ export function RequerimientoFilters({
       {showDireccionFilter && (
         <div className="w-full sm:w-auto sm:min-w-[280px]">
           <Select
-            options={direccionOptions}
+            options={direccionSelectOptions}
             value={direccion}
             onChange={(e) => onDireccionChange(e.target.value)}
           />
