@@ -9,7 +9,12 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
-import { ESTADO_LABELS, ESTADO_COLORS, EstadoRequerimiento } from "@/types/requerimiento.types";
+import {
+  ESTADO_LABELS,
+  ESTADO_COLORS,
+  ESTADO_DESCRIPCION_SEGUIMIENTO,
+  EstadoRequerimiento,
+} from "@/types/requerimiento.types";
 import { cn } from "@/lib/utils";
 import { formatRut } from "@/lib/utils/rut";
 import { Search, Calendar, FileText } from "lucide-react";
@@ -102,9 +107,29 @@ export function SeguimientoForm() {
                 <CardTitle className="text-blue-600">{result.numeroSeguimiento}</CardTitle>
               </div>
               <div className="flex flex-col items-center gap-1.5 shrink-0">
-                <Badge variant={estadoColor} className="text-sm px-4 py-1.5">
-                  {ESTADO_LABELS[result.estado]}
-                </Badge>
+                <div className="relative group">
+                  <Badge
+                    variant={estadoColor}
+                    tabIndex={0}
+                    className="text-sm px-4 py-1.5 cursor-help focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                    aria-describedby="seguimiento-estado-descripcion"
+                  >
+                    {ESTADO_LABELS[result.estado]}
+                  </Badge>
+                  <span
+                    id="seguimiento-estado-descripcion"
+                    role="tooltip"
+                    className={cn(
+                      "pointer-events-none absolute z-20 bottom-full left-1/2 -translate-x-1/2 mb-2",
+                      "w-[min(17rem,calc(100vw-2.5rem))] px-3 py-2.5 text-xs font-normal text-slate-700 leading-relaxed",
+                      "text-center bg-white border border-slate-200 rounded-lg shadow-md",
+                      "opacity-0 invisible transition-opacity duration-150",
+                      "group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible"
+                    )}
+                  >
+                    {ESTADO_DESCRIPCION_SEGUIMIENTO[result.estado]}
+                  </span>
+                </div>
                 <div
                   className="w-[min(100%,11rem)] sm:w-44 rounded-full bg-slate-200/90 h-2.5 overflow-hidden border border-slate-200"
                   role="progressbar"

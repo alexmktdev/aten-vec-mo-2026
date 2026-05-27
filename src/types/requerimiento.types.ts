@@ -277,6 +277,29 @@ export const ESTADO_LABELS: Record<EstadoRequerimiento, string> = {
   rechazado: "Requerimiento Rechazado",
 };
 
+/**
+ * Texto breve para la consulta pública de seguimiento (vecino).
+ * Lenguaje simple, sin detalles internos del panel.
+ */
+export const ESTADO_DESCRIPCION_SEGUIMIENTO: Record<EstadoRequerimiento, string> = {
+  pendiente:
+    "Recibimos su solicitud. Está en cola para ser enviada a la dirección municipal que corresponde; pronto comenzará su tramitación.",
+  derivado:
+    "Su caso ya fue enviado a la dirección municipal indicada. Ese equipo lo revisará y dará inicio al trabajo.",
+  en_proceso:
+    "La dirección municipal está trabajando en su requerimiento para preparar una respuesta.",
+  en_espera_1:
+    "El trámite está en espera por un motivo justificado (por ejemplo, antecedentes pendientes o un plazo legal). Si necesitamos algo de su parte, se lo informaremos.",
+  en_espera_2:
+    "El trámite continúa en espera. No está cerrado: el plazo puede haberse extendido según la normativa aplicable.",
+  derivado_respuesta_final:
+    "Su caso está en la etapa final. Se está preparando la respuesta formal, que le llegará al correo que registró.",
+  completado:
+    "Su requerimiento fue atendido y cerrado. La respuesta debería haber llegado a su correo; si no la ve, revise también la carpeta de spam.",
+  rechazado:
+    "El trámite fue cerrado sin dar curso a la solicitud. El fundamento debería haberse enviado a su correo electrónico.",
+};
+
 export const ESTADO_COLORS: Record<EstadoRequerimiento, string> = {
   pendiente: "yellow",
   derivado: "blue",
