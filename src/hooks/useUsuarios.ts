@@ -84,6 +84,21 @@ export function useUpdateUsuario() {
   });
 }
 
+export function useSetUsuarioActivo() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, activo }: { id: string; activo: boolean }) =>
+      fetchJson<UsuarioDTO>(`/api/usuarios/${id}/activo`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ activo }),
+      }),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["usuarios"] });
+    },
+  });
+}
+
 export function useDeleteUsuario() {
   const queryClient = useQueryClient();
   return useMutation({

@@ -1,7 +1,7 @@
 import { adminAuth } from "@/lib/firebase/admin";
 import { usuarioRepository } from "@/repositories/usuario.repository";
 import { Usuario, UsuarioDTO, UsuarioCreateInput, RolUsuario, PaginatedUsuariosResponse } from "@/types/usuario.types";
-import { UsuarioUpdateInput } from "@/lib/validations/usuario.schema";
+import { UsuarioSetActivoInput, UsuarioUpdateInput } from "@/lib/validations/usuario.schema";
 import { getDireccionLabel } from "@/constants/direcciones";
 import logger from "@/lib/logger";
 import { Timestamp } from "firebase-admin/firestore";
@@ -33,7 +33,7 @@ function toUsuarioDTO(user: Usuario): UsuarioDTO {
     direccionAsignadaLabel: direcciones[0] ? getDireccionLabel(direcciones[0]) : undefined,
     direccionAsignadas: direcciones,
     direccionAsignadasLabel: direcciones.map((d) => getDireccionLabel(d)),
-    activo: user.activo,
+    activo: user.activo !== false,
     creadoEn: formatTime(user.creadoEn),
     actualizadoEn: formatTime(user.actualizadoEn),
   };
@@ -217,12 +217,8 @@ export const usuarioService = {
         ? [input.direccionAsignada]
         : [];
 
-    await ensureSoloDirectorPorDireccion(
-      input.rol,
-      direcciones,
-      existing.activo !== false,
-      uid
-    );
+    const seraActivo = existing.activo !== false;
+    await ensureSoloDirectorPorDireccion(input.rol, direcciones, seraActivo, uid);
     const claims: Record<string, unknown> = { rol: input.rol };
     if (direcciones.length > 0) {
       claims.direccionAsignada = direcciones[0];
@@ -248,6 +244,31 @@ export const usuarioService = {
     const updated = await usuarioRepository.getById(uid);
     logger.info({ uid, rol: input.rol }, "User updated");
     invalidateCacheByPrefix("usuarios:list:");
+    return updated ? toUsuarioDTO(updated) : null;
+  },
+
+  async setActivo(uid: string, input: UsuarioSetActivoInput): Promise<UsuarioDTO | null> {
+    const existing = await usuarioRepository.getById(uid);
+    if (!existing) return null;
+
+    const direcciones =
+      existing.direccionAsignadas && existing.direccionAsignadas.length > 0
+        ? existing.direccionAsignadas
+        : existing.direccionAsignada
+          ? [existing.direccionAsignada]
+          : [];
+
+    if (input.activo) {
+      await ensureSoloDirectorPorDireccion(existing.rol, direcciones, true, uid);
+    }
+
+    await adminAuth.updateUser(uid, { disabled: !input.activo });
+    await usuarioRepository.update(uid, { activo: input.activo });
+
+    logger.info({ uid, activo: input.activo }, "User active state updated");
+    invalidateCacheByPrefix("usuarios:list:");
+
+    const updated = await usuarioRepository.getById(uid);
     return updated ? toUsuarioDTO(updated) : null;
   },
 

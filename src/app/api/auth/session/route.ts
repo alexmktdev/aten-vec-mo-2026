@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import logger from "@/lib/logger";
 import { sanitizeText } from "@/lib/utils/sanitize";
 import { requireAuth } from "@/lib/auth-guard";
+import { usuarioRepository } from "@/repositories/usuario.repository";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,16 @@ export async function POST(request: NextRequest) {
 
     // Verify the ID token
     const decodedToken = await adminAuth.verifyIdToken(idToken);
+    const userRecord = await adminAuth.getUser(decodedToken.uid);
+
+    if (userRecord.disabled) {
+      return createErrorResponse(403, "Su cuenta está desactivada. Contacte al administrador.");
+    }
+
+    const perfil = await usuarioRepository.getById(decodedToken.uid);
+    if (perfil && perfil.activo === false) {
+      return createErrorResponse(403, "Su cuenta está desactivada. Contacte al administrador.");
+    }
 
     // Create session cookie — 1 hour expiry
     const expiresIn = 60 * 60 * 1000; // 1 hour in milliseconds
@@ -37,8 +48,6 @@ export async function POST(request: NextRequest) {
       path: "/",
     });
 
-    // Get user custom claims for the response
-    const userRecord = await adminAuth.getUser(decodedToken.uid);
     const claims = userRecord.customClaims || {};
     const direccionAsignadas = Array.isArray(claims.direccionAsignadas)
       ? (claims.direccionAsignadas as string[])

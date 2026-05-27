@@ -115,6 +115,34 @@ export const usuarioRepository = {
    * indicadas asignadas (campo escalar o campo array). Útil para validar que
    * cada dirección tenga un único director activo.
    */
+  /**
+   * Director activo asignado a una dirección (array o campo escalar legacy).
+   */
+  async getDirectorActivoPorDireccion(direccion: string): Promise<Usuario | null> {
+    const byArray = await collection()
+      .where("rol", "==", "director")
+      .where("activo", "==", true)
+      .where("direccionAsignadas", "array-contains", direccion)
+      .limit(1)
+      .get();
+
+    if (!byArray.empty) {
+      const doc = byArray.docs[0];
+      return { id: doc.id, ...doc.data() } as Usuario;
+    }
+
+    const byScalar = await collection()
+      .where("rol", "==", "director")
+      .where("activo", "==", true)
+      .where("direccionAsignada", "==", direccion)
+      .limit(1)
+      .get();
+
+    if (byScalar.empty) return null;
+    const doc = byScalar.docs[0];
+    return { id: doc.id, ...doc.data() } as Usuario;
+  },
+
   async getDirectoresActivosByDirecciones(direcciones: string[]): Promise<Usuario[]> {
     const unique = Array.from(new Set(direcciones.filter(Boolean)));
     if (unique.length === 0) return [];

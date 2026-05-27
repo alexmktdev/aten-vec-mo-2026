@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalDescription, ModalFooter } from "@/components/ui/Modal";
 import { Alert } from "@/components/ui/Alert";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { DIRECCIONES_DERIVACION_OPTIONS, getCorreoDireccion } from "@/constants/direcciones-correos";
+import { fetchJson } from "@/lib/api/fetch-json";
 
 interface Props {
   open: boolean;
@@ -35,6 +36,35 @@ export function DerivacionModal({
   const [email, setEmail] = useState(getCorreoDireccion(direccionInicial));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+    setDireccionMunicipal(direccionInicial);
+    setError("");
+  }, [open, direccionInicial]);
+
+  useEffect(() => {
+    if (!open || !direccionMunicipal) return;
+
+    let cancelled = false;
+    const fallback = getCorreoDireccion(direccionMunicipal);
+    setEmail(fallback);
+
+    void (async () => {
+      try {
+        const res = await fetchJson<{ direccion: string; correo: string }>(
+          `/api/direcciones/correo-derivacion?direccion=${encodeURIComponent(direccionMunicipal)}`
+        );
+        if (!cancelled && res.correo) setEmail(res.correo);
+      } catch {
+        if (!cancelled) setEmail(fallback);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, direccionMunicipal]);
 
   const options = useMemo(() => {
     if (esTransparencia) {
@@ -90,7 +120,6 @@ export function DerivacionModal({
               if (esTransparencia) return;
               const nextDireccion = e.target.value;
               setDireccionMunicipal(nextDireccion);
-              setEmail(getCorreoDireccion(nextDireccion));
               setError("");
             }}
             options={options}

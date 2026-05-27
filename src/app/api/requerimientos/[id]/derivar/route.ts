@@ -8,7 +8,7 @@ import { z } from "zod";
 import { normalizeEmail } from "@/lib/utils/sanitize";
 import { canDerivarRequerimiento } from "@/lib/requerimiento-permissions";
 import { DIRECCIONES_KEYS, getDireccionLabel } from "@/constants/direcciones";
-import { getCorreoDireccion } from "@/constants/direcciones-correos";
+import { getCorreoDerivacionParaDireccion } from "@/lib/direccion-correo-derivacion";
 
 const log = createRouteLogger("/api/requerimientos/[id]/derivar");
 
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const correoSugerido = getCorreoDireccion(parsed.data.direccionMunicipal);
+    const correoSugerido = await getCorreoDerivacionParaDireccion(parsed.data.direccionMunicipal);
     if (!correoSugerido) {
       return createErrorResponse(400, "No existe correo configurado para la dirección seleccionada");
     }

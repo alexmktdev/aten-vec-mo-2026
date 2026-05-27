@@ -90,6 +90,12 @@ export const usuarioUpdateSchema = z
 
 export type UsuarioUpdateInput = z.infer<typeof usuarioUpdateSchema>;
 
+export const usuarioSetActivoSchema = z.object({
+  activo: z.boolean(),
+});
+
+export type UsuarioSetActivoInput = z.infer<typeof usuarioSetActivoSchema>;
+
 export const loginSchema = z.object({
   email: z.string().email("El correo electrónico no es válido"),
   password: z.string().min(1, "La contraseña es obligatoria"),

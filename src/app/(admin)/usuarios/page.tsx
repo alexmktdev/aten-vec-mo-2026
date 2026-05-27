@@ -2,7 +2,7 @@
 
 import { useCallback, useDeferredValue, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { getUsuariosQueryOptions, useUsuarios, useUpdateUsuario, useDeleteUsuario } from "@/hooks/useUsuarios";
+import { getUsuariosQueryOptions, useUsuarios, useUpdateUsuario, useDeleteUsuario, useSetUsuarioActivo } from "@/hooks/useUsuarios";
 import { useAuth } from "@/hooks/useAuth";
 import { DataTable } from "@/components/ui/DataTable";
 import { Badge } from "@/components/ui/Badge";
@@ -11,7 +11,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Modal, ModalContent, ModalDescription, ModalHeader, ModalTitle } from "@/components/ui/Modal";
 import { UsuarioDTO } from "@/types/usuario.types";
 import { UsuarioUpdateInput } from "@/lib/validations/usuario.schema";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, UserCheck, UserX } from "lucide-react";
 import { PaginationNumeric } from "@/components/ui/PaginationNumeric";
 import { Input } from "@/components/ui/Input";
 import { ConfirmDeleteModal } from "@/components/ui/ConfirmDeleteModal";
@@ -22,6 +22,7 @@ export default function UsuariosPage() {
   const queryClient = useQueryClient();
   const updateMutation = useUpdateUsuario();
   const deleteMutation = useDeleteUsuario();
+  const setActivoMutation = useSetUsuarioActivo();
   const [selectedUser, setSelectedUser] = useState<UsuarioDTO | null>(null);
   const [showEdit, setShowEdit] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
@@ -51,6 +52,19 @@ export default function UsuariosPage() {
       setTimeout(() => setSuccessMsg(""), 3000);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Error al crear el usuario";
+      setErrorMsg(message);
+    }
+  };
+
+  const handleToggleActivo = async (usuario: UsuarioDTO) => {
+    const nuevoEstado = !usuario.activo;
+    setErrorMsg("");
+    try {
+      await setActivoMutation.mutateAsync({ id: usuario.id, activo: nuevoEstado });
+      setSuccessMsg(nuevoEstado ? "Usuario activado exitosamente" : "Usuario desactivado exitosamente");
+      setTimeout(() => setSuccessMsg(""), 3000);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Error al cambiar el estado del usuario";
       setErrorMsg(message);
     }
   };
@@ -101,6 +115,15 @@ export default function UsuariosPage() {
           : item.direccionAsignadaLabel || "—",
     },
     {
+      key: "activo",
+      header: "Estado",
+      render: (item: UsuarioDTO) => (
+        <Badge variant={item.activo ? "green" : "default"}>
+          {item.activo ? "Activo" : "Inactivo"}
+        </Badge>
+      ),
+    },
+    {
       key: "acciones",
       header: "Acciones",
       render: (item: UsuarioDTO) => (
@@ -116,6 +139,30 @@ export default function UsuariosPage() {
             disabled={!canManageUsers}
           >
             <Pencil className="h-3.5 w-3.5 mr-1" /> Editar
+          </Button>
+          <Button
+            variant={item.activo ? "outline" : "default"}
+            size="sm"
+            className={item.activo ? "" : "bg-emerald-700 hover:bg-emerald-800 text-white"}
+            onClick={(e) => {
+              e.stopPropagation();
+              void handleToggleActivo(item);
+            }}
+            disabled={
+              !canManageUsers ||
+              setActivoMutation.isPending ||
+              item.id === user?.uid
+            }
+          >
+            {item.activo ? (
+              <>
+                <UserX className="h-3.5 w-3.5 mr-1" /> Desactivar
+              </>
+            ) : (
+              <>
+                <UserCheck className="h-3.5 w-3.5 mr-1" /> Activar
+              </>
+            )}
           </Button>
           <Button
             variant="destructive"

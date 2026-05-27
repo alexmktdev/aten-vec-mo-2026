@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { adminAuth } from "@/lib/firebase/admin";
+import { usuarioRepository } from "@/repositories/usuario.repository";
 import { SessionUser } from "@/types/auth.types";
 import {
   RolUsuario,
@@ -32,6 +33,12 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 
     const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
     const userRecord = await adminAuth.getUser(decoded.uid);
+
+    if (userRecord.disabled) return null;
+
+    const perfil = await usuarioRepository.getById(decoded.uid);
+    if (perfil && perfil.activo === false) return null;
+
     const claims = userRecord.customClaims || {};
     const direcciones = normalizeDireccionesFromClaims(claims);
 
