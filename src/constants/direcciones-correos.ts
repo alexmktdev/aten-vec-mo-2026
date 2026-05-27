@@ -4,7 +4,7 @@ export const CORREOS_DIRECCION: Record<DireccionMunicipalKey, string> = {
   ADMINISTRACION: "amachuca@molina.cl",
   INSPECCION: "amachuca@molina.cl",
   INNOVACION: "jtartari@molina.cl",
-  SECRETARIA: "faviles@molina.cl",
+  SECRETARIA: "cuentadesarrollo2013@gmail.com",
   JPL: "cuentadesarrollo2013@gmail.com",
   CONTROL: "faviles@molina.cl",
   FINANZAS: "alejandro.rojas@molina.cl",

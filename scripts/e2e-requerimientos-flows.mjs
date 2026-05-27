@@ -24,7 +24,7 @@ const COLLECTION_REQUERIMIENTOS = "requerimientos";
 
 /** Debe coincidir con src/constants/direcciones-correos.ts */
 const CORREO_OPERACIONES = "jpereira@molina.cl";
-const CORREO_SECRETARIA = "faviles@molina.cl";
+const CORREO_SECRETARIA = "cuentadesarrollo2013@gmail.com";
 
 const LABEL_OPERACIONES = "Dirección de Operaciones";
 
