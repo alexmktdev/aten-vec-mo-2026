@@ -63,6 +63,7 @@ export async function PATCH(request: NextRequest, routeParams: RequerimientoRout
     const transitionContext = {
       hasRespuestaVecino: (existing.respuestasVecino?.length ?? 0) > 0,
       estadoAnteriorReapertura,
+      tipoRequerimiento: existing.tipoRequerimiento,
     };
     const nextEstado = parsed.data.estado as EstadoRequerimiento | undefined;
     if (

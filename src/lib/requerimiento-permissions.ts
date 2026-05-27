@@ -17,7 +17,11 @@ import { SessionUser } from "@/types/auth.types";
  *   un requerimiento de su tipo. La derivación pendiente → derivado se hace
  *   con el botón "Derivar".
  *
- * - director: opera entre derivado / en_proceso / esperas / cierre.
+ * - director: opera entre derivado / en_proceso / esperas; el cierre manual a
+ *   completado/rechazado desde proceso o esperas solo aplica a tipos donde el
+ *   director envía la respuesta al vecino (p. ej. Solicitud Vecinal). Si el tipo
+ *   requiere respuesta final por admin, el director solo puede derivar a
+ *   respuesta final; el admin cerrará al enviar el correo.
  *
  * - superadmin y administradora-municipal: todas las transiciones.
  */
@@ -138,6 +142,8 @@ export interface EstadoTransitionContext {
    * es el estado previo en historial (sirve para reabrir con el mismo flujo).
    */
   estadoAnteriorReapertura?: EstadoRequerimiento;
+  /** Necesario para acotar transiciones del director según el tipo de caso. */
+  tipoRequerimiento?: string;
 }
 
 export function getAllowedNextStates(
@@ -162,15 +168,24 @@ export function getAllowedNextStates(
   }
 
   if (rol === "director") {
-    const base = [...DIRECTOR_STATUS_TRANSITIONS[currentEstado]];
+    let next = [...DIRECTOR_STATUS_TRANSITIONS[currentEstado]];
+    const directorNoCierraManualPorAdmin =
+      !!context?.tipoRequerimiento &&
+      requiereRespuestaFinalPorAdmin(context.tipoRequerimiento) &&
+      (currentEstado === "en_proceso" ||
+        currentEstado === "en_espera_1" ||
+        currentEstado === "en_espera_2");
+    if (directorNoCierraManualPorAdmin) {
+      next = next.filter((s) => s !== "completado" && s !== "rechazado");
+    }
     if (
       sinRespuestaVecino &&
       (currentEstado === "completado" || currentEstado === "rechazado") &&
       context?.estadoAnteriorReapertura
     ) {
-      base.push(context.estadoAnteriorReapertura);
+      next.push(context.estadoAnteriorReapertura);
     }
-    return base;
+    return next;
   }
 
   return [];

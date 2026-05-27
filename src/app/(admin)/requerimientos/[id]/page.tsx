@@ -113,7 +113,11 @@ export default function RequerimientoDetailPage() {
     (req.historialEstados?.length ?? 0) >= 2
       ? (req.historialEstados[req.historialEstados.length - 2]!.estado as EstadoRequerimiento)
       : undefined;
-  const estadoTransitionContext = { hasRespuestaVecino, estadoAnteriorReapertura };
+  const estadoTransitionContext = {
+    hasRespuestaVecino,
+    estadoAnteriorReapertura,
+    tipoRequerimiento: req?.tipoRequerimiento,
+  };
   const tipo = req?.tipoRequerimiento;
   const esTipoRespuestaDirecta = !!tipo && requiereRespuestaDirectaDirector(tipo);
   const esTipoRespuestaAdmin = !!tipo && requiereRespuestaFinalPorAdmin(tipo);
