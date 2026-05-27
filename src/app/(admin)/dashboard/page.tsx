@@ -90,7 +90,7 @@ export default function DashboardPage() {
               value={stats?.pendiente || 0}
               icon={Clock}
               color="yellow"
-              trend="Estado: Pendiente"
+              trend="Estado: Pendiente por derivación"
               onClick={() => openCardChart("pendiente")}
             />
             <StatsCard

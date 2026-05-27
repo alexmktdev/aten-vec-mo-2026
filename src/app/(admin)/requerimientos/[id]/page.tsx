@@ -577,7 +577,7 @@ export default function RequerimientoDetailPage() {
                         : req.estado === "completado" || req.estado === "rechazado"
                           ? "No puede editar datos completos en completado o rechazado. Si aún no envió correo al vecino, vuelva primero a «En proceso de solución»."
                           : !!user && (esRolAdminPlataforma(user.rol) || user.rol === "administradora-municipal")
-                            ? "Solo puede editar datos completos con el requerimiento en «Pendiente» y siempre que el tipo le corresponda. Si ya derivó, espere a que un director devuelva el caso a pendiente."
+                            ? `Solo puede editar datos completos con el requerimiento en «${ESTADO_LABELS.pendiente}» y siempre que el tipo le corresponda. Si ya derivó, espere a que un director devuelva el caso a pendiente.`
                             : undefined
                     }
                     onClick={() => {
@@ -735,7 +735,7 @@ export default function RequerimientoDetailPage() {
           if (!open) setPendienteEvidenciaNota(undefined);
         }}
         title="Eliminar evidencia para volver a pendiente"
-        confirmLabel="Eliminar evidencia y volver a Pendiente"
+        confirmLabel={`Eliminar evidencia y volver a ${ESTADO_LABELS.pendiente}`}
         description={
           <div className="space-y-3 text-sm text-slate-600">
             <p>

@@ -401,7 +401,7 @@ export async function buildEstadisticasCompletoBuffer(
   const resumen = [
     ["Métrica", "Cantidad", "% del total requerimientos"],
     ["Total requerimientos", global.total, global.total ? 100 : 0],
-    ["Pendiente", global.pendiente, pct(global.pendiente, global.total)],
+    [ESTADO_LABELS.pendiente, global.pendiente, pct(global.pendiente, global.total)],
     ["Derivado al área correspondiente", global.derivado, pct(global.derivado, global.total)],
     ["En proceso de solución", global.en_proceso, pct(global.en_proceso, global.total)],
     ["Requerimiento completado", global.completado, pct(global.completado, global.total)],
@@ -417,7 +417,7 @@ export async function buildEstadisticasCompletoBuffer(
   const headerDir = [
     "Dirección municipal",
     "Total",
-    "Pendiente",
+    ESTADO_LABELS.pendiente,
     "Derivado",
     "En proceso",
     "Completado",

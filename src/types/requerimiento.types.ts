@@ -267,7 +267,7 @@ export interface PaginatedResponse<T> {
 }
 
 export const ESTADO_LABELS: Record<EstadoRequerimiento, string> = {
-  pendiente: "Pendiente",
+  pendiente: "Pendiente por derivación",
   derivado: "Derivado al área correspondiente",
   en_proceso: "En proceso de solución",
   en_espera_1: "Requerimiento en espera 1",

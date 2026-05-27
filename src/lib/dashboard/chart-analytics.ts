@@ -117,7 +117,7 @@ function countByDir(rows: Norm[]): DashboardPieSlice[] {
 
 function estadosPie(rows: Norm[]): DashboardPieSlice[] {
   const labels: Record<string, string> = {
-    pendiente: "Pendiente",
+    pendiente: "Pendiente por derivación",
     derivado: "Derivado",
     en_proceso: "En proceso",
     en_espera_1: "En espera 1",
