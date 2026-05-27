@@ -671,8 +671,15 @@ export const requerimientoService = {
   },
 
   /**
-   * Dashboard stats — usa métricas pre-agregadas (1 doc) cuando no hay restricción;
-   * solo necesita scan completo como fallback o para urgentesActivos (no pre-agregado).
+   * Dashboard stats — siempre se cuentan desde la colección real para que las
+   * tarjetas del panel siempre coincidan con el listado. El caché de 2 min
+   * evita scans repetidos en ventanas muy cortas.
+   *
+   * Antes preferíamos un doc agregado (`dashboard_metrics/global`) mantenido
+   * por contadores incrementales, pero quedaba desfasado cuando el backfill
+   * inicial se hizo con un conjunto de estados distinto al actual, o cuando
+   * alguna mutación no pasaba por `onEstadoChange`. La fuente de verdad debe
+   * ser la colección.
    */
   async getStats(direccionRestriccion?: string[]): Promise<{
     total: number;
@@ -687,16 +694,9 @@ export const requerimientoService = {
     urgentesActivos: number;
   }> {
     const cacheKey = `dashboard:stats:${direccionRestriccion?.sort().join(",") ?? "global"}`;
-    return cached(cacheKey, 120_000, async () => {
-      if (!direccionRestriccion || direccionRestriccion.length === 0) {
-        const preAggregated = await dashboardMetricsService.getCoreStats();
-        if (preAggregated && preAggregated.total > 0) {
-          const urgentesActivos = await this.countUrgentesActivos();
-          return { ...preAggregated, urgentesActivos };
-        }
-      }
-      return requerimientoRepository.getStats(direccionRestriccion);
-    });
+    return cached(cacheKey, 120_000, async () =>
+      requerimientoRepository.getStats(direccionRestriccion)
+    );
   },
 
   async countUrgentesActivos(): Promise<number> {
@@ -718,7 +718,10 @@ export const requerimientoService = {
 
   /**
    * Dashboard highlights — cacheados 2 min en servidor.
-   * Lista de últimos (5), urgentes (5), top direcciones.
+   * Lista de últimos (5), urgentes (5), top direcciones (totales y resueltas)
+   * calculadas en caliente sobre todos los requerimientos. Antes se leía un
+   * agregado pre-computado que podía desfasarse del estado real; ahora la
+   * lista y el dashboard usan exactamente los mismos datos.
    */
   async getDashboardHighlights(direccionRestriccion?: string[]): Promise<{
     ultimos: RequerimientoDTO[];
@@ -727,50 +730,37 @@ export const requerimientoService = {
     direccionesResueltasTop: { direccion: string; totalResueltos: number }[];
   }> {
     const cacheKey = `dashboard:highlights:${direccionRestriccion?.sort().join(",") ?? "global"}`;
-    return cached(cacheKey, 300_000, async () => {
-      const ultimosResult = await requerimientoRepository.list({ limit: 5 }, direccionRestriccion);
+    return cached(cacheKey, 120_000, async () => {
+      const [ultimosResult, chartRows] = await Promise.all([
+        requerimientoRepository.list({ limit: 5 }, direccionRestriccion),
+        requerimientoRepository.getDashboardChartRows(direccionRestriccion),
+      ]);
+
       const ultimos = ultimosResult.data.map(toRequerimientoDTO);
 
-      if (!direccionRestriccion || direccionRestriccion.length === 0) {
-        const [direccionesTop, direccionesResueltasTop, candidatosResult] = await Promise.all([
-          dashboardMetricsService.getTopDirections(5),
-          dashboardMetricsService.getTopResolvedDirections(5),
-          requerimientoRepository.list({ limit: 30 }, direccionRestriccion),
-        ]);
-
-        const urgentes = candidatosResult.data.map(toRequerimientoDTO)
-          .filter((r) => r.estado !== "completado" && r.estado !== "rechazado")
-          .sort((a, b) => getTimeFromDateLike(a.fechaIngreso) - getTimeFromDateLike(b.fechaIngreso))
-          .slice(0, 5);
-
-        return { ultimos, urgentes, direccionesTop, direccionesResueltasTop };
-      }
-
       const candidatos = await requerimientoRepository.list({ limit: 30 }, direccionRestriccion);
-      const candidatosDto = candidatos.data.map(toRequerimientoDTO);
-
-      const urgentes = candidatosDto
+      const urgentes = candidatos.data.map(toRequerimientoDTO)
         .filter((r) => r.estado !== "completado" && r.estado !== "rechazado")
         .sort((a, b) => getTimeFromDateLike(a.fechaIngreso) - getTimeFromDateLike(b.fechaIngreso))
         .slice(0, 5);
 
       const conteoDirecciones = new Map<string, number>();
-      candidatosDto.forEach((r) => {
-        const key = r.direccionMunicipalLabel || r.direccionMunicipal || "Sin dirección";
-        conteoDirecciones.set(key, (conteoDirecciones.get(key) || 0) + 1);
-      });
+      const conteoResueltos = new Map<string, number>();
+      for (const raw of chartRows) {
+        const label = typeof raw.direccionMunicipalLabel === "string" && raw.direccionMunicipalLabel.trim()
+          ? raw.direccionMunicipalLabel.trim()
+          : typeof raw.direccionMunicipal === "string" && raw.direccionMunicipal
+            ? raw.direccionMunicipal
+            : "Sin dirección";
+        conteoDirecciones.set(label, (conteoDirecciones.get(label) || 0) + 1);
+        if (raw.estado === "completado") {
+          conteoResueltos.set(label, (conteoResueltos.get(label) || 0) + 1);
+        }
+      }
       const direccionesTop = Array.from(conteoDirecciones.entries())
         .map(([direccion, total]) => ({ direccion, total }))
         .sort((a, b) => b.total - a.total)
         .slice(0, 5);
-
-      const conteoResueltos = new Map<string, number>();
-      candidatosDto
-        .filter((r) => r.estado === "completado")
-        .forEach((r) => {
-          const key = r.direccionMunicipalLabel || r.direccionMunicipal || "Sin dirección";
-          conteoResueltos.set(key, (conteoResueltos.get(key) || 0) + 1);
-        });
       const direccionesResueltasTop = Array.from(conteoResueltos.entries())
         .map(([direccion, totalResueltos]) => ({ direccion, totalResueltos }))
         .sort((a, b) => b.totalResueltos - a.totalResueltos)
