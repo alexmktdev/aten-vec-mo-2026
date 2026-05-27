@@ -6,6 +6,7 @@ import { reporteFiltersSchema } from "@/lib/validations/reporte-filters.schema";
 import { requerimientoService } from "@/services/requerimiento.service";
 import { ESTADO_LABELS } from "@/types/requerimiento.types";
 import { getBaseRequerimientoFiltersFromRequest } from "@/lib/api/requerimiento-filters-from-request";
+import { formatReporteFecha, formatReporteFechaYHora } from "@/lib/reportes/formato-fecha-reporte";
 
 const log = createRouteLogger("/api/reportes/export/pdf");
 
@@ -86,7 +87,7 @@ export async function GET(request: NextRequest) {
     doc.text(`Generado: ${now.toLocaleDateString("es-CL")} ${now.toLocaleTimeString("es-CL")}`, 14, 22);
     doc.text(`Total de registros analizados: ${rows.length}`, 14, 27);
     doc.text(
-      `Filtros: Estado=${parsed.data.estado || "Todos"} | Tipo=${parsed.data.tipoRequerimiento || "Todos"} | Dirección=${parsed.data.direccionMunicipal || "Todas"} | Desde=${parsed.data.fechaDesde ? parsed.data.fechaDesde.toLocaleDateString("es-CL") : "-"} | Hasta=${parsed.data.fechaHasta ? parsed.data.fechaHasta.toLocaleDateString("es-CL") : "-"}`,
+      `Filtros: Estado=${parsed.data.estado || "Todos"} | Tipo=${parsed.data.tipoRequerimiento || "Todos"} | Dirección=${parsed.data.direccionMunicipal || "Todas"} | Desde=${parsed.data.fechaDesde ? formatReporteFecha(parsed.data.fechaDesde) : "-"} | Hasta=${parsed.data.fechaHasta ? formatReporteFecha(parsed.data.fechaHasta) : "-"}`,
       14,
       32
     );
@@ -177,7 +178,7 @@ export async function GET(request: NextRequest) {
       theme: "grid",
       styles: { fontSize: 7.2, cellPadding: 1.5 },
       headStyles: { fillColor: [30, 58, 138] },
-      head: [["N°", "Vecino", "RUT", "Dirección", "Tipo", "Estado", "Fecha Ingreso"]],
+      head: [["N°", "Vecino", "RUT", "Dirección", "Tipo", "Estado", "Fecha ingreso"]],
       body: sortedRows.map((r) => [
         r.numeroSeguimiento,
         `${r.vecino.nombre} ${r.vecino.primerApellido}`,
@@ -185,7 +186,7 @@ export async function GET(request: NextRequest) {
         r.direccionMunicipalLabel,
         r.tipoRequerimiento,
         ESTADO_LABELS[r.estado] || r.estado,
-        new Date(r.fechaIngreso).toLocaleDateString("es-CL"),
+        formatReporteFechaYHora(r.fechaIngreso),
       ]),
     });
 

@@ -10,6 +10,7 @@ import {
   workbookToBuffer,
   type CellVal,
 } from "@/lib/reportes/excel-styled-workbook";
+import { formatReporteFechaYHora } from "@/lib/reportes/formato-fecha-reporte";
 
 const ESTADOS: EstadoRequerimiento[] = [
   "pendiente",
@@ -167,8 +168,10 @@ export async function buildEstadisticasCompletoBuffer(
   // --- Instrucciones ---
   const instr: CellVal[][] = [
     ["Exportación completa — Estadísticas y detalle"],
-    ["Generado (UTC)", meta.exportadoEnISO],
+    ["Generado", formatReporteFechaYHora(meta.exportadoEnISO)],
     ["Alcance de datos", meta.alcance],
+    [],
+    ["Formato fechas y horas en todas las hojas", "DD-MM-AAAA y HH:MM (24 h), zona Chile continental."],
     [],
     [
       "Incluye todos los requerimientos visibles para su usuario (sin filtros de la pantalla de reportes).",
@@ -357,8 +360,8 @@ export async function buildEstadisticasCompletoBuffer(
       estadoOrigenEtiqueta: "(ingreso)",
       estadoDestino: first.estado,
       estadoDestinoEtiqueta: (ESTADO_LABELS as Record<string, string>)[first.estado] || first.estado,
-      fechaOrigen: r.fechaIngreso,
-      fechaDestino: first.fecha,
+      fechaOrigen: formatReporteFechaYHora(r.fechaIngreso),
+      fechaDestino: formatReporteFechaYHora(first.fecha),
       diasCalendario: diasCalendarioEntre(r.fechaIngreso, first.fecha),
       usuarioId: first.usuarioId || "",
     });
@@ -373,8 +376,8 @@ export async function buildEstadisticasCompletoBuffer(
         estadoDestino: b.estado,
         estadoOrigenEtiqueta: (ESTADO_LABELS as Record<string, string>)[a.estado] || a.estado,
         estadoDestinoEtiqueta: (ESTADO_LABELS as Record<string, string>)[b.estado] || b.estado,
-        fechaOrigen: a.fecha,
-        fechaDestino: b.fecha,
+        fechaOrigen: formatReporteFechaYHora(a.fecha),
+        fechaDestino: formatReporteFechaYHora(b.fecha),
         diasCalendario: diasCalendarioEntre(a.fecha, b.fecha),
         usuarioId: b.usuarioId || "",
       });
@@ -523,7 +526,10 @@ export async function buildEstadisticasCompletoBuffer(
   // --- Detalle requerimientos (ampliado) ---
   const historialResumido = (r: RequerimientoDTO) =>
     sortedHistorial(r)
-      .map((h) => `${(ESTADO_LABELS as Record<string, string>)[h.estado] || h.estado}@${h.fecha.slice(0, 10)}`)
+      .map(
+        (h) =>
+          `${(ESTADO_LABELS as Record<string, string>)[h.estado] || h.estado}@${formatReporteFechaYHora(h.fecha)}`
+      )
       .join(" → ");
 
   const detalle = rows.map((r) => {
@@ -543,16 +549,10 @@ export async function buildEstadisticasCompletoBuffer(
       descripcion: r.descripcion,
       direccionMunicipal: r.direccionMunicipal,
       direccionMunicipalLabel: r.direccionMunicipalLabel,
-      fechaIngreso: r.fechaIngreso,
-      fechaIngreso_esCL: parseISODate(r.fechaIngreso).getTime()
-        ? parseISODate(r.fechaIngreso).toLocaleDateString("es-CL")
-        : "",
-      fechaResolucion: r.fechaResolucion || "",
-      fechaResolucion_esCL: r.fechaResolucion
-        ? parseISODate(r.fechaResolucion).toLocaleDateString("es-CL")
-        : "",
-      creadoEn: r.creadoEn,
-      actualizadoEn: r.actualizadoEn,
+      fechaIngreso: formatReporteFechaYHora(r.fechaIngreso),
+      fechaResolucion: r.fechaResolucion ? formatReporteFechaYHora(r.fechaResolucion) : "",
+      creadoEn: r.creadoEn ? formatReporteFechaYHora(r.creadoEn) : "",
+      actualizadoEn: r.actualizadoEn ? formatReporteFechaYHora(r.actualizadoEn) : "",
       diasHabilesSinRespuesta: diasHabilesSinRespuestaDesdeIngreso(r, now),
       urgenteActivo: esUrgenteActivo(r, now) ? "Sí" : "No",
       diasDesdeIngreso: diasDesdeIngreso(r.fechaIngreso, now),
@@ -560,7 +560,7 @@ export async function buildEstadisticasCompletoBuffer(
       diasCalendarioHastaCierre: diasHastaCierre,
       respuestaVecinoEnviada: (r.respuestasVecino?.length ?? 0) > 0 ? "Sí" : "No",
       cantRespuestasVecino: r.respuestasVecino?.length ?? 0,
-      fechaUltimoCambioEstado: ultimo?.fecha || "",
+      fechaUltimoCambioEstado: ultimo?.fecha ? formatReporteFechaYHora(ultimo.fecha) : "",
       estadoPrevioHistorial: penultimo?.estado || "",
       estadoPrevioEtiqueta: penultimo
         ? (ESTADO_LABELS as Record<string, string>)[penultimo.estado] || penultimo.estado
@@ -595,10 +595,8 @@ export async function buildEstadisticasCompletoBuffer(
     descripcion: "Descripción",
     direccionMunicipal: "Dirección municipal (código)",
     direccionMunicipalLabel: "Dirección municipal",
-    fechaIngreso: "Fecha ingreso (ISO)",
-    fechaIngreso_esCL: "Fecha ingreso",
-    fechaResolucion: "Fecha resolución (ISO)",
-    fechaResolucion_esCL: "Fecha resolución",
+    fechaIngreso: "Fecha ingreso",
+    fechaResolucion: "Fecha resolución",
     creadoEn: "Creado en",
     actualizadoEn: "Actualizado en",
     diasHabilesSinRespuesta: "Días hábiles sin respuesta (solo abiertos)",
@@ -659,7 +657,7 @@ export async function buildEstadisticasCompletoBuffer(
         direccionMunicipalLabel: dirKey(r),
         estado: h.estado,
         estadoEtiqueta: (ESTADO_LABELS as Record<string, string>)[h.estado] || h.estado,
-        fecha: h.fecha,
+        fecha: formatReporteFechaYHora(h.fecha),
         usuarioId: h.usuarioId || "",
         nota: h.nota || "",
       });
@@ -683,7 +681,7 @@ export async function buildEstadisticasCompletoBuffer(
         requerimientoId: r.id,
         numeroSeguimiento: r.numeroSeguimiento,
         direccionMunicipalLabel: dirKey(r),
-        fecha: n.fecha,
+        fecha: formatReporteFechaYHora(n.fecha),
         usuarioId: n.usuarioId,
         contenido: n.contenido,
       });
@@ -705,7 +703,7 @@ export async function buildEstadisticasCompletoBuffer(
         requerimientoId: r.id,
         numeroSeguimiento: r.numeroSeguimiento,
         direccionMunicipalLabel: dirKey(r),
-        fecha: rv.fecha,
+        fecha: formatReporteFechaYHora(rv.fecha),
         emailDestino: rv.emailDestino,
         asunto: rv.asunto,
         mensaje: rv.mensaje,
@@ -769,7 +767,7 @@ export async function buildEstadisticasCompletoBuffer(
       nombreR2: e.nombreR2 || "",
       url: e.url,
       tamanio: e.tamanio ?? "",
-      fecha: e.fecha,
+      fecha: formatReporteFechaYHora(e.fecha),
       usuarioId: e.usuarioId,
     });
   }
