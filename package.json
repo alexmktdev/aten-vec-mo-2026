@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "seed:requerimientos": "node --env-file=.env.local scripts/seed-requerimientos.mjs 30",
-    "backfill:dashboard-metrics": "node --env-file=.env.local scripts/backfill-dashboard-metrics.mjs"
+    "backfill:dashboard-metrics": "node --env-file=.env.local scripts/backfill-dashboard-metrics.mjs",
+    "test:e2e-requerimientos": "node --env-file=.env.local scripts/e2e-requerimientos-flows.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1045.0",
