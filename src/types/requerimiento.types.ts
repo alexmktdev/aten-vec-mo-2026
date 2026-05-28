@@ -75,13 +75,14 @@ export function requiereRespuestaFinalPorAdmin(tipo: string): boolean {
   return TIPOS_RESPUESTA_FINAL_ADMIN.includes(tipo as TipoRequerimiento);
 }
 
-/** Tipos con cierre completado → correo automático al vecino (admin municipal). */
+/** Tipos con cierre completado → correo automático al vecino (admin municipal o transparencia). */
 export const TIPOS_RESPUESTA_AUTOMATICA_ADMIN: readonly TipoRequerimiento[] = [
   "Información",
   "Reclamo",
   "Sugerencia",
   "Felicitación",
   "Solicitud Vecinal",
+  "Solicitud de transparencia",
 ];
 
 export function usaRespuestaAutomaticaAdminCompletado(tipo: string): boolean {

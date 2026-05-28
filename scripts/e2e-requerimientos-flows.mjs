@@ -449,14 +449,12 @@ async function run() {
     const ry = await getRequerimiento(baseUrl, cookieResponder, id);
     assertEstado(ry, "derivado_respuesta_final", "TRN derivado_respuesta_final");
 
-    const mensaje =
-      "Estimado vecino,\nCierre automático E2E transparencia por admin (>20 caracteres obligatorio).";
     const respuesta = await apiJson(baseUrl, cookieResponder, `/api/requerimientos/${id}/respuesta`, {
       method: "POST",
       body: JSON.stringify({
         emailDestino: ry.vecino.email,
-        asunto: "Respuesta automática E2E Transparencia",
-        mensaje,
+        asunto: "Respuesta E2E Solicitud de transparencia",
+        mensaje: "",
         cierre: "completado",
       }),
     });
