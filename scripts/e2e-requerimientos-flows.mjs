@@ -309,7 +309,7 @@ async function run() {
     console.log("[INF] ✅ Flujo Información OK\n");
   }
 
-  // --- Flujo 2: Solicitud Vecinal (respuesta directa director) ---
+  // --- Flujo 2: Solicitud Vecinal (completado → respuesta automática) ---
   {
     const num = `E2E-VEC-${Date.now()}`;
     const now = Timestamp.now();
@@ -334,21 +334,23 @@ async function run() {
     const r0 = await getRequerimiento(baseUrl, cookieDirOp, id);
     assertEstado(r0, "en_proceso", "VEC inicio");
 
-    const mensaje =
-      "Estimado vecino,\nCierre automático E2E flujo Solicitud Vecinal (>20 caracteres).";
-    const resp = await apiJson(baseUrl, cookieDirOp, `/api/requerimientos/${id}/respuesta`, {
-      method: "POST",
-      body: JSON.stringify({
-        emailDestino: r0.vecino.email,
-        asunto: "Respuesta automática E2E Vecinal",
-        mensaje,
-        cierre: "completado",
-      }),
+    const upd = await apiJson(baseUrl, cookieDirOp, `/api/requerimientos/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ estado: "completado", nota: "E2E cierre vecinal completado" }),
     });
-    assertSuccess("VEC respuesta directa director", resp);
+    assertSuccess("VEC marcar completado", upd);
 
     const r1 = await getRequerimiento(baseUrl, cookieDirOp, id);
-    assertEstado(r1, "completado", "VEC cerrado");
+    assertEstado(r1, "completado", "VEC completado");
+
+    const resp = await apiJson(baseUrl, cookieDirOp, `/api/requerimientos/${id}/respuesta-automatica`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    assertSuccess("VEC respuesta automática", resp);
+
+    const r2 = await getRequerimiento(baseUrl, cookieDirOp, id);
+    if ((r2.respuestasVecino?.length || 0) < 1) throw new Error("VEC: sin respuesta en registro");
     console.log("[VEC] ✅ Flujo Solicitud Vecinal OK\n");
   }
 

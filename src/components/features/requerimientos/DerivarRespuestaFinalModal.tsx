@@ -111,7 +111,9 @@ export function DerivarRespuestaFinalModal({
           <ModalDescription>
             {tipoRequerimiento === "Solicitud de transparencia"
               ? "Solo el admin de transparencia puede redactar y enviar la respuesta final de este requerimiento."
-              : "Elija al admin municipal que se hará cargo de redactar y enviar la respuesta final al vecino. Solo ese admin podrá enviar el correo desde el panel."}
+              : tipoRequerimiento === "Solicitud Vecinal"
+                ? "El requerimiento está rechazado. Elija al admin municipal que redactará y enviará la respuesta formal al vecino."
+                : "Elija al admin municipal que se hará cargo de redactar y enviar la respuesta final al vecino. Solo ese admin podrá enviar el correo desde el panel."}
           </ModalDescription>
         </ModalHeader>
 

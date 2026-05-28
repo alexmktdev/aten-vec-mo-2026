@@ -22,6 +22,7 @@ interface CreateInput {
   documentos?: DocumentoRequerimiento[];
 }
 type UpdateDataInput = CreateInput;
+import { buildRespuestaAutomaticaVecinalCompletado } from "@/lib/respuesta-automatica-vecinal";
 import { generateNumeroSeguimiento } from "@/lib/utils/numero-seguimiento";
 import {
   calcularFechaLimite,
@@ -347,12 +348,19 @@ export const requerimientoService = {
     const current = existing ?? await requerimientoRepository.getById(id);
     if (!current) throw new Error("Requerimiento no encontrado");
 
-    if (
-      current.estado !== "en_proceso" &&
-      current.estado !== "en_espera_1" &&
-      current.estado !== "en_espera_2"
-    ) {
-      throw new Error("Solo se puede derivar a respuesta final desde en proceso o espera");
+    const esVecinalRechazado =
+      current.tipoRequerimiento === "Solicitud Vecinal" && current.estado === "rechazado";
+    const desdeProcesoOEspera =
+      current.estado === "en_proceso" ||
+      current.estado === "en_espera_1" ||
+      current.estado === "en_espera_2";
+
+    if (!esVecinalRechazado && !desdeProcesoOEspera) {
+      throw new Error(
+        current.tipoRequerimiento === "Solicitud Vecinal"
+          ? "Para Solicitud Vecinal debe marcar el requerimiento como rechazado antes de derivar al admin"
+          : "Solo se puede derivar a respuesta final desde en proceso o espera"
+      );
     }
 
     const asignacion: AdminAsignadoRespuesta = {
@@ -614,6 +622,38 @@ export const requerimientoService = {
 
     logger.info({ id, usuarioId, emailDestino: input.emailDestino }, "Citizen response registered");
     invalidateDashboardAndListCaches();
+  },
+
+  async enviarRespuestaAutomaticaVecinal(
+    id: string,
+    usuarioId: string,
+    existing?: RequerimientoDTO
+  ): Promise<void> {
+    const current = existing ?? (await requerimientoRepository.getById(id));
+    if (!current) throw new Error("Requerimiento no encontrado");
+    if (current.tipoRequerimiento !== "Solicitud Vecinal") {
+      throw new Error("La respuesta automática solo aplica a Solicitud Vecinal");
+    }
+    if (current.estado !== "completado") {
+      throw new Error("Debe marcar el requerimiento como completado antes de enviar la respuesta automática");
+    }
+    if ((current.respuestasVecino?.length || 0) > 0) {
+      throw new Error("Ya existe una respuesta enviada al vecino para este requerimiento");
+    }
+
+    const dto = toRequerimientoDTO(current as Requerimiento);
+    const { asunto, mensaje } = buildRespuestaAutomaticaVecinalCompletado(dto);
+
+    await this.enviarRespuestaVecino(
+      id,
+      {
+        emailDestino: current.vecino.email,
+        asunto,
+        mensaje,
+      },
+      usuarioId,
+      dto
+    );
   },
 
   async setEvidenciaResolucion(

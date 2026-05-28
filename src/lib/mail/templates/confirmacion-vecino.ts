@@ -28,7 +28,7 @@ export function getConfirmacionVecinoTemplate(params: ConfirmacionVecinoParams):
     `${descripcion.substring(0, 200)}${descripcion.length > 200 ? "..." : ""}`
   );
 
-  const subject = `Confirmación de requerimiento ${numeroSeguimiento} - Municipalidad`;
+  const subject = `Confirmación de requerimiento ${numeroSeguimiento} - Municipalidad de Molina`;
 
   const html = `
     <!DOCTYPE html>

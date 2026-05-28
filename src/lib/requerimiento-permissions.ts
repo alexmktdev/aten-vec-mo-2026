@@ -2,7 +2,7 @@ import {
   EstadoRequerimiento,
   RequerimientoDTO,
   TipoRequerimiento,
-  requiereRespuestaDirectaDirector,
+  esSolicitudVecinal,
   requiereRespuestaFinalPorAdmin,
   rolAdminParaTipo,
 } from "@/types/requerimiento.types";
@@ -17,11 +17,10 @@ import { SessionUser } from "@/types/auth.types";
  *   un requerimiento de su tipo. La derivación pendiente → derivado se hace
  *   con el botón "Derivar".
  *
- * - director: opera entre derivado / en_proceso / esperas; el cierre manual a
- *   completado/rechazado desde proceso o esperas solo aplica a tipos donde el
- *   director envía la respuesta al vecino (p. ej. Solicitud Vecinal). Si el tipo
- *   requiere respuesta final por admin, el director solo puede derivar a
- *   respuesta final; el admin cerrará al enviar el correo.
+ * - director: opera entre derivado / en_proceso / esperas; puede marcar completado o
+ *   rechazado en Solicitud Vecinal y luego enviar respuesta automática (completado) o
+ *   derivar al admin municipal (rechazado). En los demás tipos con respuesta final por
+ *   admin, el director solo deriva a respuesta final desde proceso o esperas.
  *
  * - superadmin y administradora-municipal: todas las transiciones.
  */
@@ -178,13 +177,6 @@ export function getAllowedNextStates(
     if (directorNoCierraManualPorAdmin) {
       next = next.filter((s) => s !== "completado" && s !== "rechazado");
     }
-    if (
-      sinRespuestaVecino &&
-      (currentEstado === "completado" || currentEstado === "rechazado") &&
-      context?.estadoAnteriorReapertura
-    ) {
-      next.push(context.estadoAnteriorReapertura);
-    }
     return next;
   }
 
@@ -202,15 +194,25 @@ export function canTransitionEstado(
 }
 
 /**
- * Solo el director (o superadmin) puede derivar el requerimiento al admin
- * para la respuesta final, y solo para los tipos que la requieren
- * (Información / Reclamo / Sugerencia / Felicitación / Solicitud de
- * transparencia).
+ * Derivar al admin para respuesta final:
+ * - Tipos Información / Reclamo / … / Transparencia: desde en_proceso o esperas.
+ * - Solicitud Vecinal rechazada: desde estado rechazado (sin correo al vecino aún).
  */
 export function canDerivarRespuestaFinal(
   user: SessionUser,
-  req: Pick<RequerimientoDTO, "estado" | "tipoRequerimiento">
+  req: Pick<RequerimientoDTO, "estado" | "tipoRequerimiento" | "respuestasVecino">
 ): boolean {
+  if ((req.respuestasVecino?.length ?? 0) > 0) return false;
+
+  if (esSolicitudVecinal(req.tipoRequerimiento)) {
+    if (req.estado !== "rechazado") return false;
+    return (
+      user.rol === "superadmin" ||
+      user.rol === "director" ||
+      user.rol === "administradora-municipal"
+    );
+  }
+
   if (!requiereRespuestaFinalPorAdmin(req.tipoRequerimiento)) return false;
   if (
     req.estado !== "en_proceso" &&
@@ -223,16 +225,26 @@ export function canDerivarRespuestaFinal(
 }
 
 /**
- * Quien envía la respuesta final al vecino:
- *  - Si el tipo es Solicitud Vecinal, lo hace el director responsable (o
- *    superadmin / administradora-municipal).
- *  - Si el tipo es Información / Reclamo / Sugerencia / Felicitación, solo el
- *    admin-municipal que el director eligió (adminAsignadoRespuesta.uid ===
- *    user.uid). El superadmin y la administradora-municipal pueden hacerlo
- *    también.
- *  - Si el tipo es Solicitud de transparencia, solo el admin-transparencia
- *    asignado por el director de Secretaría Municipal (o superadmin /
- *    administradora-municipal).
+ * Enviar respuesta automática (Solicitud Vecinal completada).
+ */
+export function canEnviarRespuestaAutomaticaVecinal(
+  user: SessionUser,
+  req: Pick<RequerimientoDTO, "estado" | "tipoRequerimiento" | "respuestasVecino">
+): boolean {
+  if (!esSolicitudVecinal(req.tipoRequerimiento)) return false;
+  if (req.estado !== "completado") return false;
+  if ((req.respuestasVecino?.length ?? 0) > 0) return false;
+  return (
+    user.rol === "superadmin" ||
+    user.rol === "director" ||
+    user.rol === "administradora-municipal"
+  );
+}
+
+/**
+ * Quien envía la respuesta final al vecino (manual, admin asignado o superadmin):
+ * - Solicitud Vecinal rechazada y derivada: admin municipal asignado (igual que Información).
+ * - Información / Reclamo / … / Transparencia: admin asignado en derivado_respuesta_final.
  */
 export function canEnviarRespuestaFinal(
   user: SessionUser,
@@ -245,19 +257,13 @@ export function canEnviarRespuestaFinal(
 
   const tipo = req.tipoRequerimiento as TipoRequerimiento;
 
-  if (requiereRespuestaDirectaDirector(tipo)) {
-    if (
-      req.estado !== "en_proceso" &&
-      req.estado !== "en_espera_1" &&
-      req.estado !== "en_espera_2"
-    ) {
-      return false;
+  if (esSolicitudVecinal(tipo)) {
+    if (req.estado !== "derivado_respuesta_final") return false;
+    if (user.rol === "superadmin" || user.rol === "administradora-municipal") return true;
+    if (esRolAdminPlataforma(user.rol)) {
+      return !!req.adminAsignadoRespuesta && req.adminAsignadoRespuesta.uid === user.uid;
     }
-    return (
-      user.rol === "director" ||
-      user.rol === "superadmin" ||
-      user.rol === "administradora-municipal"
-    );
+    return false;
   }
 
   if (requiereRespuestaFinalPorAdmin(tipo)) {
@@ -274,9 +280,7 @@ export function canEnviarRespuestaFinal(
 
 /**
  * Revertir un paso en el historial de estados. Permitido mientras no se haya
- * enviado correo al vecino, para corregir errores (p. ej. cerrar sin responder).
- * Incluye admin (legacy/municipal/transparencia) y director además de
- * superadmin y administradora-municipal.
+ * enviado correo al vecino. Los directores no pueden revertir.
  */
 export function canRevertirEstado(
   rol: RolUsuario,
@@ -284,10 +288,10 @@ export function canRevertirEstado(
 ): boolean {
   if ((req.respuestasVecino?.length ?? 0) > 0) return false;
   if ((req.historialEstados?.length ?? 0) < 2) return false;
+  if (rol === "director") return false;
   return (
     rol === "superadmin" ||
     rol === "administradora-municipal" ||
-    rol === "director" ||
     esRolAdminPlataforma(rol)
   );
 }
