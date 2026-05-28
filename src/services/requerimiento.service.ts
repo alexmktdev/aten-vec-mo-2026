@@ -543,10 +543,11 @@ export const requerimientoService = {
     usuarioId: string,
     existing?: RequerimientoDTO
   ): Promise<void> {
-    const current = existing ?? await requerimientoRepository.getById(id);
-    if (!current) {
+    const raw = existing ?? (await requerimientoRepository.getById(id));
+    if (!raw) {
       throw new Error("Requerimiento no encontrado");
     }
+    const current: RequerimientoDTO = existing ?? toRequerimientoDTO(raw as Requerimiento);
 
     const estado = current.estado as EstadoRequerimiento;
     const estadoPermiteEnvio: EstadoRequerimiento[] = [
@@ -580,9 +581,7 @@ export const requerimientoService = {
     let asunto = input.asunto;
     let mensaje = input.mensaje.trim();
     if (respuestaAutomaticaCompletado) {
-      const auto = buildRespuestaAutomaticaCompletado(
-        toRequerimientoDTO(current as Requerimiento)
-      );
+      const auto = buildRespuestaAutomaticaCompletado(current);
       asunto = auto.asunto;
       mensaje = auto.mensaje;
     }
@@ -641,7 +640,7 @@ export const requerimientoService = {
         { adminAsignadoRespuesta: null }
       );
       await dashboardMetricsService.onEstadoChange(
-        current as unknown as Requerimiento,
+        raw as unknown as Requerimiento,
         input.cierre
       );
     }

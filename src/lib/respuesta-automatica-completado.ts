@@ -11,6 +11,15 @@ export function buildRespuestaAutomaticaCompletado(req: RequerimientoDTO): {
 
   const asunto = `Respuesta a su ${req.tipoRequerimiento} — ${req.numeroSeguimiento}`;
 
+  const evidencia = req.evidenciaResolucion;
+  const parrafoCierre = evidencia
+    ? `La gestión de su caso fue realizada por la dirección municipal indicada. ${
+        evidencia.tipo === "link"
+          ? "Para saber más detalles, por favor revise la evidencia indicada en este correo."
+          : "Para saber más detalles, por favor revise la evidencia que se adjunta en este correo."
+      }`
+    : "La gestión de su caso fue realizada por la dirección municipal indicada.";
+
   const mensaje = [
     `Estimado/a ${nombre},`,
     "",
@@ -23,7 +32,7 @@ export function buildRespuestaAutomaticaCompletado(req: RequerimientoDTO): {
     `• Fecha de ingreso: ${fechaIngreso}`,
     `• Descripción: ${req.descripcion}`,
     "",
-    "La gestión de su caso fue realizada por la dirección municipal indicada. Si requiere antecedentes adicionales, puede responder a este correo o consultar el estado de su trámite en la página de seguimiento del sistema.",
+    parrafoCierre,
     "",
     "Atentamente,",
     "Municipalidad de Molina — Atención al Vecino",
