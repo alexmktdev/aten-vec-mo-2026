@@ -404,19 +404,6 @@ export function useEnviarRespuestaVecino() {
   });
 }
 
-export function useEnviarRespuestaAutomaticaVecinal() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: string) =>
-      fetchJson(`/api/requerimientos/${id}/respuesta-automatica`, { method: "POST" }),
-    onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ["requerimiento", id] });
-      queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
-      invalidateDashboardQueries(queryClient);
-    },
-  });
-}
-
 export function useSetEvidenciaResolucion() {
   const queryClient = useQueryClient();
   return useMutation({

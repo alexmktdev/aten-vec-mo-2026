@@ -23,9 +23,8 @@ const schema = z.object({
 /**
  * POST /api/requerimientos/:id/derivar-respuesta-final
  *
- * Solo aplica a tipos: Información / Reclamo / Sugerencia / Felicitación.
- * El director (o superadmin) asigna el requerimiento a un admin específico
- * para que envíe el correo de respuesta final al vecino.
+ * Tipos con respuesta final por admin: Información, Reclamo, Sugerencia,
+ * Felicitación, Solicitud Vecinal, Solicitud de transparencia.
  */
 export async function POST(request: NextRequest, routeParams: RequerimientoRouteParams) {
   try {

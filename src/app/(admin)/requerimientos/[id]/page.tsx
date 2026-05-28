@@ -10,7 +10,6 @@ import {
   useDerivarRequerimiento,
   useDeleteRequerimiento,
   useEnviarRespuestaVecino,
-  useEnviarRespuestaAutomaticaVecinal,
   useDeleteEvidenciaResolucion,
   useDerivarRespuestaFinal,
   useRevertirEstado,
@@ -28,7 +27,6 @@ import {
   ESTADOS_REQUERIMIENTO,
   EstadoRequerimiento,
   ESTADOS_PERMITEN_EVIDENCIA,
-  esSolicitudVecinal,
   requiereRespuestaFinalPorAdmin,
   usaRespuestaAutomaticaAdminCompletado,
 } from "@/types/requerimiento.types";
@@ -39,7 +37,6 @@ import {
   canDerivarRequerimiento,
   canDerivarRespuestaFinal,
   canEditRequerimientoData,
-  canEnviarRespuestaAutomaticaVecinal,
   canEnviarRespuestaFinal,
   canRevertirEstado,
   puedeRevertirEstadoPorDatos,
@@ -85,7 +82,6 @@ export default function RequerimientoDetailPage() {
   const derivarMutation = useDerivarRequerimiento();
   const deleteMutation = useDeleteRequerimiento();
   const respuestaMutation = useEnviarRespuestaVecino();
-  const respuestaAutomaticaMutation = useEnviarRespuestaAutomaticaVecinal();
   const deleteEvidenciaMutation = useDeleteEvidenciaResolucion();
   const derivarFinalMutation = useDerivarRespuestaFinal();
   const revertirMutation = useRevertirEstado();
@@ -96,7 +92,6 @@ export default function RequerimientoDetailPage() {
   const [showDerivar, setShowDerivar] = useState(false);
   const [showDerivarFinal, setShowDerivarFinal] = useState(false);
   const [showRespuesta, setShowRespuesta] = useState(false);
-  const [showRespuestaAutomaticaConfirm, setShowRespuestaAutomaticaConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showRevertirConfirm, setShowRevertirConfirm] = useState(false);
   const [showConfirmCierreEstado, setShowConfirmCierreEstado] = useState(false);
@@ -125,11 +120,7 @@ export default function RequerimientoDetailPage() {
     tipoRequerimiento: req?.tipoRequerimiento,
   };
   const tipo = req?.tipoRequerimiento;
-  const esVecinal = !!tipo && esSolicitudVecinal(tipo);
   const esTipoRespuestaAdmin = !!tipo && requiereRespuestaFinalPorAdmin(tipo);
-  const gestionaCierreVecinal =
-    !!user &&
-    (user.rol === "director" || user.rol === "superadmin" || user.rol === "administradora-municipal");
 
   const canDerivar =
     !!user && !!req && canDerivarRequerimiento(user.rol, req.tipoRequerimiento) && req.estado === "pendiente";
@@ -149,8 +140,6 @@ export default function RequerimientoDetailPage() {
     !(hasRespuestaVecino && (req?.estado === "completado" || req?.estado === "rechazado"));
 
   const puedeDerivarFinal = !!user && !!req && canDerivarRespuestaFinal(user, req);
-  const puedeRespuestaAutomaticaVecinal =
-    !!user && !!req && canEnviarRespuestaAutomaticaVecinal(user, req);
   const puedeEnviarRespuestaFinal = !!user && !!req && canEnviarRespuestaFinal(user, req);
   const puedeRevertirDatos = !!req && puedeRevertirEstadoPorDatos(req);
   const puedeRevertir = !!user && !!req && canRevertirEstado(user.rol, req);
@@ -165,7 +154,6 @@ export default function RequerimientoDetailPage() {
     updateMutation.isPending ||
     derivarMutation.isPending ||
     respuestaMutation.isPending ||
-    respuestaAutomaticaMutation.isPending ||
     deleteMutation.isPending ||
     updateDatosMutation.isPending ||
     derivarFinalMutation.isPending ||
@@ -266,19 +254,6 @@ export default function RequerimientoDetailPage() {
     } catch (err) {
       setErrorMsg(getErrorMessage(err));
       throw err;
-    }
-  };
-
-  const handleEnviarRespuestaAutomatica = async () => {
-    setErrorMsg("");
-    try {
-      await respuestaAutomaticaMutation.mutateAsync(id);
-      setShowRespuestaAutomaticaConfirm(false);
-      setSuccessMsg("Respuesta automática enviada al vecino");
-      setTimeout(() => setSuccessMsg(""), 3000);
-    } catch (err) {
-      setErrorMsg(getErrorMessage(err));
-      setShowRespuestaAutomaticaConfirm(false);
     }
   };
 
@@ -435,44 +410,6 @@ export default function RequerimientoDetailPage() {
               Si marcó «{ESTADO_LABELS[req.estado]}» por error y <strong>aún no envió el correo al vecino</strong>,
               use <strong>Revertir último cambio de estado</strong> para volver al paso anterior, o elige en{" "}
               <strong>Cambiar estado</strong> el estado previo si aparece en la lista.
-            </p>
-          </Alert>
-        )}
-      {esVecinal &&
-        gestionaCierreVecinal &&
-        req &&
-        !hasRespuestaVecino &&
-        (req.estado === "completado" || req.estado === "rechazado") && (
-          <Alert variant="info">
-            <p className="text-sm">
-              {req.estado === "completado" ? (
-                <>
-                  El requerimiento está marcado como completado. Use{" "}
-                  <strong>Enviar respuesta automática</strong> para notificar al vecino por correo con el texto
-                  genérico del sistema.
-                </>
-              ) : (
-                <>
-                  El requerimiento está marcado como rechazado. Use{" "}
-                  <strong>Derivar para respuesta final al vecino</strong> para que un admin municipal redacte y
-                  envíe la respuesta formal, igual que en los requerimientos de Información.
-                </>
-              )}
-            </p>
-          </Alert>
-        )}
-      {esVecinal &&
-        gestionaCierreVecinal &&
-        req &&
-        !hasRespuestaVecino &&
-        req.estado !== "completado" &&
-        req.estado !== "rechazado" &&
-        req.estado !== "derivado_respuesta_final" && (
-          <Alert>
-            <p className="text-sm text-slate-700">
-              Para Solicitud Vecinal, primero marque el requerimiento como{" "}
-              <strong>{ESTADO_LABELS.completado}</strong> o <strong>{ESTADO_LABELS.rechazado}</strong>. Después
-              podrá enviar la respuesta automática o derivar al admin municipal.
             </p>
           </Alert>
         )}
@@ -677,53 +614,8 @@ export default function RequerimientoDetailPage() {
                 </Button>
               )}
 
-              {/* Solicitud Vecinal: respuesta automática (completado) y derivación (rechazado) */}
-              {esVecinal && gestionaCierreVecinal && !hasRespuestaVecino && (
-                <>
-                  <Button
-                    size="full"
-                    className={
-                      puedeRespuestaAutomaticaVecinal
-                        ? "bg-blue-900 hover:bg-blue-950 text-white"
-                        : "bg-slate-200 text-slate-500 hover:bg-slate-200 cursor-not-allowed"
-                    }
-                    disabled={!puedeRespuestaAutomaticaVecinal || respuestaAutomaticaMutation.isPending}
-                    title={
-                      puedeRespuestaAutomaticaVecinal
-                        ? "Envía un correo genérico al vecino con los datos del requerimiento"
-                        : `Disponible cuando el requerimiento esté en «${ESTADO_LABELS.completado}»`
-                    }
-                    onClick={() => {
-                      if (puedeRespuestaAutomaticaVecinal) setShowRespuestaAutomaticaConfirm(true);
-                    }}
-                  >
-                    <Mail className="h-4 w-4 mr-2" /> Enviar respuesta automática
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="full"
-                    className={
-                      puedeDerivarFinal
-                        ? "bg-purple-100 text-purple-900 hover:bg-purple-200"
-                        : "bg-slate-200 text-slate-500 hover:bg-slate-200 cursor-not-allowed"
-                    }
-                    disabled={!puedeDerivarFinal}
-                    title={
-                      puedeDerivarFinal
-                        ? "Asigna un admin municipal para redactar y enviar la respuesta al vecino"
-                        : `Disponible cuando el requerimiento esté en «${ESTADO_LABELS.rechazado}»`
-                    }
-                    onClick={() => {
-                      if (puedeDerivarFinal) setShowDerivarFinal(true);
-                    }}
-                  >
-                    <Users className="h-4 w-4 mr-2" /> Derivar para respuesta final al vecino
-                  </Button>
-                </>
-              )}
-
-              {/* Respuesta final manual (admin asignado o superadmin) */}
-              {(esTipoRespuestaAdmin || esVecinal) && puedeEnviarRespuestaFinal && (
+              {/* Respuesta final (admin asignado o superadmin) */}
+              {esTipoRespuestaAdmin && puedeEnviarRespuestaFinal && (
                 <Button
                   size="full"
                   className="bg-blue-900 hover:bg-blue-950 text-white"
@@ -734,7 +626,7 @@ export default function RequerimientoDetailPage() {
               )}
 
               {/* Admin no asignado en derivado_respuesta_final */}
-              {(esTipoRespuestaAdmin || esVecinal) &&
+              {esTipoRespuestaAdmin &&
                 req.estado === "derivado_respuesta_final" &&
                 !!user &&
                 esRolAdminPlataforma(user.rol) &&
@@ -893,22 +785,9 @@ export default function RequerimientoDetailPage() {
                     ? ESTADO_LABELS.rechazado
                     : "cerrado"}
               </strong>
-              .
-              {esVecinal ? (
-                <>
-                  {" "}
-                  Después podrá{" "}
-                  {newEstado === "completado"
-                    ? "usar «Enviar respuesta automática» para notificar al vecino."
-                    : newEstado === "rechazado"
-                      ? "derivar al admin municipal para que envíe la respuesta formal."
-                      : ""}
-                </>
-              ) : (
-                <> Confirme que corresponde cerrar el caso y que ya envió o enviará la respuesta formal al vecino si aplica.</>
-              )}
+              . Confirme que corresponde cerrar el caso y que ya envió o enviará la respuesta formal al vecino si aplica.
             </p>
-            {!esVecinal && esSuperadmin && (
+            {esSuperadmin && (
               <p>
                 Si fue un clic por error y <strong>todavía no</strong> envió correo al vecino, después podrá usar{" "}
                 <strong>Revertir último cambio de estado</strong> para deshacer este paso.
@@ -918,24 +797,6 @@ export default function RequerimientoDetailPage() {
         }
         onConfirm={handleConfirmCierreEstado}
         loading={updateMutation.isPending}
-      />
-
-      <ConfirmDeleteModal
-        open={showRespuestaAutomaticaConfirm}
-        onOpenChange={setShowRespuestaAutomaticaConfirm}
-        title="Enviar respuesta automática"
-        confirmLabel="Enviar correo al vecino"
-        description={
-          <div className="space-y-3 text-sm text-slate-600">
-            <p>
-              Se enviará un correo genérico a <strong>{req.vecino.email}</strong> con los datos del requerimiento
-              (número de seguimiento, dirección asignada, fecha de ingreso, descripción, etc.).
-            </p>
-            <p>El requerimiento debe estar en «{ESTADO_LABELS.completado}». Esta acción no se puede repetir.</p>
-          </div>
-        }
-        onConfirm={handleEnviarRespuestaAutomatica}
-        loading={respuestaAutomaticaMutation.isPending}
       />
 
       <ConfirmDeleteModal

@@ -30,10 +30,11 @@ export const TIPOS_RESPUESTA_FINAL_ADMIN: readonly TipoRequerimiento[] = [
   "Reclamo",
   "Sugerencia",
   "Felicitación",
+  "Solicitud Vecinal",
   "Solicitud de transparencia",
 ];
 
-/** Tipos cuya respuesta final al vecino la envía el propio director (ninguno: vecinal usa respuesta automática). */
+/** Tipos cuya respuesta final al vecino la envía el propio director (ninguno). */
 export const TIPOS_RESPUESTA_DIRECTA_DIRECTOR: readonly TipoRequerimiento[] = [];
 
 /** Tipos que opera el admin municipal (recibe derivación para respuesta final). */
@@ -52,8 +53,7 @@ export const TIPOS_ADMIN_TRANSPARENCIA: readonly TipoRequerimiento[] = [
 
 /**
  * Rol de admin específico que debe recibir la derivación para respuesta final
- * de cada tipo de requerimiento. Devuelve null si el tipo no requiere
- * derivación a admin (Solicitud Vecinal rechazada → admin municipal).
+ * de cada tipo de requerimiento.
  */
 export function esSolicitudVecinal(tipo: string): boolean {
   return tipo === "Solicitud Vecinal";
@@ -75,12 +75,13 @@ export function requiereRespuestaFinalPorAdmin(tipo: string): boolean {
   return TIPOS_RESPUESTA_FINAL_ADMIN.includes(tipo as TipoRequerimiento);
 }
 
-/** Información / Reclamo / Sugerencia / Felicitación: cierre completado → correo automático al vecino. */
+/** Tipos con cierre completado → correo automático al vecino (admin municipal). */
 export const TIPOS_RESPUESTA_AUTOMATICA_ADMIN: readonly TipoRequerimiento[] = [
   "Información",
   "Reclamo",
   "Sugerencia",
   "Felicitación",
+  "Solicitud Vecinal",
 ];
 
 export function usaRespuestaAutomaticaAdminCompletado(tipo: string): boolean {

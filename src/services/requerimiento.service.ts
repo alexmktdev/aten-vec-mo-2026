@@ -24,7 +24,6 @@ interface CreateInput {
 }
 type UpdateDataInput = CreateInput;
 import { buildRespuestaAutomaticaCompletado } from "@/lib/respuesta-automatica-completado";
-import { buildRespuestaAutomaticaVecinalCompletado } from "@/lib/respuesta-automatica-vecinal";
 import { validateRespuestaVecinoMensaje } from "@/lib/validations/requerimiento.schema";
 import { generateNumeroSeguimiento } from "@/lib/utils/numero-seguimiento";
 import {
@@ -338,8 +337,7 @@ export const requerimientoService = {
 
   /**
    * El director deriva el requerimiento a un admin específico para que envíe
-   * la respuesta final al vecino. Solo aplica a los tipos:
-   * Información / Reclamo / Sugerencia / Felicitación.
+   * la respuesta final al vecino (Información, Vecinal, Transparencia, etc.).
    */
   async derivarRespuestaFinal(
     id: string,
@@ -351,19 +349,13 @@ export const requerimientoService = {
     const current = existing ?? await requerimientoRepository.getById(id);
     if (!current) throw new Error("Requerimiento no encontrado");
 
-    const esVecinalRechazado =
-      current.tipoRequerimiento === "Solicitud Vecinal" && current.estado === "rechazado";
     const desdeProcesoOEspera =
       current.estado === "en_proceso" ||
       current.estado === "en_espera_1" ||
       current.estado === "en_espera_2";
 
-    if (!esVecinalRechazado && !desdeProcesoOEspera) {
-      throw new Error(
-        current.tipoRequerimiento === "Solicitud Vecinal"
-          ? "Para Solicitud Vecinal debe marcar el requerimiento como rechazado antes de derivar al admin"
-          : "Solo se puede derivar a respuesta final desde en proceso o espera"
-      );
+    if (!desdeProcesoOEspera) {
+      throw new Error("Solo se puede derivar a respuesta final desde en proceso o espera");
     }
 
     const asignacion: AdminAsignadoRespuesta = {
@@ -647,38 +639,6 @@ export const requerimientoService = {
 
     logger.info({ id, usuarioId, emailDestino: input.emailDestino }, "Citizen response registered");
     invalidateDashboardAndListCaches();
-  },
-
-  async enviarRespuestaAutomaticaVecinal(
-    id: string,
-    usuarioId: string,
-    existing?: RequerimientoDTO
-  ): Promise<void> {
-    const current = existing ?? (await requerimientoRepository.getById(id));
-    if (!current) throw new Error("Requerimiento no encontrado");
-    if (current.tipoRequerimiento !== "Solicitud Vecinal") {
-      throw new Error("La respuesta automática solo aplica a Solicitud Vecinal");
-    }
-    if (current.estado !== "completado") {
-      throw new Error("Debe marcar el requerimiento como completado antes de enviar la respuesta automática");
-    }
-    if ((current.respuestasVecino?.length || 0) > 0) {
-      throw new Error("Ya existe una respuesta enviada al vecino para este requerimiento");
-    }
-
-    const dto = toRequerimientoDTO(current as Requerimiento);
-    const { asunto, mensaje } = buildRespuestaAutomaticaVecinalCompletado(dto);
-
-    await this.enviarRespuestaVecino(
-      id,
-      {
-        emailDestino: current.vecino.email,
-        asunto,
-        mensaje,
-      },
-      usuarioId,
-      dto
-    );
   },
 
   async setEvidenciaResolucion(

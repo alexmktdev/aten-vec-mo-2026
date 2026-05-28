@@ -309,48 +309,82 @@ async function run() {
     console.log("[INF] ✅ Flujo Información OK\n");
   }
 
-  // --- Flujo 2: Solicitud Vecinal (completado → respuesta automática) ---
+  // --- Flujo 2: Solicitud Vecinal (mismo flujo que Información) ---
   {
     const num = `E2E-VEC-${Date.now()}`;
-    const now = Timestamp.now();
     const id = await seedRequerimiento(
       db,
       baseSeed({
         numeroSeguimiento: num,
         tipoRequerimiento: "Solicitud Vecinal",
-        estado: "en_proceso",
-        direccionMunicipal: "OPERACIONES",
-        direccionMunicipalLabel: LABEL_OPERACIONES,
-        historialEstados: [
-          { estado: "pendiente", fecha: now, nota: "E2E" },
-          { estado: "derivado", fecha: now, nota: "Derivado OPERACIONES" },
-          { estado: "en_proceso", fecha: now, nota: "E2E en proceso vecinal" },
-        ],
+        estado: "pendiente",
+        direccionMunicipal: "",
+        direccionMunicipalLabel: "",
       })
     );
     createdIds.push(id);
-    console.log(`[VEC] Creado ${id} (${num}) en_proceso OPERACIONES`);
+    console.log(`[VEC] Creado ${id} (${num}) pendiente`);
 
-    const r0 = await getRequerimiento(baseUrl, cookieDirOp, id);
-    assertEstado(r0, "en_proceso", "VEC inicio");
-
-    const upd = await apiJson(baseUrl, cookieDirOp, `/api/requerimientos/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ estado: "completado", nota: "E2E cierre vecinal completado" }),
-    });
-    assertSuccess("VEC marcar completado", upd);
-
-    const r1 = await getRequerimiento(baseUrl, cookieDirOp, id);
-    assertEstado(r1, "completado", "VEC completado");
-
-    const resp = await apiJson(baseUrl, cookieDirOp, `/api/requerimientos/${id}/respuesta-automatica`, {
+    const derivar = await apiJson(baseUrl, cookieAdminMun, `/api/requerimientos/${id}/derivar`, {
       method: "POST",
-      body: JSON.stringify({}),
+      body: JSON.stringify({
+        direccionMunicipal: "OPERACIONES",
+        emailDestinatario: CORREO_OPERACIONES.toLowerCase(),
+      }),
     });
-    assertSuccess("VEC respuesta automática", resp);
+    assertSuccess("VEC derivar OPERACIONES", derivar);
 
-    const r2 = await getRequerimiento(baseUrl, cookieDirOp, id);
-    if ((r2.respuestasVecino?.length || 0) < 1) throw new Error("VEC: sin respuesta en registro");
+    const toProc = await apiJson(baseUrl, cookieDirOp, `/api/requerimientos/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ estado: "en_proceso", nota: "E2E VEC en proceso" }),
+    });
+    assertSuccess("VEC → en_proceso", toProc);
+
+    const adminsResp = await apiJson(
+      baseUrl,
+      cookieDirOp,
+      `/api/usuarios/admins?tipo=${encodeURIComponent("Solicitud Vecinal")}`
+    );
+    assertSuccess("GET admins Municipal (Vecinal)", adminsResp);
+    const admins = adminsResp.json.data || [];
+    if (!admins.length) throw new Error("No hay admins municipales para derivar respuesta final (Vecinal)");
+    const assignedUid = admins[0].uid;
+
+    const derivFin = await apiJson(
+      baseUrl,
+      cookieDirOp,
+      `/api/requerimientos/${id}/derivar-respuesta-final`,
+      {
+        method: "POST",
+        body: JSON.stringify({ adminUid: assignedUid, nota: "E2E delegación final vecinal" }),
+      }
+    );
+    assertSuccess("VEC derivar-respuesta-final", derivFin);
+
+    const assignedCookie =
+      assignedUid === municipalUid
+        ? cookieAdminMun
+        : assignedUid === transpUid
+          ? cookieAdminTrans
+          : await openSession(baseUrl, auth, assignedUid);
+
+    const r2 = await getRequerimiento(baseUrl, assignedCookie, id);
+    assertEstado(r2, "derivado_respuesta_final", "VEC derivado_respuesta_final");
+
+    const resp = await apiJson(baseUrl, assignedCookie, `/api/requerimientos/${id}/respuesta`, {
+      method: "POST",
+      body: JSON.stringify({
+        emailDestino: r2.vecino.email,
+        asunto: "Respuesta E2E Solicitud Vecinal",
+        mensaje: "",
+        cierre: "completado",
+      }),
+    });
+    assertSuccess("VEC respuesta vecino", resp);
+
+    const r3 = await getRequerimiento(baseUrl, assignedCookie, id);
+    assertEstado(r3, "completado", "VEC cerrado");
+    if ((r3.respuestasVecino?.length || 0) < 1) throw new Error("VEC: sin respuesta en registro");
     console.log("[VEC] ✅ Flujo Solicitud Vecinal OK\n");
   }
 
