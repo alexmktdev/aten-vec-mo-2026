@@ -414,8 +414,9 @@ export default function RequerimientoDetailPage() {
           <Alert variant="info">
             <p className="text-sm">
               Derivado a <strong>{req.adminAsignadoRespuesta.nombre}</strong> (
-              {req.adminAsignadoRespuesta.email}) para enviar la respuesta final al vecino. Solo ese admin
-              podrá enviar el correo desde el panel.
+              {req.adminAsignadoRespuesta.email}) para enviar la respuesta final al vecino. Use el botón{" "}
+              <strong>Respuesta final al requerimiento</strong>: ahí elige Completado o Rechazado y se envía el
+              correo; el estado se actualiza automáticamente al confirmar el envío.
             </p>
           </Alert>
         )}

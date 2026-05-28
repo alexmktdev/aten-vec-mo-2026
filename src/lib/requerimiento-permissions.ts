@@ -30,8 +30,8 @@ const ADMIN_STATUS_TRANSITIONS: Record<EstadoRequerimiento, EstadoRequerimiento[
   en_proceso: [],
   en_espera_1: [],
   en_espera_2: [],
-  // El estado se actualiza cuando el admin envía la respuesta final.
-  derivado_respuesta_final: ["completado", "rechazado"],
+  // Cierre completado/rechazado solo vía modal «Respuesta final al requerimiento».
+  derivado_respuesta_final: [],
   completado: [],
   rechazado: [],
 };
@@ -53,7 +53,8 @@ const FULL_STATUS_TRANSITIONS: Record<EstadoRequerimiento, EstadoRequerimiento[]
   en_proceso: ["en_espera_1", "completado", "rechazado", "derivado_respuesta_final"],
   en_espera_1: ["en_espera_2", "completado", "rechazado", "derivado_respuesta_final"],
   en_espera_2: ["completado", "rechazado", "derivado_respuesta_final"],
-  derivado_respuesta_final: ["completado", "rechazado"],
+  // Cierre completado/rechazado solo vía modal «Respuesta final al requerimiento».
+  derivado_respuesta_final: [],
   completado: [],
   rechazado: [],
 };
