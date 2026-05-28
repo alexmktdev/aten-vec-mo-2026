@@ -75,6 +75,18 @@ export function requiereRespuestaFinalPorAdmin(tipo: string): boolean {
   return TIPOS_RESPUESTA_FINAL_ADMIN.includes(tipo as TipoRequerimiento);
 }
 
+/** Información / Reclamo / Sugerencia / Felicitación: cierre completado → correo automático al vecino. */
+export const TIPOS_RESPUESTA_AUTOMATICA_ADMIN: readonly TipoRequerimiento[] = [
+  "Información",
+  "Reclamo",
+  "Sugerencia",
+  "Felicitación",
+];
+
+export function usaRespuestaAutomaticaAdminCompletado(tipo: string): boolean {
+  return TIPOS_RESPUESTA_AUTOMATICA_ADMIN.includes(tipo as TipoRequerimiento);
+}
+
 export function requiereRespuestaDirectaDirector(tipo: string): boolean {
   return TIPOS_RESPUESTA_DIRECTA_DIRECTOR.includes(tipo as TipoRequerimiento);
 }

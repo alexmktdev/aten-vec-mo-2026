@@ -8,6 +8,7 @@ import {
   DocumentoRequerimiento,
   RespuestaVecinoInput,
   AdminAsignadoRespuesta,
+  usaRespuestaAutomaticaAdminCompletado,
 } from "@/types/requerimiento.types";
 import { r2Service } from "@/services/r2.service";
 
@@ -22,7 +23,9 @@ interface CreateInput {
   documentos?: DocumentoRequerimiento[];
 }
 type UpdateDataInput = CreateInput;
+import { buildRespuestaAutomaticaCompletado } from "@/lib/respuesta-automatica-completado";
 import { buildRespuestaAutomaticaVecinalCompletado } from "@/lib/respuesta-automatica-vecinal";
+import { validateRespuestaVecinoMensaje } from "@/lib/validations/requerimiento.schema";
 import { generateNumeroSeguimiento } from "@/lib/utils/numero-seguimiento";
 import {
   calcularFechaLimite,
@@ -561,6 +564,29 @@ export const requerimientoService = {
       throw new Error("Ya existe una respuesta enviada al vecino para este requerimiento");
     }
 
+    const respuestaAutomaticaCompletado =
+      input.cierre === "completado" &&
+      usaRespuestaAutomaticaAdminCompletado(current.tipoRequerimiento);
+
+    const mensajeError = validateRespuestaVecinoMensaje({
+      mensaje: input.mensaje,
+      cierre: input.cierre,
+      respuestaAutomaticaCompletado,
+    });
+    if (mensajeError) {
+      throw new Error(mensajeError);
+    }
+
+    let asunto = input.asunto;
+    let mensaje = input.mensaje.trim();
+    if (respuestaAutomaticaCompletado) {
+      const auto = buildRespuestaAutomaticaCompletado(
+        toRequerimientoDTO(current as Requerimiento)
+      );
+      asunto = auto.asunto;
+      mensaje = auto.mensaje;
+    }
+
     let evidenciaAdjunta: { filename: string; content: Buffer } | undefined;
     if (current.evidenciaResolucion?.tipo === "documento" && current.evidenciaResolucion.nombreR2) {
       try {
@@ -587,8 +613,8 @@ export const requerimientoService = {
       {
         numeroSeguimiento: current.numeroSeguimiento,
         vecino: current.vecino,
-        asunto: input.asunto,
-        mensaje: input.mensaje,
+        asunto,
+        mensaje,
         evidencia: evidenciaInfo as { tipo: "documento" | "link"; nombre?: string; url?: string } | undefined,
       },
       evidenciaAdjunta
@@ -596,8 +622,8 @@ export const requerimientoService = {
 
     await requerimientoRepository.addRespuestaVecino(id, {
       emailDestino: input.emailDestino,
-      asunto: input.asunto,
-      mensaje: input.mensaje,
+      asunto,
+      mensaje,
       usuarioId,
     });
 

@@ -30,6 +30,7 @@ import {
   ESTADOS_PERMITEN_EVIDENCIA,
   esSolicitudVecinal,
   requiereRespuestaFinalPorAdmin,
+  usaRespuestaAutomaticaAdminCompletado,
 } from "@/types/requerimiento.types";
 import { RequerimientoCreateInput } from "@/lib/validations/requerimiento.schema";
 import { ArrowLeft, Loader2, Mail, Pencil, Send, Trash2, Undo2, Users } from "lucide-react";
@@ -369,6 +370,8 @@ export default function RequerimientoDetailPage() {
   };
 
   const requireCierreEnRespuesta = !(req.estado === "completado" || req.estado === "rechazado");
+  const autoMensajeSiCompletado =
+    !!tipo && usaRespuestaAutomaticaAdminCompletado(tipo) && requireCierreEnRespuesta;
 
   return (
     <div className="space-y-6">
@@ -997,6 +1000,8 @@ export default function RequerimientoDetailPage() {
           defaultEmail={req.vecino.email}
           numeroSeguimiento={req.numeroSeguimiento}
           requireCierre={requireCierreEnRespuesta}
+          autoMensajeSiCompletado={autoMensajeSiCompletado}
+          title="Respuesta final al requerimiento"
           onSubmit={handleEnviarRespuesta}
         />
       )}

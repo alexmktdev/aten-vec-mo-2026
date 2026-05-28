@@ -143,7 +143,24 @@ export type RequerimientoUpdateInput = z.infer<typeof requerimientoUpdateSchema>
 export const requerimientoRespuestaSchema = z.object({
   emailDestino: z.string().email("El correo electrónico no es válido"),
   asunto: z.string().min(5, "El asunto debe tener al menos 5 caracteres").max(160),
-  mensaje: z.string().min(20, "El mensaje debe tener al menos 20 caracteres").max(4000),
+  mensaje: z.string().max(4000).optional().default(""),
+  cierre: z.enum(["completado", "rechazado"]).optional(),
 });
+
+export function validateRespuestaVecinoMensaje(input: {
+  mensaje?: string;
+  cierre?: "completado" | "rechazado";
+  respuestaAutomaticaCompletado?: boolean;
+}): string | null {
+  const mensaje = (input.mensaje ?? "").trim();
+  const usaAutomatica =
+    input.respuestaAutomaticaCompletado && input.cierre === "completado";
+
+  if (usaAutomatica) return null;
+  if (mensaje.length < 20) {
+    return "El mensaje debe tener al menos 20 caracteres";
+  }
+  return null;
+}
 
 export type RequerimientoRespuestaInput = z.infer<typeof requerimientoRespuestaSchema>;

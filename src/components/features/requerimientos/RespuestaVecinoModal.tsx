@@ -31,6 +31,9 @@ interface Props {
   numeroSeguimiento: string;
   /** Si es true, el modal exige al usuario elegir cierre (completado/rechazado). */
   requireCierre?: boolean;
+  /** Si completado, no exige mensaje manual (respuesta automática server-side). */
+  autoMensajeSiCompletado?: boolean;
+  title?: string;
   onSubmit: (payload: RespuestaVecinoPayload) => Promise<void>;
 }
 
@@ -40,6 +43,8 @@ export function RespuestaVecinoModal({
   defaultEmail,
   numeroSeguimiento,
   requireCierre = false,
+  autoMensajeSiCompletado = false,
+  title = "Enviar respuesta al vecino",
   onSubmit,
 }: Props) {
   const [emailDestino, setEmailDestino] = useState(defaultEmail);
@@ -50,16 +55,20 @@ export function RespuestaVecinoModal({
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
 
+  const usaRespuestaAutomatica =
+    autoMensajeSiCompletado && requireCierre && cierre === "completado";
+  const requiereMensajeManual = !usaRespuestaAutomatica;
+
   const validate = (): boolean => {
     if (!emailDestino || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailDestino)) {
       setError("Ingrese un correo electrónico válido");
       return false;
     }
-    if (asunto.trim().length < 5) {
+    if (requiereMensajeManual && asunto.trim().length < 5) {
       setError("Ingrese un asunto más descriptivo");
       return false;
     }
-    if (mensaje.trim().length < 20) {
+    if (requiereMensajeManual && mensaje.trim().length < 20) {
       setError("Ingrese una respuesta más completa para el vecino");
       return false;
     }
@@ -81,8 +90,10 @@ export function RespuestaVecinoModal({
     try {
       await onSubmit({
         emailDestino: emailDestino.trim(),
-        asunto: asunto.trim(),
-        mensaje: mensaje.trim(),
+        asunto: usaRespuestaAutomatica
+          ? `Respuesta a su requerimiento ${numeroSeguimiento}`
+          : asunto.trim(),
+        mensaje: usaRespuestaAutomatica ? "" : mensaje.trim(),
         cierre: requireCierre && cierre ? cierre : undefined,
       });
       setShowConfirm(false);
@@ -100,7 +111,7 @@ export function RespuestaVecinoModal({
       <Modal open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
         <ModalContent>
           <ModalHeader>
-            <ModalTitle>Enviar respuesta al vecino</ModalTitle>
+            <ModalTitle>{title}</ModalTitle>
             <ModalDescription>
               Este correo quedará registrado en el requerimiento y se enviará al vecino como respuesta formal.
               {requireCierre
@@ -116,23 +127,14 @@ export function RespuestaVecinoModal({
               value={emailDestino}
               onChange={(e) => setEmailDestino(e.target.value)}
               placeholder="vecino@correo.cl"
-              error={error}
+              error={error && !emailDestino ? error : undefined}
               required
             />
             <Input
-              label="Asunto"
-              value={asunto}
-              onChange={(e) => setAsunto(e.target.value)}
-              placeholder="Respuesta a su requerimiento"
-              required
-            />
-            <Textarea
-              label="Mensaje"
-              rows={7}
-              value={mensaje}
-              onChange={(e) => setMensaje(e.target.value)}
-              placeholder="Escriba aquí la respuesta que se enviará al vecino..."
-              required
+              label="Número de requerimiento"
+              value={numeroSeguimiento}
+              readOnly
+              disabled
             />
             {requireCierre && (
               <Select
@@ -146,6 +148,39 @@ export function RespuestaVecinoModal({
                 placeholder="Seleccione el resultado del requerimiento"
                 required
               />
+            )}
+            {usaRespuestaAutomatica ? (
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+                Se enviará al vecino una respuesta automática con los datos del requerimiento y un mensaje
+                formal de cierre. No necesita redactar el texto manualmente.
+              </div>
+            ) : (
+              <>
+                <Input
+                  label="Asunto"
+                  value={asunto}
+                  onChange={(e) => setAsunto(e.target.value)}
+                  placeholder="Respuesta a su requerimiento"
+                  required
+                />
+                <Textarea
+                  label="Mensaje"
+                  rows={7}
+                  value={mensaje}
+                  onChange={(e) => setMensaje(e.target.value)}
+                  placeholder={
+                    requireCierre && cierre === "rechazado"
+                      ? "Escriba aquí la respuesta que se enviará al vecino explicando el rechazo..."
+                      : "Escriba aquí la respuesta que se enviará al vecino..."
+                  }
+                  required
+                />
+              </>
+            )}
+            {error && (
+              <p className="text-sm text-red-600" role="alert">
+                {error}
+              </p>
             )}
           </div>
 
@@ -170,15 +205,18 @@ export function RespuestaVecinoModal({
         description={
           <div className="space-y-3 text-sm text-slate-600">
             <p>
-              ¿Está seguro de que desea enviar esta respuesta al vecino? Revise el correo, el asunto y el mensaje con
-              atención antes de confirmar.
+              ¿Está seguro de que desea enviar esta respuesta al vecino? Revise el correo destino
+              {requiereMensajeManual ? ", el asunto y el mensaje" : ""} con atención antes de confirmar.
             </p>
             {requireCierre && cierre && (
               <p>
                 El requerimiento quedará registrado como{" "}
                 <strong>
                   {cierre === "completado" ? "Requerimiento Completado" : "Requerimiento Rechazado"}
-                </strong>.
+                </strong>
+                {usaRespuestaAutomatica
+                  ? ". Se enviará una respuesta automática al vecino con los datos del caso."
+                  : "."}
               </p>
             )}
             <p>
