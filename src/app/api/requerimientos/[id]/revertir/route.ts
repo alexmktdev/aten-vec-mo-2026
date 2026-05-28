@@ -18,8 +18,7 @@ const log = createRouteLogger("/api/requerimientos/[id]/revertir");
  * asignado cuando se sale de derivado_respuesta_final.
  *
  * No permitido si ya se envió respuesta al vecino.
- * Permitido para superadmin, administradora-municipal, director y admin
- * (mientras no haya correo al vecino), para corregir errores de operación.
+ * Solo superadmin puede ejecutar esta acción.
  */
 export async function POST(_request: NextRequest, routeParams: RequerimientoRouteParams) {
   try {
@@ -33,7 +32,9 @@ export async function POST(_request: NextRequest, routeParams: RequerimientoRout
     if (!canRevertirEstado(user.rol, existing)) {
       return createErrorResponse(
         403,
-        "No tiene permisos para revertir el estado o ya se envió correo al vecino"
+        user.rol !== "superadmin"
+          ? "Esta función es solo para superadmin"
+          : "No se puede revertir: ya se envió correo al vecino o no hay estado anterior"
       );
     }
 

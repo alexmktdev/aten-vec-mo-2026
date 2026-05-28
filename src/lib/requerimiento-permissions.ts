@@ -279,19 +279,23 @@ export function canEnviarRespuestaFinal(
 }
 
 /**
- * Revertir un paso en el historial de estados. Permitido mientras no se haya
- * enviado correo al vecino. Los directores no pueden revertir.
+ * Condiciones de datos para poder revertir (sin correo al vecino y con historial).
+ */
+export function puedeRevertirEstadoPorDatos(
+  req: Pick<RequerimientoDTO, "respuestasVecino" | "historialEstados">
+): boolean {
+  if ((req.respuestasVecino?.length ?? 0) > 0) return false;
+  if ((req.historialEstados?.length ?? 0) < 2) return false;
+  return true;
+}
+
+/**
+ * Revertir un paso en el historial de estados. Solo superadmin.
  */
 export function canRevertirEstado(
   rol: RolUsuario,
   req: Pick<RequerimientoDTO, "respuestasVecino" | "historialEstados">
 ): boolean {
-  if ((req.respuestasVecino?.length ?? 0) > 0) return false;
-  if ((req.historialEstados?.length ?? 0) < 2) return false;
-  if (rol === "director") return false;
-  return (
-    rol === "superadmin" ||
-    rol === "administradora-municipal" ||
-    esRolAdminPlataforma(rol)
-  );
+  if (rol !== "superadmin") return false;
+  return puedeRevertirEstadoPorDatos(req);
 }

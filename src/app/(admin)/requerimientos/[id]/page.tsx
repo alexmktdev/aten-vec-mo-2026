@@ -41,6 +41,7 @@ import {
   canEnviarRespuestaAutomaticaVecinal,
   canEnviarRespuestaFinal,
   canRevertirEstado,
+  puedeRevertirEstadoPorDatos,
   getAllowedNextStates,
 } from "@/lib/requerimiento-permissions";
 import { esRolAdminPlataforma } from "@/types/usuario.types";
@@ -150,7 +151,9 @@ export default function RequerimientoDetailPage() {
   const puedeRespuestaAutomaticaVecinal =
     !!user && !!req && canEnviarRespuestaAutomaticaVecinal(user, req);
   const puedeEnviarRespuestaFinal = !!user && !!req && canEnviarRespuestaFinal(user, req);
+  const puedeRevertirDatos = !!req && puedeRevertirEstadoPorDatos(req);
   const puedeRevertir = !!user && !!req && canRevertirEstado(user.rol, req);
+  const esSuperadmin = user?.rol === "superadmin";
 
   const evidenciaPermitida =
     !!req && ESTADOS_PERMITEN_EVIDENCIA.includes(req.estado);
@@ -418,12 +421,11 @@ export default function RequerimientoDetailPage() {
       <AlertaVencimiento diasHabilesRestantes={req.diasHabilesRestantes} vencido={req.vencido} />
       {successMsg && <Alert variant="success">{successMsg}</Alert>}
       {errorMsg && <Alert variant="error">{errorMsg}</Alert>}
-      {(user?.rol === "superadmin" ||
-        user?.rol === "administradora-municipal" ||
-        (!!user && esRolAdminPlataforma(user.rol))) &&
+      {esSuperadmin &&
         req &&
         (req.estado === "completado" || req.estado === "rechazado") &&
-        !hasRespuestaVecino && (
+        !hasRespuestaVecino &&
+        puedeRevertirDatos && (
           <Alert variant="info">
             <p className="text-sm">
               Si marcó «{ESTADO_LABELS[req.estado]}» por error y <strong>aún no envió el correo al vecino</strong>,
@@ -757,11 +759,26 @@ export default function RequerimientoDetailPage() {
                 </Alert>
               )}
 
-              {puedeRevertir && (
+              {puedeRevertirDatos && (
                 <Button
                   variant="outline"
                   size="full"
-                  onClick={() => setShowRevertirConfirm(true)}
+                  disabled={!puedeRevertir || revertirMutation.isPending}
+                  title={
+                    !esSuperadmin
+                      ? "Esta función es solo para superadmin"
+                      : !puedeRevertir
+                        ? "No se puede revertir: ya se envió correo al vecino o no hay estado anterior"
+                        : undefined
+                  }
+                  className={
+                    !esSuperadmin
+                      ? "bg-slate-100 text-slate-400 border-slate-200 hover:bg-slate-100 cursor-not-allowed"
+                      : undefined
+                  }
+                  onClick={() => {
+                    if (puedeRevertir) setShowRevertirConfirm(true);
+                  }}
                 >
                   <Undo2 className="h-4 w-4 mr-2" /> Revertir último cambio de estado
                 </Button>
@@ -887,7 +904,7 @@ export default function RequerimientoDetailPage() {
                 <> Confirme que corresponde cerrar el caso y que ya envió o enviará la respuesta formal al vecino si aplica.</>
               )}
             </p>
-            {!esVecinal && (
+            {!esVecinal && esSuperadmin && (
               <p>
                 Si fue un clic por error y <strong>todavía no</strong> envió correo al vecino, después podrá usar{" "}
                 <strong>Revertir último cambio de estado</strong> para deshacer este paso.
@@ -946,8 +963,8 @@ export default function RequerimientoDetailPage() {
               {ESTADO_LABELS.derivado_respuesta_final}», se quitará el admin asignado.
             </p>
             <p>
-              Disponible para administración mientras no se haya enviado correo al vecino. Los directores no pueden
-              revertir estados. Queda registrado en el historial.
+              Disponible solo para superadmin mientras no se haya enviado correo al vecino. Queda registrado en el
+              historial.
             </p>
           </div>
         }
