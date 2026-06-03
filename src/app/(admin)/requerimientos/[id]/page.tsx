@@ -42,8 +42,12 @@ import {
   puedeRevertirEstadoPorDatos,
   getAllowedNextStates,
 } from "@/lib/requerimiento-permissions";
-import { esRolAdminPlataforma } from "@/types/usuario.types";
+import { esRolAdminPlataforma, ROL_LABELS } from "@/types/usuario.types";
 import { ApiClientError } from "@/lib/api/fetch-json";
+import {
+  directorDebeAgregarNotaAntesDeCambiarEstado,
+  MENSAJE_DIRECTOR_NOTA_OBLIGATORIA,
+} from "@/lib/director-estado-nota";
 import { ConfirmDeleteModal } from "@/components/ui/ConfirmDeleteModal";
 import { EvidenciaResolucionForm } from "@/components/features/requerimientos/EvidenciaResolucionForm";
 import type { CierreRespuesta } from "@/components/features/requerimientos/RespuestaVecinoModal";
@@ -71,6 +75,15 @@ const DerivarRespuestaFinalModal = dynamic(
   { ssr: false }
 );
 
+function formatAutor(usuarioNombre?: string, usuarioRol?: keyof typeof ROL_LABELS) {
+  const partes = [usuarioNombre?.trim(), usuarioRol ? ROL_LABELS[usuarioRol] : undefined].filter(Boolean);
+  return partes.join(" • ");
+}
+
+function MetaAutor({ autor }: { autor: string }) {
+  return <p className="text-xs text-slate-500 mt-0.5">{autor}</p>;
+}
+
 export default function RequerimientoDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -96,6 +109,7 @@ export default function RequerimientoDetailPage() {
   const [showRevertirConfirm, setShowRevertirConfirm] = useState(false);
   const [showConfirmCierreEstado, setShowConfirmCierreEstado] = useState(false);
   const [showPendienteEvidenciaModal, setShowPendienteEvidenciaModal] = useState(false);
+  const [showDirectorNotaModal, setShowDirectorNotaModal] = useState(false);
   const [pendienteEvidenciaNota, setPendienteEvidenciaNota] = useState<string | undefined>();
   const [pendienteEvidenciaActionLoading, setPendienteEvidenciaActionLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
@@ -140,10 +154,29 @@ export default function RequerimientoDetailPage() {
     !(hasRespuestaVecino && (req?.estado === "completado" || req?.estado === "rechazado"));
 
   const puedeDerivarFinal = !!user && !!req && canDerivarRespuestaFinal(user, req);
+  const puedeDerivarFinalConEvidencia = puedeDerivarFinal && !!req?.evidenciaResolucion;
   const puedeEnviarRespuestaFinal = !!user && !!req && canEnviarRespuestaFinal(user, req);
   const puedeRevertirDatos = !!req && puedeRevertirEstadoPorDatos(req);
   const puedeRevertir = !!user && !!req && canRevertirEstado(user.rol, req);
   const esSuperadmin = user?.rol === "superadmin";
+  const esDirector = user?.rol === "director";
+
+  const directorFaltaNotaParaEstado = (estadoDestino?: string) =>
+    !!req &&
+    directorDebeAgregarNotaAntesDeCambiarEstado(
+      user?.rol,
+      req.estado,
+      estadoDestino as EstadoRequerimiento | undefined,
+      nota
+    );
+
+  const abrirModalNotaDirectorSiAplica = (estadoDestino?: string) => {
+    if (directorFaltaNotaParaEstado(estadoDestino)) {
+      setShowDirectorNotaModal(true);
+      return true;
+    }
+    return false;
+  };
 
   const evidenciaPermitida =
     !!req && ESTADOS_PERMITEN_EVIDENCIA.includes(req.estado);
@@ -174,6 +207,8 @@ export default function RequerimientoDetailPage() {
     if (!req) return;
     if (!newEstado && !nota) return;
     const estadoEnviar = newEstado ? (newEstado as EstadoRequerimiento) : undefined;
+
+    if (abrirModalNotaDirectorSiAplica(estadoEnviar)) return;
 
     if (
       estadoEnviar === "pendiente" &&
@@ -278,6 +313,10 @@ export default function RequerimientoDetailPage() {
     if (!req) return;
     const estadoEnviar = newEstado ? (newEstado as EstadoRequerimiento) : undefined;
     if (estadoEnviar !== "completado" && estadoEnviar !== "rechazado") {
+      setShowConfirmCierreEstado(false);
+      return;
+    }
+    if (abrirModalNotaDirectorSiAplica(estadoEnviar)) {
       setShowConfirmCierreEstado(false);
       return;
     }
@@ -449,8 +488,24 @@ export default function RequerimientoDetailPage() {
                   <dd className="font-medium">{req.direccionMunicipalLabel || "Pendiente de derivación"}</dd>
                 </div>
                 <div><dt className="text-slate-500">Fecha Ingreso</dt><dd className="font-medium">{new Date(req.fechaIngreso).toLocaleDateString("es-CL")}</dd></div>
-                <div><dt className="text-slate-500">Fecha Límite</dt><dd className="font-medium">{new Date(req.fechaLimite).toLocaleDateString("es-CL")}</dd></div>
-                <div><dt className="text-slate-500">Días Hábiles Restantes</dt><dd className="font-medium">{req.vencido ? "Vencido" : req.diasHabilesRestantes}</dd></div>
+                <div>
+                  <dt className="text-slate-500">Fecha Límite</dt>
+                  <dd className="font-medium">
+                    {req.estado === "pendiente"
+                      ? "Se define al derivar"
+                      : new Date(req.fechaLimite).toLocaleDateString("es-CL")}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">Días Hábiles Restantes</dt>
+                  <dd className="font-medium">
+                    {req.estado === "pendiente"
+                      ? "No inicia aún"
+                      : req.vencido
+                        ? "Vencido"
+                        : req.diasHabilesRestantes}
+                  </dd>
+                </div>
               </dl>
               <div><p className="text-sm text-slate-500 mb-1">Descripción</p><p className="text-sm">{req.descripcion}</p></div>
             </CardContent>
@@ -510,16 +565,32 @@ export default function RequerimientoDetailPage() {
             <CardHeader><CardTitle>Historial de Estados</CardTitle></CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {req.historialEstados.map((h, i) => (
-                  <div key={i} className="flex items-start gap-3 text-sm">
-                    <div className="w-2 h-2 rounded-full bg-blue-500 mt-2 shrink-0" />
-                    <div>
-                      <p className="font-medium">{ESTADO_LABELS[h.estado as EstadoRequerimiento] || h.estado}</p>
-                      <p className="text-xs text-slate-400">{new Date(h.fecha).toLocaleString("es-CL")}</p>
-                      {h.nota && <p className="text-xs text-slate-500 mt-0.5">{h.nota}</p>}
+                {req.historialEstados.map((h, i) => {
+                  const autor = formatAutor(h.usuarioNombre, h.usuarioRol);
+                  return (
+                    <div key={i} className="flex items-start gap-3 text-sm">
+                      <div className="w-2 h-2 rounded-full bg-blue-500 mt-2 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium">
+                          {ESTADO_LABELS[h.estado as EstadoRequerimiento] || h.estado}
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          {new Date(h.fecha).toLocaleString("es-CL")}
+                        </p>
+                        {autor ? (
+                          <p className="text-xs font-medium text-slate-600 mt-1">{autor}</p>
+                        ) : h.usuarioId ? (
+                          <p className="text-xs text-slate-400 mt-1">Usuario del sistema</p>
+                        ) : null}
+                        {h.nota ? (
+                          <p className="text-sm text-slate-700 mt-1.5 whitespace-pre-line rounded-lg bg-slate-50 border border-slate-100 px-2.5 py-2">
+                            {h.nota}
+                          </p>
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
@@ -532,27 +603,45 @@ export default function RequerimientoDetailPage() {
             <CardContent className="space-y-4">
               {canChangeEstado && (
                 <>
-                  <Select
-                    label="Cambiar estado"
-                    options={estadoOptions}
-                    value={newEstado || req.estado}
-                    onChange={(e) => setNewEstado(e.target.value)}
-                    placeholder="Seleccione nuevo estado"
-                  />
                   <Textarea
-                    label="Nota (opcional)"
+                    label={esDirector ? "Nota (obligatoria para cambiar estado)" : "Nota (opcional)"}
                     rows={3}
                     maxLength={1000}
                     value={nota}
                     onChange={(e) => setNota(e.target.value)}
-                    placeholder="Agregar nota al cambio..."
+                    placeholder={
+                      esDirector
+                        ? "Escriba primero la nota; quedará visible en el historial con su nombre y rol..."
+                        : "Agregar nota al cambio..."
+                    }
+                    required={esDirector}
                   />
+                  <Select
+                    label="Cambiar estado"
+                    options={estadoOptions}
+                    value={newEstado || req.estado}
+                    onChange={(e) => {
+                      const valor = e.target.value;
+                      if (valor !== req.estado && abrirModalNotaDirectorSiAplica(valor)) return;
+                      setNewEstado(valor);
+                    }}
+                    placeholder="Seleccione nuevo estado"
+                  />
+                  {esDirector && (
+                    <p className="text-xs text-slate-500 -mt-2">
+                      Escriba la nota antes de elegir el nuevo estado. El historial mostrará su nombre, rol y el texto de la nota.
+                    </p>
+                  )}
                   <Button
                     size="full"
                     onClick={handleUpdateEstado}
                     loading={updateMutation.isPending}
                     disabled={
                       updateMutation.isPending ||
+                      (esDirector &&
+                        !!newEstado &&
+                        newEstado !== req.estado &&
+                        !nota.trim()) ||
                       (!nota.trim() && (!newEstado || newEstado === req.estado))
                     }
                   >
@@ -604,14 +693,31 @@ export default function RequerimientoDetailPage() {
 
               {/* Derivar para respuesta final (Información/Reclamo/… desde proceso) */}
               {esTipoRespuestaAdmin && puedeDerivarFinal && (
-                <Button
-                  variant="secondary"
-                  size="full"
-                  onClick={() => setShowDerivarFinal(true)}
-                  className="bg-purple-100 text-purple-900 hover:bg-purple-200"
-                >
-                  <Users className="h-4 w-4 mr-2" /> Derivar para respuesta final al requerimiento
-                </Button>
+                <>
+                  <Button
+                    variant="secondary"
+                    size="full"
+                    disabled={!puedeDerivarFinalConEvidencia}
+                    title={
+                      puedeDerivarFinalConEvidencia
+                        ? undefined
+                        : "Debe adjuntar evidencia antes de derivar para respuesta final"
+                    }
+                    onClick={() => {
+                      if (puedeDerivarFinalConEvidencia) setShowDerivarFinal(true);
+                    }}
+                    className="bg-purple-100 text-purple-900 hover:bg-purple-200 disabled:bg-slate-200 disabled:text-slate-500"
+                  >
+                    <Users className="h-4 w-4 mr-2" /> Derivar para respuesta final al requerimiento
+                  </Button>
+                  {!puedeDerivarFinalConEvidencia && (
+                    <Alert variant="warning">
+                      <p className="text-sm">
+                        Para derivar a respuesta final debe adjuntar evidencia de resolución.
+                      </p>
+                    </Alert>
+                  )}
+                </>
               )}
 
               {/* Respuesta final (admin asignado o superadmin) */}
@@ -701,8 +807,16 @@ export default function RequerimientoDetailPage() {
                 <div className="space-y-3">
                   {req.notas.map((n, i) => (
                     <div key={i} className="bg-slate-50 rounded-lg p-3 text-sm">
+                      {(() => {
+                        const autor = formatAutor(n.usuarioNombre, n.usuarioRol);
+                        return (
+                          <>
                       <p>{n.contenido}</p>
                       <p className="text-xs text-slate-400 mt-1">{new Date(n.fecha).toLocaleString("es-CL")}</p>
+                      {autor && <MetaAutor autor={autor} />}
+                          </>
+                        );
+                      })()}
                     </div>
                   ))}
                 </div>
@@ -734,6 +848,17 @@ export default function RequerimientoDetailPage() {
           )}
         </div>
       </div>
+
+      <ConfirmDeleteModal
+        open={showDirectorNotaModal}
+        onOpenChange={setShowDirectorNotaModal}
+        title="Primero agregue una nota"
+        confirmLabel="Entendido"
+        cancelLabel="Cerrar"
+        danger={false}
+        description={<p className="text-sm text-slate-600">{MENSAJE_DIRECTOR_NOTA_OBLIGATORIA}</p>}
+        onConfirm={() => setShowDirectorNotaModal(false)}
+      />
 
       <ConfirmDeleteModal
         open={showPendienteEvidenciaModal}
@@ -824,7 +949,8 @@ export default function RequerimientoDetailPage() {
           <div className="space-y-3 text-sm text-slate-600">
             <p>
               Vuelve el requerimiento al estado inmediatamente anterior (según el historial). Si el estado actual era
-              «{ESTADO_LABELS.en_espera_1}» o «{ESTADO_LABELS.en_espera_2}», se ajustará el plazo. Si era «
+              «{ESTADO_LABELS.en_espera_1}» o «{ESTADO_LABELS.en_espera_2}», se revertirá el ajuste de 10 días hábiles
+              de ese estado. Si era «
               {ESTADO_LABELS.derivado_respuesta_final}», se quitará el admin asignado.
             </p>
             <p>
@@ -852,6 +978,7 @@ export default function RequerimientoDetailPage() {
           onClose={() => setShowDerivarFinal(false)}
           onSubmit={handleDerivarRespuestaFinal}
           tipoRequerimiento={req.tipoRequerimiento}
+          notaObligatoria={esDirector}
         />
       )}
 

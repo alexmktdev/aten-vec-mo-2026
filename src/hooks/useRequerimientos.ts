@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData, queryOptions } from "@tanstack/react-query";
 import type { QueryClient } from "@tanstack/react-query";
 import { RequerimientoDTO, EstadoRequerimiento, RespuestaVecinoInput } from "@/types/requerimiento.types";
 import { fetchJson } from "@/lib/api/fetch-json";
@@ -51,9 +51,9 @@ type RequerimientosListCache = { data: RequerimientoDTO[]; nextCursor?: string; 
  * montarse.
  */
 function invalidateDashboardQueries(queryClient: QueryClient) {
-  queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
-  queryClient.invalidateQueries({ queryKey: ["dashboard-highlights"] });
-  queryClient.invalidateQueries({ queryKey: ["dashboard-charts"] });
+  queryClient.invalidateQueries({ queryKey: ["dashboard-stats"], refetchType: "all" });
+  queryClient.invalidateQueries({ queryKey: ["dashboard-highlights"], refetchType: "all" });
+  queryClient.invalidateQueries({ queryKey: ["dashboard-charts"], refetchType: "all" });
 }
 
 function patchRowInAllRequerimientosQueries(
@@ -437,38 +437,50 @@ export function useDeleteEvidenciaResolucion() {
 }
 
 export function useDashboardStats() {
-  return useQuery({
-    queryKey: ["dashboard-stats"],
+  return useQuery(getDashboardStatsQueryOptions());
+}
+
+export function useDashboardHighlights() {
+  return useQuery(getDashboardHighlightsQueryOptions());
+}
+
+export function useDashboardCharts() {
+  return useQuery(getDashboardChartsQueryOptions());
+}
+
+export function getDashboardStatsQueryOptions() {
+  return queryOptions({
+    queryKey: ["dashboard-stats"] as const,
     queryFn: async () => {
       return fetchJson<DashboardStats>("/api/dashboard/stats");
     },
     staleTime: 2 * 60_000,
     gcTime: 10 * 60_000,
     refetchOnWindowFocus: false,
-    refetchInterval: 5 * 60_000,
+    refetchInterval: false,
   });
 }
 
-export function useDashboardHighlights() {
-  return useQuery({
-    queryKey: ["dashboard-highlights"],
+export function getDashboardHighlightsQueryOptions() {
+  return queryOptions({
+    queryKey: ["dashboard-highlights"] as const,
     queryFn: async () => {
       return fetchJson<DashboardHighlights>("/api/dashboard/highlights");
     },
     staleTime: 2 * 60_000,
     gcTime: 10 * 60_000,
     refetchOnWindowFocus: false,
-    refetchInterval: 5 * 60_000,
+    refetchInterval: false,
   });
 }
 
-export function useDashboardCharts() {
-  return useQuery({
+export function getDashboardChartsQueryOptions() {
+  return queryOptions({
     queryKey: ["dashboard-charts"],
     queryFn: async () => fetchJson<DashboardChartsPayload>("/api/dashboard/charts"),
     staleTime: 2 * 60_000,
     gcTime: 10 * 60_000,
     refetchOnWindowFocus: false,
-    refetchInterval: 5 * 60_000,
+    refetchInterval: false,
   });
 }

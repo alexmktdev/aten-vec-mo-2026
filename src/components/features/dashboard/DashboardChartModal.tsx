@@ -38,12 +38,12 @@ const CARD_COPY: Record<
   },
   en_espera_1: {
     title: "En espera 1 por dirección",
-    subtitle: "Casos en el primer estado de espera (plazo extendido +2 semanas hábiles).",
+    subtitle: "Casos en el primer estado de espera (al ingresar a este estado se agregan 10 días hábiles).",
     hash: "en_espera_1",
   },
   en_espera_2: {
     title: "En espera 2 por dirección",
-    subtitle: "Casos en el segundo estado de espera (plazo extendido +2 semanas hábiles adicionales).",
+    subtitle: "Casos en el segundo estado de espera (al ingresar a este estado se agregan 10 días hábiles adicionales).",
     hash: "en_espera_2",
   },
   derivado_respuesta_final: {

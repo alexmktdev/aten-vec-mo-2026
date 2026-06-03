@@ -2,9 +2,12 @@
 
 import { useEffect } from "react";
 import { ChartPie, Loader2 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import { useDashboardCharts } from "@/hooks/useRequerimientos";
 import { FiscalPieChart } from "@/components/features/dashboard/FiscalPieChart";
+import { TabAccessDenied } from "@/components/ui/TabAccessDenied";
 import type { DashboardChartCardId, DashboardChartsPayload } from "@/types/dashboard-charts.types";
+const ROLES_BLOQUEADOS_GRAFICAS = ["director", "admin-municipal", "admin-transparencia"] as const;
 
 function ChartSection({
   id,
@@ -54,12 +57,12 @@ const CARD_SECTIONS: {
   {
     id: "en_espera_1",
     title: "En espera 1 por dirección",
-    description: "Casos en el primer estado de espera (con plazo extendido en 2 semanas hábiles).",
+    description: "Casos en el primer estado de espera (al ingresar a este estado se agregan 10 días hábiles).",
   },
   {
     id: "en_espera_2",
     title: "En espera 2 por dirección",
-    description: "Casos en el segundo estado de espera (con plazo extendido en 2 semanas hábiles adicionales).",
+    description: "Casos en el segundo estado de espera (al ingresar a este estado se agregan 10 días hábiles adicionales).",
   },
   {
     id: "derivado_respuesta_final",
@@ -91,7 +94,7 @@ function scrollToHash() {
   });
 }
 
-export default function GraficasPage() {
+function GraficasContent() {
   const { data, isLoading, isError, error } = useDashboardCharts();
 
   useEffect(() => {
@@ -133,6 +136,24 @@ export default function GraficasPage() {
       {data ? <GraficasGrid payload={data} /> : null}
     </div>
   );
+}
+
+export default function GraficasPage() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-slate-600 shadow-sm">
+        Cargando permisos…
+      </div>
+    );
+  }
+
+  if (user?.rol && ROLES_BLOQUEADOS_GRAFICAS.includes(user.rol as (typeof ROLES_BLOQUEADOS_GRAFICAS)[number])) {
+    return <TabAccessDenied tabLabel="Gráficas resumen" />;
+  }
+
+  return <GraficasContent />;
 }
 
 function GraficasGrid({ payload }: { payload: DashboardChartsPayload }) {

@@ -25,8 +25,6 @@ export const ROLES_ACCESO_REPORTES: readonly RolUsuario[] = [
   "superadmin",
   "administradora-municipal",
   "admin",
-  "admin-municipal",
-  "admin-transparencia",
 ];
 
 export function puedeVerReportes(rol: RolUsuario): boolean {

@@ -6,11 +6,18 @@ import {
   EstadoRequerimiento,
   AdminAsignadoRespuesta,
 } from "@/types/requerimiento.types";
+import type { RolUsuario } from "@/types/usuario.types";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import logger from "@/lib/logger";
 import { incrementMetric } from "@/lib/metrics";
 
 const collection = () => adminDb.collection(COLLECTIONS.REQUERIMIENTOS);
+
+interface AutorRegistro {
+  usuarioId: string;
+  usuarioNombre?: string;
+  usuarioRol?: RolUsuario;
+}
 
 export interface RequerimientoFilters {
   estado?: EstadoRequerimiento;
@@ -300,7 +307,7 @@ export const requerimientoRepository = {
    */
   async addNota(
     id: string,
-    nota: { contenido: string; usuarioId: string }
+    nota: { contenido: string } & AutorRegistro
   ): Promise<void> {
     await collection()
       .doc(id)
@@ -334,7 +341,7 @@ export const requerimientoRepository = {
   async addEstadoToHistorial(
     id: string,
     estado: EstadoRequerimiento,
-    usuarioId?: string,
+    autor?: AutorRegistro,
     nota?: string,
     extras?: {
       fechaLimite?: Date;
@@ -346,7 +353,9 @@ export const requerimientoRepository = {
       historialEstados: FieldValue.arrayUnion({
         estado,
         fecha: Timestamp.now(),
-        ...(usuarioId && { usuarioId }),
+        ...(autor?.usuarioId && { usuarioId: autor.usuarioId }),
+        ...(autor?.usuarioNombre && { usuarioNombre: autor.usuarioNombre }),
+        ...(autor?.usuarioRol && { usuarioRol: autor.usuarioRol }),
         ...(nota && { nota }),
       }),
       actualizadoEn: FieldValue.serverTimestamp(),

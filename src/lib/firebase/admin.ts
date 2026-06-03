@@ -1,6 +1,7 @@
 import { initializeApp, getApps, cert, type ServiceAccount } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
+import { setupFirestoreReadMeterIfEnabled } from "@/lib/firebase/firestore-read-meter";
 
 function getFirebaseAdminApp() {
   const existing = getApps();
@@ -45,3 +46,4 @@ function getFirebaseAdminApp() {
 export const adminApp = getFirebaseAdminApp();
 export const adminAuth = getAuth(adminApp);
 export const adminDb = getFirestore(adminApp);
+setupFirestoreReadMeterIfEnabled(adminDb);

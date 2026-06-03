@@ -57,10 +57,17 @@ function abierto(r: RequerimientoDTO): boolean {
   return r.estado !== "completado" && r.estado !== "rechazado";
 }
 
-/** Días hábiles desde el ingreso (solo abiertos); coherente con «Alerta de atención» en la lista de la app. */
+function fechaInicioTramoVigente(r: RequerimientoDTO): Date {
+  const h = sortedHistorial(r)
+    .reverse()
+    .find((x) => x.estado === "derivado" || x.estado === "en_espera_1" || x.estado === "en_espera_2");
+  return parseISODate(h?.fecha || r.fechaIngreso);
+}
+
+/** Días hábiles del tramo vigente de plazo (solo abiertos). */
 function diasHabilesSinRespuestaDesdeIngreso(r: RequerimientoDTO, now: Date): number | "" {
   if (!abierto(r)) return "";
-  return getBusinessDaysBetween(parseISODate(r.fechaIngreso), now);
+  return getBusinessDaysBetween(fechaInicioTramoVigente(r), now);
 }
 
 function sortedHistorial(r: RequerimientoDTO) {
@@ -599,7 +606,7 @@ export async function buildEstadisticasCompletoBuffer(
     fechaResolucion: "Fecha resolución",
     creadoEn: "Creado en",
     actualizadoEn: "Actualizado en",
-    diasHabilesSinRespuesta: "Días hábiles sin respuesta (solo abiertos)",
+    diasHabilesSinRespuesta: "Días hábiles en tramo vigente (solo abiertos)",
     urgenteActivo: "¿Urgente activo? (20+ días calendario desde ingreso)",
     diasDesdeIngreso: "Días desde ingreso",
     diasEnEstadoActual: "Días en estado actual",

@@ -10,7 +10,7 @@ const log = createRouteLogger("/api/usuarios");
 
 /**
  * GET /api/usuarios — List all users
- * Roles: superadmin, admin, administradora-municipal
+ * Roles: superadmin, admin, administradora-municipal, director
  * Sin caché de servidor: la lista debe reflejar altas/bajas al instante.
  */
 export async function GET(request: NextRequest) {
@@ -20,7 +20,8 @@ export async function GET(request: NextRequest) {
       "admin",
       "admin-municipal",
       "admin-transparencia",
-      "administradora-municipal"
+      "administradora-municipal",
+      "director"
     );
     if (authResult.error) return authResult.error;
 

@@ -1,4 +1,5 @@
 import { Timestamp } from "firebase-admin/firestore";
+import type { RolUsuario } from "./usuario.types";
 
 export const ESTADOS_REQUERIMIENTO = [
   "pendiente",
@@ -143,12 +144,16 @@ export interface HistorialEstado {
   estado: string;
   fecha: Timestamp | Date | string;
   usuarioId?: string;
+  usuarioNombre?: string;
+  usuarioRol?: RolUsuario;
   nota?: string;
 }
 
 export interface NotaRequerimiento {
   contenido: string;
   usuarioId: string;
+  usuarioNombre?: string;
+  usuarioRol?: RolUsuario;
   fecha: Timestamp | Date | string;
 }
 
@@ -217,11 +222,15 @@ export interface RequerimientoDTO {
     estado: string;
     fecha: string;
     usuarioId?: string;
+    usuarioNombre?: string;
+    usuarioRol?: RolUsuario;
     nota?: string;
   }[];
   notas: {
     contenido: string;
     usuarioId: string;
+    usuarioNombre?: string;
+    usuarioRol?: RolUsuario;
     fecha: string;
   }[];
   respuestasVecino: {

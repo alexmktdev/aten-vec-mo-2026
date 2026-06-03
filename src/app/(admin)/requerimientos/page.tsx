@@ -21,6 +21,17 @@ import { getDireccionLabel } from "@/constants/direcciones";
 import { ConfirmDeleteModal } from "@/components/ui/ConfirmDeleteModal";
 
 const PAGE_SIZE = 8;
+const ESTADOS_INICIO_TRAMO_PLAZO = new Set(["derivado", "en_espera_1", "en_espera_2"]);
+
+function getFechaInicioTramoPlazo(item: RequerimientoDTO): Date {
+  const historial = [...(item.historialEstados || [])];
+  const lastStart = historial
+    .reverse()
+    .find((h) => ESTADOS_INICIO_TRAMO_PLAZO.has(h.estado));
+
+  if (lastStart?.fecha) return new Date(lastStart.fecha);
+  return new Date(item.fechaIngreso);
+}
 
 export default function RequerimientosPage() {
   const [estado, setEstado] = useState("");
@@ -207,9 +218,17 @@ export default function RequerimientosPage() {
             </span>
           );
         }
+        if (item.estado === "pendiente") {
+          return (
+            <span className="inline-flex w-fit whitespace-nowrap items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
+              Plazo no iniciado
+            </span>
+          );
+        }
 
-        const diasSinResponder = getBusinessDaysBetween(new Date(item.fechaIngreso), new Date());
-        // Rojo ≥10 hábiles (2 semanas, plazo base), ámbar 5–9, azul <5.
+        const fechaInicioTramo = getFechaInicioTramoPlazo(item);
+        const diasSinResponder = getBusinessDaysBetween(fechaInicioTramo, new Date());
+        // Rojo ≥10 hábiles, ámbar 5–9, azul <5 en el tramo vigente de plazo.
         const isCritico = diasSinResponder >= 10;
         const isAlerta = !isCritico && diasSinResponder >= 5;
 
@@ -224,7 +243,7 @@ export default function RequerimientosPage() {
             }
           >
             <AlertTriangle className="h-3.5 w-3.5" />
-            {diasSinResponder} día{diasSinResponder !== 1 ? "s" : ""} hábil{diasSinResponder !== 1 ? "es" : ""} sin respuesta
+            {diasSinResponder} día{diasSinResponder !== 1 ? "s" : ""} hábil{diasSinResponder !== 1 ? "es" : ""} en tramo vigente
           </span>
         );
       },

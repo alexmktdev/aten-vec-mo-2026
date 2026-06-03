@@ -97,6 +97,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    await requerimientoService.updateEstado(
+      id,
+      "derivado",
+      authResult.user,
+      `Derivado a ${direccionMunicipalLabel} (${parsed.data.emailDestinatario})`,
+      req
+    );
+
+    const reqActualizado = await requerimientoService.getById(id);
+
     let envioCorreoOk = true;
     try {
       await notificacionService.enviarDerivacion(parsed.data.emailDestinatario, {
@@ -106,7 +116,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         direccionMunicipalLabel,
         descripcion: req.descripcion,
         fechaIngreso: req.fechaIngreso,
-        fechaLimite: req.fechaLimite,
+        fechaLimite: reqActualizado?.fechaLimite || req.fechaLimite,
       });
     } catch (emailError) {
       envioCorreoOk = false;
@@ -115,14 +125,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         "No se pudo enviar el correo de derivación"
       );
     }
-
-    await requerimientoService.updateEstado(
-      id,
-      "derivado",
-      authResult.user.uid,
-      `Derivado a ${direccionMunicipalLabel} (${parsed.data.emailDestinatario})`,
-      req
-    );
 
     log.info(
       { id, emailDestinatario: parsed.data.emailDestinatario },

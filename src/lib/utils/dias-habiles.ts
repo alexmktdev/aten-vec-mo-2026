@@ -2,9 +2,9 @@
  * Cálculo de días hábiles (lunes a viernes, excluyendo feriados).
  *
  * Plazos del workflow actual:
- *  - Base al ingresar: 2 semanas hábiles (10 días hábiles)
- *  - +Espera 1: agrega 2 semanas hábiles más al plazo vigente
- *  - +Espera 2: agrega otras 2 semanas hábiles más
+ *  - Base al derivar al área: 10 días hábiles
+ *  - Al entrar a espera 1: agrega 10 días hábiles al plazo vigente
+ *  - Al entrar a espera 2: agrega otros 10 días hábiles al plazo vigente
  */
 
 export const DIAS_HABILES_BASE = 10;
@@ -101,8 +101,7 @@ export function getDiasHabilesRestantes(fechaLimite: Date): number {
 }
 
 /**
- * Calcula la fecha límite base del requerimiento al momento del ingreso.
- * Plazo: 2 semanas hábiles (10 días hábiles).
+ * Calcula una fecha límite base de 10 días hábiles desde una fecha de inicio.
  */
 export function calcularFechaLimite(fechaIngreso: Date): Date {
   return addBusinessDays(fechaIngreso, DIAS_HABILES_BASE);

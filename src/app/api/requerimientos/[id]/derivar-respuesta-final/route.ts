@@ -12,6 +12,7 @@ import {
   RequerimientoRouteParams,
   requireRequerimientoWithAccess,
 } from "@/lib/api/requerimiento-route-guards";
+import { MENSAJE_DIRECTOR_NOTA_OBLIGATORIA } from "@/lib/director-estado-nota";
 
 const log = createRouteLogger("/api/requerimientos/[id]/derivar-respuesta-final");
 
@@ -41,12 +42,22 @@ export async function POST(request: NextRequest, routeParams: RequerimientoRoute
         "El requerimiento no permite derivar para respuesta final desde el rol o tipo actual"
       );
     }
+    if (!existing.evidenciaResolucion) {
+      return createErrorResponse(
+        400,
+        "Debe adjuntar evidencia antes de derivar para respuesta final"
+      );
+    }
 
     const body = await request.json();
     if (typeof body?.nota === "string") body.nota = sanitizeText(body.nota);
     const parsed = schema.safeParse(body);
     if (!parsed.success) {
       return createErrorResponse(400, "Datos inválidos", parsed.error.issues);
+    }
+
+    if (user.rol === "director" && !parsed.data.nota?.trim()) {
+      return createErrorResponse(400, MENSAJE_DIRECTOR_NOTA_OBLIGATORIA);
     }
 
     const admin = await usuarioRepository.getById(parsed.data.adminUid);
@@ -77,7 +88,7 @@ export async function POST(request: NextRequest, routeParams: RequerimientoRoute
         nombre: admin.nombre,
         email: normalizeEmail(admin.email),
       },
-      user.uid,
+      user,
       parsed.data.nota,
       existing
     );

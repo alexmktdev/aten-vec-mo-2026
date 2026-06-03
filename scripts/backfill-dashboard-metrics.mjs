@@ -51,6 +51,9 @@ async function main() {
     pendiente: 0,
     derivado: 0,
     en_proceso: 0,
+    en_espera_1: 0,
+    en_espera_2: 0,
+    derivado_respuesta_final: 0,
     completado: 0,
     rechazado: 0,
   };

@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { ReporteFilters } from "@/components/features/reportes/ReporteFilters";
 import { puedeVerReportes } from "@/types/usuario.types";
+import { TabAccessDenied } from "@/components/ui/TabAccessDenied";
 
 type ReportFilters = {
   estado?: string;
@@ -86,24 +86,7 @@ export default function ReportesPage() {
   }
 
   if (!user || !puedeVerReportes(user.rol)) {
-    return (
-      <div className="max-w-lg space-y-4 rounded-2xl border border-amber-200 bg-amber-50 p-6 text-slate-800 shadow-sm">
-        <h1 className="admin-title text-amber-950">Reportes no disponibles</h1>
-        <p className="text-sm">
-          Solo los roles <strong>superadmin</strong> y <strong>administradora municipal</strong> pueden ver y exportar
-          reportes. Las <strong>gráficas</strong> del panel están disponibles para todos los roles.
-        </p>
-        <Link
-          href="/dashboard"
-          className="inline-flex rounded-xl bg-blue-900 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
-        >
-          Volver al panel de control
-        </Link>
-        <Link href="/dashboard/graficas" className="ml-3 text-sm font-medium text-blue-900 underline">
-          Ir a Gráficas resumen
-        </Link>
-      </div>
-    );
+    return <TabAccessDenied tabLabel="Reportes" />;
   }
 
   return (

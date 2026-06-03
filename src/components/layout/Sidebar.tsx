@@ -2,15 +2,19 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useUIStore } from "@/stores/ui.store";
-import { getRequerimientosQueryOptions } from "@/hooks/useRequerimientos";
+import {
+  getDashboardChartsQueryOptions,
+  getDashboardHighlightsQueryOptions,
+  getDashboardStatsQueryOptions,
+  getRequerimientosQueryOptions,
+} from "@/hooks/useRequerimientos";
 import { getUsuariosQueryOptions } from "@/hooks/useUsuarios";
-import { fetchJson } from "@/lib/api/fetch-json";
 import {
   LayoutDashboard,
   FileText,
@@ -23,49 +27,75 @@ import {
 } from "lucide-react";
 import { ROLES_USUARIO, ROLES_ACCESO_REPORTES } from "@/types/usuario.types";
 
+const ROLES_BIENVENIDA = ["director", "admin-municipal", "admin-transparencia"] as const;
+
 const NAV_ITEMS = [
-  { href: "/dashboard", label: "Panel de Control", icon: LayoutDashboard, section: "General", roles: [...ROLES_USUARIO] },
-  { href: "/dashboard/graficas", label: "Gráficas resumen", icon: ChartPie, section: "General", roles: [...ROLES_USUARIO] },
+  { href: "/dashboard", label: "Panel de Control", icon: LayoutDashboard, section: "General", roles: ["superadmin", "admin", "administradora-municipal", "director", "admin-municipal", "admin-transparencia"] },
+  { href: "/dashboard/graficas", label: "Gráficas resumen", icon: ChartPie, section: "General", roles: ["superadmin", "admin", "administradora-municipal"] },
   { href: "/requerimientos", label: "Requerimientos", icon: FileText, section: "Administración", roles: [...ROLES_USUARIO] },
   { href: "/reportes", label: "Reportes", icon: BarChart3, section: "Administración", roles: [...ROLES_ACCESO_REPORTES] },
-  { href: "/usuarios", label: "Usuarios", icon: Users, section: "Usuarios", roles: ["superadmin", "admin", "admin-municipal", "admin-transparencia", "administradora-municipal"] },
+  { href: "/usuarios", label: "Usuarios", icon: Users, section: "Usuarios", roles: ["superadmin", "admin", "admin-municipal", "admin-transparencia", "administradora-municipal", "director"] },
   { href: "/usuarios/nuevo", label: "Crear usuario", icon: UserPlus, section: "Usuarios", roles: ["superadmin"] },
 ];
 
 const SECTIONS = ["General", "Administración", "Usuarios"] as const;
 
-function getPrefetchQueries(): { queryKey: readonly unknown[]; queryFn: () => Promise<unknown> }[] {
+type PrefetchQueryOption =
+  | ReturnType<typeof getRequerimientosQueryOptions>
+  | ReturnType<typeof getUsuariosQueryOptions>
+  | ReturnType<typeof getDashboardStatsQueryOptions>
+  | ReturnType<typeof getDashboardHighlightsQueryOptions>
+  | ReturnType<typeof getDashboardChartsQueryOptions>;
+
+function getPrefetchQueries(userRol?: string): PrefetchQueryOption[] {
+  if (userRol && ROLES_BIENVENIDA.includes(userRol as (typeof ROLES_BIENVENIDA)[number])) {
+    return [
+      getRequerimientosQueryOptions({ page: 1, includeTotal: true, limit: 8, sortBy: "fechaIngreso", sortDir: "desc" }),
+      getUsuariosQueryOptions({ page: 1, limit: 10 }),
+    ];
+  }
   return [
     getRequerimientosQueryOptions({ page: 1, includeTotal: true, limit: 8, sortBy: "fechaIngreso", sortDir: "desc" }),
-    { queryKey: ["dashboard-stats"] as const, queryFn: () => fetchJson("/api/dashboard/stats") },
-    { queryKey: ["dashboard-highlights"] as const, queryFn: () => fetchJson("/api/dashboard/highlights") },
+    getDashboardStatsQueryOptions(),
+    getDashboardHighlightsQueryOptions(),
   ];
 }
 
-const PREFETCH_MAP: Record<string, () => { queryKey: readonly unknown[]; queryFn: () => Promise<unknown> }[]> = {
+const PREFETCH_MAP: Record<string, () => PrefetchQueryOption[]> = {
   "/requerimientos": () => [getRequerimientosQueryOptions({ page: 1, includeTotal: true, limit: 8, sortBy: "fechaIngreso", sortDir: "desc" })],
   "/usuarios": () => [getUsuariosQueryOptions({ page: 1, limit: 10 })],
   "/dashboard": () => [
-    { queryKey: ["dashboard-stats"] as const, queryFn: () => fetchJson("/api/dashboard/stats") },
-    { queryKey: ["dashboard-highlights"] as const, queryFn: () => fetchJson("/api/dashboard/highlights") },
-    { queryKey: ["dashboard-charts"] as const, queryFn: () => fetchJson("/api/dashboard/charts") },
+    getDashboardStatsQueryOptions(),
+    getDashboardHighlightsQueryOptions(),
+    getDashboardChartsQueryOptions(),
   ],
   "/dashboard/graficas": () => [
-    { queryKey: ["dashboard-charts"] as const, queryFn: () => fetchJson("/api/dashboard/charts") },
-    { queryKey: ["dashboard-stats"] as const, queryFn: () => fetchJson("/api/dashboard/stats") },
+    getDashboardChartsQueryOptions(),
+    getDashboardStatsQueryOptions(),
   ],
 };
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { user, logout } = useAuth();
   const { sidebarOpen, toggleSidebar, mobileSidebarOpen, setMobileSidebarOpen } = useUIStore();
   const didPrefetch = useRef(false);
+  const prefetchedHrefs = useRef(new Set<string>());
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
 
   const userRol = user?.rol;
   const filteredNav = useMemo(
-    () => NAV_ITEMS.filter((item) => userRol && item.roles.includes(userRol)),
+    () =>
+      NAV_ITEMS
+        .filter((item) => userRol && item.roles.includes(userRol))
+        .map((item) => {
+          if (userRol && ROLES_BIENVENIDA.includes(userRol as (typeof ROLES_BIENVENIDA)[number]) && item.href === "/dashboard") {
+            return { ...item, label: "Bienvenido(a)" };
+          }
+          return item;
+        }),
     [userRol]
   );
   const fullName = user?.nombre?.trim() || "Usuario";
@@ -85,16 +115,45 @@ export function Sidebar() {
   useEffect(() => {
     if (!user || didPrefetch.current) return;
     didPrefetch.current = true;
-    const queries = getPrefetchQueries();
-    queries.forEach((q) => void queryClient.prefetchQuery(q));
+    const queries = getPrefetchQueries(user.rol);
+    queries.forEach((q) => void queryClient.prefetchQuery(q as never));
   }, [user, queryClient]);
 
+  useEffect(() => {
+    filteredNav.forEach((item) => {
+      void router.prefetch(item.href);
+    });
+  }, [filteredNav, router]);
+
+  useEffect(() => {
+    setPendingHref(null);
+  }, [pathname]);
+
   const handlePrefetchData = useCallback((href: string) => {
+    void router.prefetch(href);
+    if (userRol && ROLES_BIENVENIDA.includes(userRol as (typeof ROLES_BIENVENIDA)[number]) && (href === "/dashboard" || href === "/dashboard/graficas")) {
+      return;
+    }
+    if (prefetchedHrefs.current.has(href)) {
+      return;
+    }
     const factory = PREFETCH_MAP[href];
     if (factory) {
-      factory().forEach((q) => void queryClient.prefetchQuery(q));
+      prefetchedHrefs.current.add(href);
+      factory().forEach((q) => void queryClient.prefetchQuery(q as never));
     }
-  }, [queryClient]);
+  }, [queryClient, router, userRol]);
+
+  const handleNavigate = useCallback((href: string) => {
+    if (href === pathname) {
+      setMobileSidebarOpen(false);
+      return;
+    }
+
+    setPendingHref(href);
+    setMobileSidebarOpen(false);
+    router.push(href);
+  }, [pathname, router, setMobileSidebarOpen]);
 
   return (
     <>
@@ -150,25 +209,29 @@ export function Sidebar() {
             )}
             <div className="space-y-1.5">
               {items.map((item) => {
+                const optimisticPath = pendingHref || pathname;
                 const isActive =
                   item.href === "/usuarios"
-                    ? pathname === "/usuarios"
+                    ? optimisticPath === "/usuarios"
                     : item.href === "/dashboard"
-                      ? pathname === "/dashboard"
-                      : pathname.startsWith(item.href);
+                      ? optimisticPath === "/dashboard"
+                      : optimisticPath.startsWith(item.href);
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
+                    prefetch={false}
                     onMouseEnter={() => handlePrefetchData(item.href)}
-                    onClick={() => {
-                      setMobileSidebarOpen(false);
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleNavigate(item.href);
                     }}
                     className={cn(
-                      "group flex items-center gap-2.5 rounded-2xl px-2.5 py-2 text-xs font-medium transition-all duration-200",
+                      "group flex items-center gap-2.5 rounded-2xl px-2.5 py-2 text-xs font-medium transition-[background-color,color,box-shadow,transform] duration-150 will-change-transform",
                       isActive
                         ? "bg-blue-900 text-white shadow-[0_8px_16px_rgba(30,58,138,0.35)]"
-                        : "text-slate-900 hover:bg-slate-100"
+                        : "text-slate-900 hover:bg-slate-100",
+                      pendingHref === item.href && "scale-[0.99]"
                     )}
                   >
                     <span className={cn(

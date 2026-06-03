@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { useDashboardHighlights, useDashboardStats, useDashboardCharts } from "@/hooks/useRequerimientos";
+import { useAuth } from "@/hooks/useAuth";
 import { StatsCard } from "@/components/features/dashboard/StatsCard";
 import { DashboardChartModal } from "@/components/features/dashboard/DashboardChartModal";
+import { DirectorHomePanel } from "@/components/features/director/DirectorHomePanel";
 import type { DashboardChartCardId } from "@/types/dashboard-charts.types";
 import {
   FileText,
@@ -22,6 +24,7 @@ import {
 } from "lucide-react";
 
 type RankTheme = "blue" | "orange" | "slate" | "green";
+const ROLES_BIENVENIDA = ["director", "admin-municipal", "admin-transparencia"] as const;
 
 function getDaysInPlatform(fechaIngreso: string): number {
   const ingreso = new Date(fechaIngreso).getTime();
@@ -42,7 +45,7 @@ function rankClass(index: number, theme: RankTheme) {
   return palette[theme][3];
 }
 
-export default function DashboardPage() {
+function DashboardContent() {
   const [chartOpen, setChartOpen] = useState(false);
   const [activeCard, setActiveCard] = useState<DashboardChartCardId | null>(null);
   const { data: stats, isLoading } = useDashboardStats();
@@ -275,4 +278,22 @@ export default function DashboardPage() {
       </div>
     </div>
   );
+}
+
+export default function DashboardPage() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-slate-600 shadow-sm">
+        Cargando permisos…
+      </div>
+    );
+  }
+
+  if (user?.rol && ROLES_BIENVENIDA.includes(user.rol as (typeof ROLES_BIENVENIDA)[number])) {
+    return <DirectorHomePanel />;
+  }
+
+  return <DashboardContent />;
 }

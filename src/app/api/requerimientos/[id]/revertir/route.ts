@@ -38,7 +38,7 @@ export async function POST(_request: NextRequest, routeParams: RequerimientoRout
       );
     }
 
-    const result = await requerimientoService.revertirEstado(id, user.uid, existing);
+    const result = await requerimientoService.revertirEstado(id, user, existing);
 
     return createSuccessResponse(result, "Estado revertido exitosamente");
   } catch (error) {

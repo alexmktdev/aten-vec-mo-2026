@@ -5,6 +5,10 @@ import { createSuccessResponse, createErrorResponse } from "@/lib/utils/response
 import { createRouteLogger } from "@/lib/logger";
 import { sanitizeText } from "@/lib/utils/sanitize";
 import { canDeleteRequerimiento, canTransitionEstado } from "@/lib/requerimiento-permissions";
+import {
+  directorDebeAgregarNotaAntesDeCambiarEstado,
+  MENSAJE_DIRECTOR_NOTA_OBLIGATORIA,
+} from "@/lib/director-estado-nota";
 import type { EstadoRequerimiento } from "@/types/requerimiento.types";
 import {
   RequerimientoRouteParams,
@@ -73,6 +77,17 @@ export async function PATCH(request: NextRequest, routeParams: RequerimientoRout
       return createErrorResponse(403, "No tiene permisos para realizar este cambio de estado");
     }
 
+    if (
+      directorDebeAgregarNotaAntesDeCambiarEstado(
+        user.rol,
+        existing.estado as EstadoRequerimiento,
+        nextEstado,
+        parsed.data.nota
+      )
+    ) {
+      return createErrorResponse(400, MENSAJE_DIRECTOR_NOTA_OBLIGATORIA);
+    }
+
     // No pasar a pendiente desde en proceso si sigue habiendo evidencia (debe eliminarse antes)
     if (
       parsed.data.estado === "pendiente" &&
@@ -104,7 +119,7 @@ export async function PATCH(request: NextRequest, routeParams: RequerimientoRout
       await requerimientoService.updateEstado(
         id,
         nextEstado,
-        user.uid,
+        user,
         parsed.data.nota,
         existing
       );
@@ -112,7 +127,7 @@ export async function PATCH(request: NextRequest, routeParams: RequerimientoRout
 
     // Add note if provided without status change
     if (parsed.data.nota && !parsed.data.estado) {
-      await requerimientoService.addNota(id, parsed.data.nota, user.uid);
+      await requerimientoService.addNota(id, parsed.data.nota, user);
     }
 
     return createSuccessResponse(null, "Requerimiento actualizado exitosamente");

@@ -60,7 +60,7 @@ export async function POST(request: NextRequest, routeParams: RequerimientoRoute
       return createErrorResponse(400, mensajeError);
     }
 
-    await requerimientoService.enviarRespuestaVecino(id, parsed.data, user.uid, existing);
+    await requerimientoService.enviarRespuestaVecino(id, parsed.data, user, existing);
 
     return createSuccessResponse(null, "Correo de respuesta enviado al vecino exitosamente");
   } catch (error) {

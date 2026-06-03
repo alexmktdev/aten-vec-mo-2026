@@ -123,6 +123,9 @@ export default function UsuariosPage() {
         </Badge>
       ),
     },
+  ];
+  const columnsWithActions = canManageUsers ? [
+    ...columns,
     {
       key: "acciones",
       header: "Acciones",
@@ -136,7 +139,6 @@ export default function UsuariosPage() {
               e.stopPropagation();
               handleOpenEdit(item);
             }}
-            disabled={!canManageUsers}
           >
             <Pencil className="h-3.5 w-3.5 mr-1" /> Editar
           </Button>
@@ -148,11 +150,7 @@ export default function UsuariosPage() {
               e.stopPropagation();
               void handleToggleActivo(item);
             }}
-            disabled={
-              !canManageUsers ||
-              setActivoMutation.isPending ||
-              item.id === user?.uid
-            }
+            disabled={setActivoMutation.isPending || item.id === user?.uid}
           >
             {item.activo ? (
               <>
@@ -171,14 +169,14 @@ export default function UsuariosPage() {
               e.stopPropagation();
               setUserToDelete(item);
             }}
-            disabled={!canManageUsers || deleteMutation.isPending || item.id === user?.uid}
+            disabled={deleteMutation.isPending || item.id === user?.uid}
           >
             <Trash2 className="h-3.5 w-3.5 mr-1" /> Eliminar
           </Button>
         </div>
       ),
     },
-  ];
+  ] : columns;
 
   const usuariosData = usuariosResponse?.data || [];
   if (usuariosResponse?.total !== undefined && usuariosResponse.total !== cachedTotal.current) {
@@ -228,7 +226,7 @@ export default function UsuariosPage() {
       {error && <Alert variant="error" className="mb-4">{error instanceof Error ? error.message : "Error al cargar usuarios"}</Alert>}
 
       <DataTable
-        columns={columns}
+        columns={columnsWithActions}
         data={usuariosData}
         keyExtractor={(item) => item.id}
         loading={isLoading}
@@ -245,7 +243,7 @@ export default function UsuariosPage() {
         onSelectPage={(page) => setCurrentPage(page)}
       />
 
-      <Modal open={showEdit} onOpenChange={(o) => { if (!o) { setShowEdit(false); setSelectedUser(null); setErrorMsg(""); } }}>
+      <Modal open={canManageUsers && showEdit} onOpenChange={(o) => { if (!o) { setShowEdit(false); setSelectedUser(null); setErrorMsg(""); } }}>
         <ModalContent>
           <ModalHeader>
             <ModalTitle>Editar usuario</ModalTitle>
@@ -279,7 +277,7 @@ export default function UsuariosPage() {
       </Modal>
 
       <ConfirmDeleteModal
-        open={Boolean(userToDelete)}
+        open={canManageUsers && Boolean(userToDelete)}
         onOpenChange={(open) => {
           if (!open) setUserToDelete(null);
         }}

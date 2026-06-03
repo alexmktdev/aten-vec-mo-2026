@@ -28,6 +28,8 @@ interface Props {
   onClose: () => void;
   onSubmit: (payload: { adminUid: string; nota?: string }) => Promise<void>;
   tipoRequerimiento?: string;
+  /** Director: nota obligatoria al pasar a derivado_respuesta_final */
+  notaObligatoria?: boolean;
 }
 
 export function DerivarRespuestaFinalModal({
@@ -35,6 +37,7 @@ export function DerivarRespuestaFinalModal({
   onClose,
   onSubmit,
   tipoRequerimiento,
+  notaObligatoria = false,
 }: Props) {
   const [admins, setAdmins] = useState<AdminOpt[]>([]);
   const [loadingAdmins, setLoadingAdmins] = useState(false);
@@ -84,6 +87,10 @@ export function DerivarRespuestaFinalModal({
   const handleSubmit = async () => {
     if (!adminUid) {
       setError("Seleccione el admin destinatario");
+      return;
+    }
+    if (notaObligatoria && !nota.trim()) {
+      setError("Debe escribir una nota antes de derivar para respuesta final");
       return;
     }
     setError("");
@@ -140,12 +147,17 @@ export function DerivarRespuestaFinalModal({
             />
           )}
           <Textarea
-            label="Nota interna (opcional)"
+            label={notaObligatoria ? "Nota (obligatoria)" : "Nota interna (opcional)"}
             rows={3}
             maxLength={1000}
             value={nota}
             onChange={(e) => setNota(e.target.value)}
-            placeholder="Indique cualquier contexto adicional para el admin..."
+            placeholder={
+              notaObligatoria
+                ? "Explique el motivo de la derivación; quedará en el historial de estados..."
+                : "Indique cualquier contexto adicional para el admin..."
+            }
+            required={notaObligatoria}
           />
           {error && <Alert variant="error">{error}</Alert>}
         </div>
@@ -157,7 +169,9 @@ export function DerivarRespuestaFinalModal({
           <Button
             onClick={handleSubmit}
             loading={submitting}
-            disabled={submitting || loadingAdmins || !adminUid}
+            disabled={
+              submitting || loadingAdmins || !adminUid || (notaObligatoria && !nota.trim())
+            }
             className="bg-blue-900 hover:bg-blue-950 text-white"
           >
             Derivar al admin

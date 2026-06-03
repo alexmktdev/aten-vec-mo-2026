@@ -13,23 +13,15 @@ async function hasValidSession(request: NextRequest): Promise<boolean> {
   const url = new URL("/api/auth/session", request.url);
 
   try {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          cookie: cookieHeader,
-          "x-proxy-auth-check": "1",
-        },
-        cache: "no-store",
-      });
-      if (response.ok) return true;
-      if (attempt === 0) {
-        await new Promise((r) => {
-          setTimeout(r, 120);
-        });
-      }
-    }
-    return false;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        cookie: cookieHeader,
+        "x-proxy-auth-check": "1",
+      },
+      cache: "no-store",
+    });
+    return response.ok;
   } catch {
     return false;
   }

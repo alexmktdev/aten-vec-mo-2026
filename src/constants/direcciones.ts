@@ -254,6 +254,38 @@ export const DIRECCIONES_MUNICIPALES = {
       "Otros tipos de requerimientos",
     ],
   },
+  SALUD: {
+    label: "Departamento de Salud",
+    categorias: [
+      "Atención de salud municipal",
+      "Horas y agendamiento",
+      "Centros de salud",
+      "Programas de salud",
+      "Medicamentos e insumos",
+      "Vacunación",
+      "Derivaciones de salud",
+      "Salud preventiva",
+      "Reclamos de atención en salud",
+
+      "Otros tipos de requerimientos",
+    ],
+  },
+  EDUCACION: {
+    label: "Departamento de Educación",
+    categorias: [
+      "Matrículas y cupos",
+      "Establecimientos educacionales",
+      "Programas educativos",
+      "Becas y beneficios",
+      "Transporte escolar",
+      "Infraestructura educacional",
+      "Convivencia escolar",
+      "Dotación docente y asistentes",
+      "Reclamos de atención en educación",
+
+      "Otros tipos de requerimientos",
+    ],
+  },
   OPERACIONES: {
     label: "Dirección de Operaciones",
     categorias: [
