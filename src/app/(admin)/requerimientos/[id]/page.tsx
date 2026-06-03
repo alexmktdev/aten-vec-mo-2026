@@ -268,16 +268,9 @@ export default function RequerimientoDetailPage() {
         setShowDirectorNotaModal(true);
         return;
       }
-      const estadoEnviar = estadoDestinoDistinto(newEstado)
-        ? (newEstado as EstadoRequerimiento)
-        : undefined;
-      if (!estadoEnviar) {
-        setDirectorEstadoEnModal(allowedNextStates[0] ?? "");
-        setDirectorCambioEstadoError("");
-        setShowDirectorCambioEstadoModal(true);
-        return;
-      }
-      await ejecutarCambioEstadoConNota(estadoEnviar);
+      setDirectorEstadoEnModal(allowedNextStates[0] ?? "");
+      setDirectorCambioEstadoError("");
+      setShowDirectorCambioEstadoModal(true);
       return;
     }
 
@@ -694,26 +687,24 @@ export default function RequerimientoDetailPage() {
                     onChange={(e) => setNota(e.target.value)}
                     placeholder={
                       esDirector
-                        ? "Escriba primero la nota; quedará visible en el historial con su nombre y rol..."
+                        ? "Escriba la nota; al guardar elegirá el nuevo estado en el siguiente paso..."
                         : "Agregar nota al cambio..."
                     }
                     required={esDirector}
                   />
-                  <Select
-                    label="Cambiar estado"
-                    options={estadoOptions}
-                    value={newEstado || req.estado}
-                    onChange={(e) => {
-                      const valor = e.target.value;
-                      if (valor !== req.estado && abrirModalNotaDirectorSiAplica(valor)) return;
-                      setNewEstado(valor);
-                    }}
-                    placeholder="Seleccione nuevo estado"
-                  />
+                  {!esDirector && (
+                    <Select
+                      label="Cambiar estado"
+                      options={estadoOptions}
+                      value={newEstado || req.estado}
+                      onChange={(e) => setNewEstado(e.target.value)}
+                      placeholder="Seleccione nuevo estado"
+                    />
+                  )}
                   {esDirector && (
-                    <p className="text-xs text-slate-500 -mt-2">
-                      Escriba la nota y confirme con «Guardar cambios». Si aún no eligió estado, se le pedirá en un
-                      paso siguiente. La nota y el cambio se registran juntos en el historial.
+                    <p className="text-xs text-slate-500">
+                      Al pulsar «Guardar cambios» podrá elegir el nuevo estado. La nota y el cambio se registran
+                      juntos en el historial con su nombre y rol.
                     </p>
                   )}
                   <Button

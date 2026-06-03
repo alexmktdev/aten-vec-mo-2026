@@ -5,7 +5,7 @@ export const MENSAJE_DIRECTOR_NOTA_OBLIGATORIA =
   "Como director, debe escribir una nota antes de cambiar el estado. La nota quedará registrada en el historial (nombre, rol y texto) para que la vean los administradores del sistema.";
 
 export const MENSAJE_DIRECTOR_CAMBIO_ESTADO_OBLIGATORIO =
-  "Como director, la nota debe guardarse junto con un cambio de estado. Seleccione el nuevo estado y confirme para registrar la nota en el historial.";
+  "Seleccione el nuevo estado del requerimiento. Al confirmar, se guardará su nota y el cambio de estado en el historial (nombre, rol y texto).";
 
 /** El director no puede guardar una nota sin cambiar el estado al mismo tiempo. */
 export function directorIntentaGuardarSoloNota(
