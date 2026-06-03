@@ -4,6 +4,21 @@ import type { RolUsuario } from "@/types/usuario.types";
 export const MENSAJE_DIRECTOR_NOTA_OBLIGATORIA =
   "Como director, debe escribir una nota antes de cambiar el estado. La nota quedará registrada en el historial (nombre, rol y texto) para que la vean los administradores del sistema.";
 
+export const MENSAJE_DIRECTOR_CAMBIO_ESTADO_OBLIGATORIO =
+  "Como director, la nota debe guardarse junto con un cambio de estado. Seleccione el nuevo estado y confirme para registrar la nota en el historial.";
+
+/** El director no puede guardar una nota sin cambiar el estado al mismo tiempo. */
+export function directorIntentaGuardarSoloNota(
+  rol: RolUsuario | undefined,
+  estadoActual: EstadoRequerimiento,
+  estadoNuevo: EstadoRequerimiento | undefined,
+  nota?: string
+): boolean {
+  if (rol !== "director") return false;
+  if (!nota?.trim()) return false;
+  return !estadoNuevo || estadoNuevo === estadoActual;
+}
+
 /** El director debe adjuntar nota en cada transición de estado distinta al actual. */
 export function directorDebeAgregarNotaAntesDeCambiarEstado(
   rol: RolUsuario | undefined,

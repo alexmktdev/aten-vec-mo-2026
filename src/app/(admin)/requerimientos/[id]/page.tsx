@@ -46,9 +46,18 @@ import { esRolAdminPlataforma, ROL_LABELS } from "@/types/usuario.types";
 import { ApiClientError } from "@/lib/api/fetch-json";
 import {
   directorDebeAgregarNotaAntesDeCambiarEstado,
+  MENSAJE_DIRECTOR_CAMBIO_ESTADO_OBLIGATORIO,
   MENSAJE_DIRECTOR_NOTA_OBLIGATORIA,
 } from "@/lib/director-estado-nota";
 import { ConfirmDeleteModal } from "@/components/ui/ConfirmDeleteModal";
+import {
+  Modal,
+  ModalContent,
+  ModalDescription,
+  ModalFooter,
+  ModalHeader,
+  ModalTitle,
+} from "@/components/ui/Modal";
 import { EvidenciaResolucionForm } from "@/components/features/requerimientos/EvidenciaResolucionForm";
 import type { CierreRespuesta } from "@/components/features/requerimientos/RespuestaVecinoModal";
 
@@ -110,6 +119,9 @@ export default function RequerimientoDetailPage() {
   const [showConfirmCierreEstado, setShowConfirmCierreEstado] = useState(false);
   const [showPendienteEvidenciaModal, setShowPendienteEvidenciaModal] = useState(false);
   const [showDirectorNotaModal, setShowDirectorNotaModal] = useState(false);
+  const [showDirectorCambioEstadoModal, setShowDirectorCambioEstadoModal] = useState(false);
+  const [directorEstadoEnModal, setDirectorEstadoEnModal] = useState("");
+  const [directorCambioEstadoError, setDirectorCambioEstadoError] = useState("");
   const [pendienteEvidenciaNota, setPendienteEvidenciaNota] = useState<string | undefined>();
   const [pendienteEvidenciaActionLoading, setPendienteEvidenciaActionLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
@@ -203,10 +215,11 @@ export default function RequerimientoDetailPage() {
     return "Error al actualizar el requerimiento";
   };
 
-  const handleUpdateEstado = async () => {
+  const estadoDestinoDistinto = (estado?: string) =>
+    !!estado && !!req && estado !== req.estado;
+
+  const ejecutarCambioEstadoConNota = async (estadoEnviar: EstadoRequerimiento) => {
     if (!req) return;
-    if (!newEstado && !nota) return;
-    const estadoEnviar = newEstado ? (newEstado as EstadoRequerimiento) : undefined;
 
     if (abrirModalNotaDirectorSiAplica(estadoEnviar)) return;
 
@@ -223,6 +236,7 @@ export default function RequerimientoDetailPage() {
     }
 
     if (estadoEnviar === "completado" || estadoEnviar === "rechazado") {
+      setNewEstado(estadoEnviar);
       setShowConfirmCierreEstado(true);
       return;
     }
@@ -232,15 +246,78 @@ export default function RequerimientoDetailPage() {
       await updateMutation.mutateAsync({
         id,
         estado: estadoEnviar,
-        nota: nota || undefined,
+        nota: nota.trim() || undefined,
       });
       setSuccessMsg("Requerimiento actualizado");
       setNewEstado("");
+      setNota("");
+      setShowDirectorCambioEstadoModal(false);
+      setDirectorEstadoEnModal("");
+      setDirectorCambioEstadoError("");
+      setTimeout(() => setSuccessMsg(""), 3000);
+    } catch (err) {
+      setErrorMsg(getErrorMessage(err));
+    }
+  };
+
+  const handleUpdateEstado = async () => {
+    if (!req) return;
+
+    if (esDirector) {
+      if (!nota.trim()) {
+        setShowDirectorNotaModal(true);
+        return;
+      }
+      const estadoEnviar = estadoDestinoDistinto(newEstado)
+        ? (newEstado as EstadoRequerimiento)
+        : undefined;
+      if (!estadoEnviar) {
+        setDirectorEstadoEnModal(allowedNextStates[0] ?? "");
+        setDirectorCambioEstadoError("");
+        setShowDirectorCambioEstadoModal(true);
+        return;
+      }
+      await ejecutarCambioEstadoConNota(estadoEnviar);
+      return;
+    }
+
+    if (!newEstado && !nota) return;
+    const estadoEnviar = estadoDestinoDistinto(newEstado)
+      ? (newEstado as EstadoRequerimiento)
+      : undefined;
+
+    if (estadoEnviar) {
+      await ejecutarCambioEstadoConNota(estadoEnviar);
+      return;
+    }
+
+    if (!nota.trim()) return;
+    setErrorMsg("");
+    try {
+      await updateMutation.mutateAsync({
+        id,
+        nota: nota.trim(),
+      });
+      setSuccessMsg("Nota agregada");
       setNota("");
       setTimeout(() => setSuccessMsg(""), 3000);
     } catch (err) {
       setErrorMsg(getErrorMessage(err));
     }
+  };
+
+  const handleConfirmDirectorCambioEstado = async () => {
+    if (!req) return;
+    if (!nota.trim()) {
+      setShowDirectorCambioEstadoModal(false);
+      setShowDirectorNotaModal(true);
+      return;
+    }
+    if (!estadoDestinoDistinto(directorEstadoEnModal)) {
+      setDirectorCambioEstadoError("Seleccione un estado distinto al actual.");
+      return;
+    }
+    await ejecutarCambioEstadoConNota(directorEstadoEnModal as EstadoRequerimiento);
   };
 
   const handleConfirmPendienteConEliminarEvidencia = async () => {
@@ -326,11 +403,12 @@ export default function RequerimientoDetailPage() {
       await updateMutation.mutateAsync({
         id,
         estado: estadoEnviar,
-        nota: nota || undefined,
+        nota: nota.trim() || undefined,
       });
       setSuccessMsg("Requerimiento actualizado");
       setNewEstado("");
       setNota("");
+      setShowDirectorCambioEstadoModal(false);
       setTimeout(() => setSuccessMsg(""), 3000);
     } catch (err) {
       setErrorMsg(getErrorMessage(err));
@@ -376,6 +454,11 @@ export default function RequerimientoDetailPage() {
         .filter((estado, index, arr) => arr.indexOf(estado) === index)
         .map((estado) => ({ value: estado, label: ESTADO_LABELS[estado] }))
     : ESTADOS_REQUERIMIENTO.map((e) => ({ value: e, label: ESTADO_LABELS[e] }));
+
+  const directorEstadoModalOptions = allowedNextStates.map((estado) => ({
+    value: estado,
+    label: ESTADO_LABELS[estado],
+  }));
 
   const handleActualizarDatos = async (payload: RequerimientoCreateInput) => {
     await updateDatosMutation.mutateAsync({ id, payload });
@@ -629,7 +712,8 @@ export default function RequerimientoDetailPage() {
                   />
                   {esDirector && (
                     <p className="text-xs text-slate-500 -mt-2">
-                      Escriba la nota antes de elegir el nuevo estado. El historial mostrará su nombre, rol y el texto de la nota.
+                      Escriba la nota y confirme con «Guardar cambios». Si aún no eligió estado, se le pedirá en un
+                      paso siguiente. La nota y el cambio se registran juntos en el historial.
                     </p>
                   )}
                   <Button
@@ -638,11 +722,9 @@ export default function RequerimientoDetailPage() {
                     loading={updateMutation.isPending}
                     disabled={
                       updateMutation.isPending ||
-                      (esDirector &&
-                        !!newEstado &&
-                        newEstado !== req.estado &&
-                        !nota.trim()) ||
-                      (!nota.trim() && (!newEstado || newEstado === req.estado))
+                      (esDirector
+                        ? !nota.trim()
+                        : !nota.trim() && (!newEstado || newEstado === req.estado))
                     }
                   >
                     Guardar cambios
@@ -859,6 +941,61 @@ export default function RequerimientoDetailPage() {
         description={<p className="text-sm text-slate-600">{MENSAJE_DIRECTOR_NOTA_OBLIGATORIA}</p>}
         onConfirm={() => setShowDirectorNotaModal(false)}
       />
+
+      <Modal
+        open={showDirectorCambioEstadoModal}
+        onOpenChange={(open) => {
+          setShowDirectorCambioEstadoModal(open);
+          if (!open) {
+            setDirectorEstadoEnModal("");
+            setDirectorCambioEstadoError("");
+          }
+        }}
+      >
+        <ModalContent className="max-w-md">
+          <ModalHeader>
+            <ModalTitle>Seleccione el nuevo estado</ModalTitle>
+            <ModalDescription>{MENSAJE_DIRECTOR_CAMBIO_ESTADO_OBLIGATORIO}</ModalDescription>
+          </ModalHeader>
+          <div className="space-y-4">
+            {nota.trim() && (
+              <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-700 whitespace-pre-line">
+                <p className="text-xs font-medium text-slate-500 mb-1">Nota a registrar</p>
+                {nota.trim()}
+              </div>
+            )}
+            <Select
+              label="Nuevo estado"
+              options={directorEstadoModalOptions}
+              value={directorEstadoEnModal}
+              onChange={(e) => {
+                setDirectorEstadoEnModal(e.target.value);
+                setDirectorCambioEstadoError("");
+              }}
+              placeholder="Seleccione el estado destino"
+              required
+            />
+            {directorCambioEstadoError && <Alert variant="error">{directorCambioEstadoError}</Alert>}
+          </div>
+          <ModalFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDirectorCambioEstadoModal(false)}
+              disabled={updateMutation.isPending}
+            >
+              Cancelar
+            </Button>
+            <Button
+              className="bg-blue-900 text-white hover:bg-blue-950"
+              onClick={() => void handleConfirmDirectorCambioEstado()}
+              loading={updateMutation.isPending}
+              disabled={updateMutation.isPending || directorEstadoModalOptions.length === 0}
+            >
+              Guardar nota y cambiar estado
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
       <ConfirmDeleteModal
         open={showPendienteEvidenciaModal}

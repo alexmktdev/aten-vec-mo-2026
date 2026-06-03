@@ -7,6 +7,8 @@ import { sanitizeText } from "@/lib/utils/sanitize";
 import { canDeleteRequerimiento, canTransitionEstado } from "@/lib/requerimiento-permissions";
 import {
   directorDebeAgregarNotaAntesDeCambiarEstado,
+  directorIntentaGuardarSoloNota,
+  MENSAJE_DIRECTOR_CAMBIO_ESTADO_OBLIGATORIO,
   MENSAJE_DIRECTOR_NOTA_OBLIGATORIA,
 } from "@/lib/director-estado-nota";
 import type { EstadoRequerimiento } from "@/types/requerimiento.types";
@@ -88,6 +90,17 @@ export async function PATCH(request: NextRequest, routeParams: RequerimientoRout
       return createErrorResponse(400, MENSAJE_DIRECTOR_NOTA_OBLIGATORIA);
     }
 
+    if (
+      directorIntentaGuardarSoloNota(
+        user.rol,
+        existing.estado as EstadoRequerimiento,
+        nextEstado,
+        parsed.data.nota
+      )
+    ) {
+      return createErrorResponse(400, MENSAJE_DIRECTOR_CAMBIO_ESTADO_OBLIGATORIO);
+    }
+
     // No pasar a pendiente desde en proceso si sigue habiendo evidencia (debe eliminarse antes)
     if (
       parsed.data.estado === "pendiente" &&
@@ -125,8 +138,12 @@ export async function PATCH(request: NextRequest, routeParams: RequerimientoRout
       );
     }
 
-    // Add note if provided without status change
-    if (parsed.data.nota && !parsed.data.estado) {
+    // Add note if provided without status change (no aplica al director)
+    if (
+      parsed.data.nota &&
+      (!parsed.data.estado || parsed.data.estado === existing.estado) &&
+      user.rol !== "director"
+    ) {
       await requerimientoService.addNota(id, parsed.data.nota, user);
     }
 
