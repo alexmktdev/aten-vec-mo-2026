@@ -40,7 +40,7 @@ export async function GET(request: NextRequest, routeParams: RequerimientoRouteP
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${filename}"`,
-        "Cache-Control": "private, max-age=300",
+        "Cache-Control": "no-store",
       },
     });
   } catch (error) {

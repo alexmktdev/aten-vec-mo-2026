@@ -254,7 +254,3 @@ export function buildFichaPdfFilename(
     ? `ficha-ingreso-${slug}.pdf`
     : `ficha-resuelto-${slug}.pdf`;
 }
-
-export function buildFichaPdfStorageKey(requerimientoId: string, variant: FichaPdfVariant): string {
-  return `fichas/${requerimientoId}/${variant}.pdf`;
-}

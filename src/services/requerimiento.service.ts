@@ -245,20 +245,6 @@ function toRequerimientoDTO(req: Requerimiento): RequerimientoDTO {
     fechaIngreso: timestampToString(req.fechaIngreso),
     fechaLimite: timestampToString(req.fechaLimite),
     fechaResolucion: req.fechaResolucion ? timestampToString(req.fechaResolucion) : undefined,
-    pdfFichaIngreso: req.pdfFichaIngreso
-      ? {
-          nombreR2: req.pdfFichaIngreso.nombreR2,
-          nombre: req.pdfFichaIngreso.nombre,
-          generadoEn: timestampToString(req.pdfFichaIngreso.generadoEn),
-        }
-      : undefined,
-    pdfFichaResuelto: req.pdfFichaResuelto
-      ? {
-          nombreR2: req.pdfFichaResuelto.nombreR2,
-          nombre: req.pdfFichaResuelto.nombre,
-          generadoEn: timestampToString(req.pdfFichaResuelto.generadoEn),
-        }
-      : undefined,
     creadoEn: timestampToString(req.creadoEn),
     actualizadoEn: timestampToString(req.actualizadoEn),
     diasHabilesRestantes: plazoActivo ? getDiasHabilesRestantes(fechaLimite) : undefined,
@@ -318,7 +304,7 @@ export const requerimientoService = {
    * Should be called inside `after()` from the route handler so it runs
    * after the HTTP response is sent (emails won't block the user).
    */
-  async afterCreate(input: CreateInput, numeroSeguimiento: string, requerimientoId: string): Promise<void> {
+  async afterCreate(input: CreateInput, numeroSeguimiento: string): Promise<void> {
     const { direccionMunicipal, direccionMunicipalLabel } = resolverDireccionMunicipal(
       input.tipoRequerimiento,
       input.direccionMunicipal,
@@ -352,10 +338,6 @@ export const requerimientoService = {
     ]);
 
     invalidateDashboardAndListCaches();
-
-    void import("@/services/requerimiento-ficha-pdf.service").then(({ requerimientoFichaPdfService }) =>
-      requerimientoFichaPdfService.generateIngresoForId(requerimientoId)
-    );
   },
 
   /**
@@ -465,12 +447,6 @@ export const requerimientoService = {
     await dashboardMetricsService.onEstadoChange(current as unknown as Requerimiento, estado);
     logger.info({ id, estado, usuarioId: usuario.uid }, "Requerimiento status updated");
     invalidateDashboardAndListCaches();
-
-    if (estado === "completado" || estado === "rechazado") {
-      void import("@/services/requerimiento-ficha-pdf.service").then(({ requerimientoFichaPdfService }) =>
-        requerimientoFichaPdfService.generateResueltoForId(id)
-      );
-    }
   },
 
   /**
