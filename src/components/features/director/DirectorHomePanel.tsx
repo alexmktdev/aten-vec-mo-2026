@@ -4,13 +4,15 @@ export function DirectorHomePanel() {
   return (
     <div className="mx-auto flex min-h-[60vh] w-full max-w-5xl items-center justify-center px-6 xl:px-4">
       <section className="w-full max-w-4xl py-8 text-left">
-        <p className="text-center text-xs font-semibold uppercase tracking-[0.24em] text-blue-800">
-          Municipalidad de Molina
-        </p>
-        <h1 className="mt-3 text-center text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-          Sistema de Atención al Vecino
-        </h1>
-        <p className="mx-auto mt-5 max-w-3xl text-justify text-sm leading-7 text-slate-600 sm:text-base">
+        <header className="mb-10 space-y-5 text-center sm:mb-12 sm:space-y-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-blue-800">
+            Municipalidad de Molina
+          </p>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+            Sistema de Atención al Vecino
+          </h1>
+        </header>
+        <p className="mx-auto max-w-3xl text-justify text-sm leading-7 text-slate-600 sm:text-base">
           Esta plataforma permite <span className="font-semibold text-blue-900">registrar, organizar, derivar y dar seguimiento</span> a los
           requerimientos ingresados por la comunidad, facilitando la coordinación entre las distintas áreas municipales y mejorando
           la trazabilidad de cada caso desde su ingreso hasta su cierre.
