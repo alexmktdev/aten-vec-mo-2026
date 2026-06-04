@@ -34,6 +34,10 @@ import {
   isVencido,
 } from "@/lib/utils/dias-habiles";
 import { getDireccionLabel } from "@/constants/direcciones";
+import {
+  necesitaPersistirDireccionTransparencia,
+  resolverDireccionMunicipal,
+} from "@/lib/transparencia-direccion";
 import { buildDashboardChartsPayload } from "@/lib/dashboard/chart-analytics";
 import type { DashboardChartsPayload } from "@/types/dashboard-charts.types";
 import type { SessionUser } from "@/types/auth.types";
@@ -179,14 +183,19 @@ function toRequerimientoDTO(req: Requerimiento): RequerimientoDTO {
     "derivado_respuesta_final",
   ];
   const plazoActivo = estadosConPlazoActivo.includes(req.estado as EstadoRequerimiento);
+  const { direccionMunicipal, direccionMunicipalLabel } = resolverDireccionMunicipal(
+    req.tipoRequerimiento,
+    req.direccionMunicipal,
+    req.direccionMunicipalLabel
+  );
 
   return {
     id: req.id,
     numeroSeguimiento: req.numeroSeguimiento,
     vecino: req.vecino,
     tipoRequerimiento: req.tipoRequerimiento,
-    direccionMunicipal: req.direccionMunicipal,
-    direccionMunicipalLabel: req.direccionMunicipalLabel,
+    direccionMunicipal,
+    direccionMunicipalLabel,
     categoria: req.categoria,
     descripcion: req.descripcion,
     documentos: req.documentos || [],
@@ -253,9 +262,11 @@ export const requerimientoService = {
     const numeroSeguimiento = await generateNumeroSeguimiento();
     const now = new Date();
     const fechaLimite = calcularFechaLimite(now);
-    const direccionMunicipal = input.direccionMunicipal || "";
-    const direccionMunicipalLabel = input.direccionMunicipalLabel
-      || (direccionMunicipal ? getDireccionLabel(direccionMunicipal) : "");
+    const { direccionMunicipal, direccionMunicipalLabel } = resolverDireccionMunicipal(
+      input.tipoRequerimiento,
+      input.direccionMunicipal,
+      input.direccionMunicipalLabel
+    );
 
     const requerimientoData = {
       numeroSeguimiento,
@@ -294,9 +305,11 @@ export const requerimientoService = {
    * after the HTTP response is sent (emails won't block the user).
    */
   async afterCreate(input: CreateInput, numeroSeguimiento: string): Promise<void> {
-    const direccionMunicipal = input.direccionMunicipal || "";
-    const direccionMunicipalLabel = input.direccionMunicipalLabel
-      || (direccionMunicipal ? getDireccionLabel(direccionMunicipal) : "");
+    const { direccionMunicipal, direccionMunicipalLabel } = resolverDireccionMunicipal(
+      input.tipoRequerimiento,
+      input.direccionMunicipal,
+      input.direccionMunicipalLabel
+    );
     const categoria = input.categoria || "";
     const now = new Date();
 
@@ -333,6 +346,15 @@ export const requerimientoService = {
   async getById(id: string): Promise<RequerimientoDTO | null> {
     const req = await requerimientoRepository.getById(id);
     if (!req) return null;
+    if (necesitaPersistirDireccionTransparencia(req.tipoRequerimiento, req.direccionMunicipal)) {
+      const { direccionMunicipal, direccionMunicipalLabel } = resolverDireccionMunicipal(
+        req.tipoRequerimiento,
+        req.direccionMunicipal,
+        req.direccionMunicipalLabel
+      );
+      await requerimientoRepository.update(id, { direccionMunicipal, direccionMunicipalLabel });
+      return toRequerimientoDTO({ ...req, direccionMunicipal, direccionMunicipalLabel });
+    }
     return toRequerimientoDTO(req);
   },
 
@@ -357,6 +379,20 @@ export const requerimientoService = {
     direccionRestriccion?: string[]
   ): Promise<{ data: RequerimientoDTO[]; nextCursor?: string; total?: number }> {
     const result = await requerimientoRepository.list(filters, direccionRestriccion);
+    await Promise.all(
+      result.data
+        .filter((r) => necesitaPersistirDireccionTransparencia(r.tipoRequerimiento, r.direccionMunicipal))
+        .map(async (r) => {
+          const { direccionMunicipal, direccionMunicipalLabel } = resolverDireccionMunicipal(
+            r.tipoRequerimiento,
+            r.direccionMunicipal,
+            r.direccionMunicipalLabel
+          );
+          await requerimientoRepository.update(r.id, { direccionMunicipal, direccionMunicipalLabel });
+          r.direccionMunicipal = direccionMunicipal;
+          r.direccionMunicipalLabel = direccionMunicipalLabel;
+        })
+    );
     return {
       data: result.data.map(toRequerimientoDTO),
       nextCursor: result.nextCursor,
@@ -556,9 +592,12 @@ export const requerimientoService = {
       throw new Error("Requerimiento no encontrado");
     }
 
-    const direccionMunicipal = input.direccionMunicipal ?? "";
     const categoria = input.categoria ?? "";
-    const direccionMunicipalLabel = input.direccionMunicipalLabel || (direccionMunicipal ? getDireccionLabel(direccionMunicipal) : "");
+    const { direccionMunicipal, direccionMunicipalLabel } = resolverDireccionMunicipal(
+      input.tipoRequerimiento,
+      input.direccionMunicipal,
+      input.direccionMunicipalLabel
+    );
 
     await requerimientoRepository.update(id, {
       vecino: input.vecino as unknown as VecinoData,

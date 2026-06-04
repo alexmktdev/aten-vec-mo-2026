@@ -6,7 +6,7 @@ import { createRouteLogger } from "@/lib/logger";
 import { normalizeEmail, sanitizeMultilineText, sanitizeOptionalText, sanitizeText } from "@/lib/utils/sanitize";
 import { normalizeRut } from "@/lib/utils/rut";
 import { canEditRequerimientoData } from "@/lib/requerimiento-permissions";
-import { getDireccionLabel } from "@/constants/direcciones";
+import { resolverDireccionMunicipal } from "@/lib/transparencia-direccion";
 import {
   RequerimientoRouteParams,
   requireRequerimientoWithAccess,
@@ -63,10 +63,13 @@ export async function PATCH(request: NextRequest, routeParams: RequerimientoRout
     }
 
     const datos = { ...parsed.data };
-    if (datos.tipoRequerimiento === "Solicitud de transparencia") {
-      datos.direccionMunicipal = "SECRETARIA";
-      datos.direccionMunicipalLabel = getDireccionLabel("SECRETARIA");
-    }
+    const direccion = resolverDireccionMunicipal(
+      datos.tipoRequerimiento,
+      datos.direccionMunicipal,
+      datos.direccionMunicipalLabel
+    );
+    datos.direccionMunicipal = direccion.direccionMunicipal;
+    datos.direccionMunicipalLabel = direccion.direccionMunicipalLabel;
 
     await requerimientoService.updateDatos(id, datos, existing);
 

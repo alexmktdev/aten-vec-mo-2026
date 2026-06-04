@@ -18,6 +18,11 @@ import { Button } from "@/components/ui/Button";
 import { FileUpload } from "@/components/ui/FileUpload";
 import { Alert } from "@/components/ui/Alert";
 import { DIRECCIONES_MUNICIPALES, getDireccionLabel } from "@/constants/direcciones";
+import {
+  TRANSPARENCIA_DIRECCION_KEY,
+  esSolicitudTransparencia,
+  resolverDireccionMunicipal,
+} from "@/lib/transparencia-direccion";
 import { REGIONES_CHILE, RequerimientoDTO, TIPOS_INMUEBLE, TIPOS_REQUERIMIENTO } from "@/types/requerimiento.types";
 import { formatRut } from "@/lib/utils/rut";
 import {
@@ -27,8 +32,6 @@ import {
 } from "@/lib/validations/requerimiento.schema";
 
 const MAX_PDF_SIZE = Math.floor(2.5 * 1024 * 1024);
-const TRANSPARENCIA_DIRECCION = "SECRETARIA";
-
 interface Props {
   open: boolean;
   requerimiento: RequerimientoDTO;
@@ -42,8 +45,7 @@ export function EditarRequerimientoModal({ open, requerimiento, onClose, onSubmi
   const [submitError, setSubmitError] = useState("");
   const [removedDocumentKeys, setRemovedDocumentKeys] = useState<string[]>([]);
 
-  const esTransparenciaInicial =
-    requerimiento.tipoRequerimiento === "Solicitud de transparencia";
+  const esTransparenciaInicial = esSolicitudTransparencia(requerimiento.tipoRequerimiento);
 
   const {
     register,
@@ -69,18 +71,19 @@ export function EditarRequerimientoModal({ open, requerimiento, onClose, onSubmi
       },
       tipoRequerimiento: requerimiento.tipoRequerimiento as typeof TIPOS_REQUERIMIENTO[number],
       direccionMunicipal: esTransparenciaInicial
-        ? requerimiento.direccionMunicipal || TRANSPARENCIA_DIRECCION
+        ? resolverDireccionMunicipal(requerimiento.tipoRequerimiento, requerimiento.direccionMunicipal)
+            .direccionMunicipal
         : requerimiento.direccionMunicipal,
       descripcion: requerimiento.descripcion,
     },
   });
 
   const tipoRequerimiento = watch("tipoRequerimiento");
-  const esTransparencia = tipoRequerimiento === "Solicitud de transparencia";
+  const esTransparencia = esSolicitudTransparencia(tipoRequerimiento);
 
   useEffect(() => {
     if (esTransparencia) {
-      setValue("direccionMunicipal", TRANSPARENCIA_DIRECCION, { shouldValidate: true });
+      setValue("direccionMunicipal", TRANSPARENCIA_DIRECCION_KEY, { shouldValidate: true });
     }
   }, [esTransparencia, setValue]);
 
@@ -146,10 +149,10 @@ export function EditarRequerimientoModal({ open, requerimiento, onClose, onSubmi
         ];
       }
 
-      const direccionMunicipal =
-        data.tipoRequerimiento === "Solicitud de transparencia"
-          ? TRANSPARENCIA_DIRECCION
-          : data.direccionMunicipal;
+      const { direccionMunicipal, direccionMunicipalLabel } = resolverDireccionMunicipal(
+        data.tipoRequerimiento,
+        data.direccionMunicipal
+      );
 
       await onSubmit({
         vecino: {
@@ -166,7 +169,7 @@ export function EditarRequerimientoModal({ open, requerimiento, onClose, onSubmi
         },
         tipoRequerimiento: data.tipoRequerimiento,
         direccionMunicipal,
-        direccionMunicipalLabel: getDireccionLabel(direccionMunicipal),
+        direccionMunicipalLabel,
         descripcion: data.descripcion,
         documentos,
       });
@@ -225,7 +228,7 @@ export function EditarRequerimientoModal({ open, requerimiento, onClose, onSubmi
                     <input type="hidden" {...register("direccionMunicipal")} />
                     <Input
                       label="Dirección Municipal"
-                      value={getDireccionLabel(TRANSPARENCIA_DIRECCION)}
+                      value={getDireccionLabel(TRANSPARENCIA_DIRECCION_KEY)}
                       readOnly
                       disabled
                     />
