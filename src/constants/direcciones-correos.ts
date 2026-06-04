@@ -1,11 +1,15 @@
 import { DIRECCIONES_KEYS, DIRECCIONES_MUNICIPALES, DireccionMunicipalKey } from "@/constants/direcciones";
 
+/**
+ * Correos por defecto al derivar cuando no hay director activo asignado a la dirección.
+ * Si existe un director activo con esa dirección, prevalece su email (ver getCorreoDerivacionParaDireccion).
+ */
 export const CORREOS_DIRECCION: Record<DireccionMunicipalKey, string> = {
   ADMINISTRACION: "amachuca@molina.cl",
   INSPECCION: "amachuca@molina.cl",
   INNOVACION: "jtartari@molina.cl",
-  SECRETARIA: "alexanderzananiri17@gmail.com",
-  JPL: "cuentadesarrollo2013@gmail.com",
+  SECRETARIA: "faviles@molina.cl",
+  JPL: "saguilera@molina.cl",
   CONTROL: "faviles@molina.cl",
   FINANZAS: "alejandro.rojas@molina.cl",
   SECPLAN: "scelis@molina.cl",
@@ -16,8 +20,8 @@ export const CORREOS_DIRECCION: Record<DireccionMunicipalKey, string> = {
   PERSONAS: "amachuca@molina.cl",
   SEGURIDAD: "fcastro@molina.cl",
   MEDIOAMBIENTE: "cescandor@molina.cl",
-  SALUD: "",
-  EDUCACION: "",
+  SALUD: "nvillalobos@apsmolina.cl",
+  EDUCACION: "juribe@daemmolina.cl",
   OPERACIONES: "jpereira@molina.cl",
 };
 
