@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -27,6 +27,7 @@ import {
 } from "@/lib/validations/requerimiento.schema";
 
 const MAX_PDF_SIZE = Math.floor(2.5 * 1024 * 1024);
+const TRANSPARENCIA_DIRECCION = "SECRETARIA";
 
 interface Props {
   open: boolean;
@@ -41,9 +42,14 @@ export function EditarRequerimientoModal({ open, requerimiento, onClose, onSubmi
   const [submitError, setSubmitError] = useState("");
   const [removedDocumentKeys, setRemovedDocumentKeys] = useState<string[]>([]);
 
+  const esTransparenciaInicial =
+    requerimiento.tipoRequerimiento === "Solicitud de transparencia";
+
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<RequerimientoAdminEditFormInput>({
     resolver: zodResolver(requerimientoAdminEditFormSchema),
@@ -62,10 +68,21 @@ export function EditarRequerimientoModal({ open, requerimiento, onClose, onSubmi
         tipoInmueble: requerimiento.vecino.tipoInmueble as typeof TIPOS_INMUEBLE[number],
       },
       tipoRequerimiento: requerimiento.tipoRequerimiento as typeof TIPOS_REQUERIMIENTO[number],
-      direccionMunicipal: requerimiento.direccionMunicipal,
+      direccionMunicipal: esTransparenciaInicial
+        ? requerimiento.direccionMunicipal || TRANSPARENCIA_DIRECCION
+        : requerimiento.direccionMunicipal,
       descripcion: requerimiento.descripcion,
     },
   });
+
+  const tipoRequerimiento = watch("tipoRequerimiento");
+  const esTransparencia = tipoRequerimiento === "Solicitud de transparencia";
+
+  useEffect(() => {
+    if (esTransparencia) {
+      setValue("direccionMunicipal", TRANSPARENCIA_DIRECCION, { shouldValidate: true });
+    }
+  }, [esTransparencia, setValue]);
 
   const regionOptions = REGIONES_CHILE.map((r) => ({ value: r, label: r }));
   const inmuebleOptions = TIPOS_INMUEBLE.map((t) => ({ value: t, label: t }));
@@ -129,6 +146,11 @@ export function EditarRequerimientoModal({ open, requerimiento, onClose, onSubmi
         ];
       }
 
+      const direccionMunicipal =
+        data.tipoRequerimiento === "Solicitud de transparencia"
+          ? TRANSPARENCIA_DIRECCION
+          : data.direccionMunicipal;
+
       await onSubmit({
         vecino: {
           nombre: data.vecino.nombre,
@@ -143,8 +165,8 @@ export function EditarRequerimientoModal({ open, requerimiento, onClose, onSubmi
           tipoInmueble: data.vecino.tipoInmueble,
         },
         tipoRequerimiento: data.tipoRequerimiento,
-        direccionMunicipal: data.direccionMunicipal,
-        direccionMunicipalLabel: getDireccionLabel(data.direccionMunicipal),
+        direccionMunicipal,
+        direccionMunicipalLabel: getDireccionLabel(direccionMunicipal),
         descripcion: data.descripcion,
         documentos,
       });
@@ -198,14 +220,29 @@ export function EditarRequerimientoModal({ open, requerimiento, onClose, onSubmi
               <h3 className="text-sm font-semibold text-blue-900">Datos del Requerimiento</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Select label="Tipo de Requerimiento" required options={tipoReqOptions} placeholder="Seleccione tipo" {...register("tipoRequerimiento")} error={errors.tipoRequerimiento?.message} />
-                <Select
-                  label="Dirección Municipal"
-                  required
-                  options={direccionOptions}
-                  placeholder="Seleccione dirección"
-                  {...register("direccionMunicipal")}
-                  error={errors.direccionMunicipal?.message}
-                />
+                {esTransparencia ? (
+                  <div className="space-y-2">
+                    <input type="hidden" {...register("direccionMunicipal")} />
+                    <Input
+                      label="Dirección Municipal"
+                      value={getDireccionLabel(TRANSPARENCIA_DIRECCION)}
+                      readOnly
+                      disabled
+                    />
+                    <p className="text-xs text-slate-500">
+                      Las solicitudes de transparencia se asignan automáticamente a Secretaría Municipal.
+                    </p>
+                  </div>
+                ) : (
+                  <Select
+                    label="Dirección Municipal"
+                    required
+                    options={direccionOptions}
+                    placeholder="Seleccione dirección"
+                    {...register("direccionMunicipal")}
+                    error={errors.direccionMunicipal?.message}
+                  />
+                )}
                 <div className="md:col-span-2">
                   <Textarea
                     label="Descripción"
