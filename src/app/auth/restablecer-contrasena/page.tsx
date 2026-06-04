@@ -7,7 +7,26 @@ import Link from "next/link";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
-import { fetchJson } from "@/lib/api/fetch-json";
+import { fetchJson, ApiClientError } from "@/lib/api/fetch-json";
+import {
+  PASSWORD_CONFIRM_PLACEHOLDER,
+  PASSWORD_REQUIREMENTS_LABEL,
+  PASSWORD_REQUIREMENTS_SHORT,
+} from "@/constants/password-policy";
+
+function getSubmitErrorMessage(err: unknown): string {
+  if (err instanceof ApiClientError) {
+    const details = Array.isArray(err.details) ? err.details : [];
+    const first = details.find(
+      (item): item is { message?: string } =>
+        typeof item === "object" && item !== null && typeof (item as { message?: string }).message === "string"
+    );
+    if (first?.message) return first.message;
+    return err.message;
+  }
+  if (err instanceof Error) return err.message;
+  return "No fue posible actualizar la contraseña.";
+}
 
 function RestablecerContrasenaContent() {
   const searchParams = useSearchParams();
@@ -42,7 +61,7 @@ function RestablecerContrasenaContent() {
       setSuccess("Contraseña actualizada correctamente. Ya puede iniciar sesión.");
       setTimeout(() => router.push("/auth/login"), 1200);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No fue posible actualizar la contraseña.");
+      setError(getSubmitErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -71,8 +90,9 @@ function RestablecerContrasenaContent() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full h-11 rounded-xl bg-white border border-slate-300 pl-4 pr-11 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                placeholder="Mínimo 8 caracteres"
+                placeholder={PASSWORD_REQUIREMENTS_SHORT}
                 required
+                autoComplete="new-password"
               />
               <button
                 type="button"
@@ -91,8 +111,9 @@ function RestablecerContrasenaContent() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="w-full h-11 rounded-xl bg-white border border-slate-300 pl-4 pr-11 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                placeholder="Repetir contraseña"
+                placeholder={PASSWORD_CONFIRM_PLACEHOLDER}
                 required
+                autoComplete="new-password"
               />
               <button
                 type="button"
@@ -104,9 +125,7 @@ function RestablecerContrasenaContent() {
               </button>
             </div>
 
-            <p className="text-xs text-slate-500">
-              Requisito: mínimo 8 caracteres, al menos una mayúscula, una minúscula y un número.
-            </p>
+            <p className="text-xs text-slate-500">{PASSWORD_REQUIREMENTS_LABEL}</p>
 
             <Button type="submit" size="full" loading={loading} className="h-12 text-base font-semibold bg-blue-800 hover:bg-blue-900 shadow-[0_8px_16px_rgba(30,64,175,0.3)]">
               Guardar nueva contraseña
