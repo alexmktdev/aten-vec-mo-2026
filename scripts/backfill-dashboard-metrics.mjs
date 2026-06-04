@@ -42,8 +42,28 @@ function keyFromLabel(label) {
   return Buffer.from(label || "sin_etiqueta").toString("base64url");
 }
 
+async function deleteSubcollection(subName) {
+  const col = metricsRef.collection(subName);
+  let deleted = 0;
+  while (true) {
+    const snap = await col.limit(400).get();
+    if (snap.empty) break;
+    const batch = db.batch();
+    snap.docs.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+    deleted += snap.size;
+    if (snap.size < 400) break;
+  }
+  if (deleted > 0) console.log(`  ${subName}: ${deleted} doc(s) eliminado(s)`);
+}
+
 async function main() {
   console.log("Iniciando backfill dashboard_metrics...");
+  console.log("Limpiando métricas anteriores...");
+  await deleteSubcollection("by_direction");
+  await deleteSubcollection("by_category");
+  await deleteSubcollection("by_month");
+
   const snap = await requerimientosRef.get();
   const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
@@ -77,46 +97,41 @@ async function main() {
   }
 
   const batch = db.batch();
-  batch.set(
-    metricsRef,
-    {
-      total: docs.length,
-      estado: estados,
-      updatedAt: FieldValue.serverTimestamp(),
-    },
-    { merge: true }
-  );
+  batch.set(metricsRef, {
+    total: docs.length,
+    estado: estados,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
 
   for (const [label, data] of dirs.entries()) {
-    batch.set(
-      metricsRef.collection("by_direction").doc(keyFromLabel(label)),
-      {
-        label,
-        total: data.total,
-        resolved: data.resolved,
-        updatedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true }
-    );
+    batch.set(metricsRef.collection("by_direction").doc(keyFromLabel(label)), {
+      label,
+      total: data.total,
+      resolved: data.resolved,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
   }
 
   for (const [label, total] of cats.entries()) {
-    batch.set(
-      metricsRef.collection("by_category").doc(keyFromLabel(label)),
-      { label, total, updatedAt: FieldValue.serverTimestamp() },
-      { merge: true }
-    );
+    batch.set(metricsRef.collection("by_category").doc(keyFromLabel(label)), {
+      label,
+      total,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
   }
 
   for (const [month, total] of months.entries()) {
-    batch.set(
-      metricsRef.collection("by_month").doc(month),
-      { month, total, updatedAt: FieldValue.serverTimestamp() },
-      { merge: true }
-    );
+    batch.set(metricsRef.collection("by_month").doc(month), {
+      month,
+      total,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
   }
 
   await batch.commit();
+  if (docs.length === 0) {
+    console.log("Sin requerimientos: métricas en cero.");
+  }
   console.log(`Backfill completado. Documentos procesados: ${docs.length}`);
 }
 

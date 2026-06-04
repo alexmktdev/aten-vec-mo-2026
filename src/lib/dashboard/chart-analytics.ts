@@ -162,6 +162,39 @@ function ingresosPorMesPie(rows: Norm[], now: Date): DashboardPieSlice[] {
   }));
 }
 
+export function buildDashboardDirectionRankings(
+  raw: ChartSourceRow[],
+  limit = 5
+): {
+  direccionesTop: { direccion: string; total: number }[];
+  direccionesResueltasTop: { direccion: string; totalResueltos: number }[];
+} {
+  const rows = raw.map(normalizeRow);
+  const totals = new Map<string, number>();
+  const resolved = new Map<string, number>();
+
+  for (const r of rows) {
+    totals.set(r.dirLabel, (totals.get(r.dirLabel) || 0) + 1);
+    if (r.estado === "completado") {
+      resolved.set(r.dirLabel, (resolved.get(r.dirLabel) || 0) + 1);
+    }
+  }
+
+  const direccionesTop = [...totals.entries()]
+    .filter(([, total]) => total > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([direccion, total]) => ({ direccion, total }));
+
+  const direccionesResueltasTop = [...resolved.entries()]
+    .filter(([, totalResueltos]) => totalResueltos > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([direccion, totalResueltos]) => ({ direccion, totalResueltos }));
+
+  return { direccionesTop, direccionesResueltasTop };
+}
+
 export function buildDashboardChartsPayload(raw: ChartSourceRow[]): DashboardChartsPayload {
   const now = new Date();
   now.setHours(0, 0, 0, 0);

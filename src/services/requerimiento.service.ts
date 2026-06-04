@@ -38,7 +38,10 @@ import {
   necesitaPersistirDireccionTransparencia,
   resolverDireccionMunicipal,
 } from "@/lib/transparencia-direccion";
-import { buildDashboardChartsPayload } from "@/lib/dashboard/chart-analytics";
+import {
+  buildDashboardChartsPayload,
+  buildDashboardDirectionRankings,
+} from "@/lib/dashboard/chart-analytics";
 import type { DashboardChartsPayload } from "@/types/dashboard-charts.types";
 import type { SessionUser } from "@/types/auth.types";
 import { notificacionService } from "@/services/notificacion.service";
@@ -834,20 +837,8 @@ export const requerimientoService = {
     rechazado: number;
     urgentesActivos: number;
   }> {
-    // Para el dashboard global usamos métricas agregadas (1 lectura) y
-    // calculamos urgentes activos aparte. Si el agregado aún no existe,
-    // hacemos fallback al conteo en vivo.
-    if (!direccionRestriccion || direccionRestriccion.length === 0) {
-      const [core, urgentesActivos] = await Promise.all([
-        dashboardMetricsService.getCoreStats(),
-        requerimientoRepository.countUrgentesActivos(),
-      ]);
-      if (core) {
-        return { ...core, urgentesActivos };
-      }
-    }
-
-    return requerimientoRepository.getStats(direccionRestriccion);
+    const cacheKey = `dashboard:stats:${direccionRestriccion?.sort().join(",") ?? "global"}`;
+    return cached(cacheKey, 120_000, () => requerimientoRepository.getStats(direccionRestriccion));
   },
 
   async countUrgentesActivos(): Promise<number> {
@@ -882,16 +873,17 @@ export const requerimientoService = {
   }> {
     const cacheKey = `dashboard:highlights:${direccionRestriccion?.sort().join(",") ?? "global"}`;
     return cached(cacheKey, 120_000, async () => {
-      const [ultimosResult, direccionesTop, direccionesResueltasTop] = await Promise.all([
+      const [ultimosResult, chartRows] = await Promise.all([
         requerimientoRepository.list({ limit: 5 }, direccionRestriccion),
-        dashboardMetricsService.getTopDirections(5),
-        dashboardMetricsService.getTopResolvedDirections(5),
+        requerimientoRepository.getDashboardChartRows(direccionRestriccion),
       ]);
 
       const ultimos = ultimosResult.data.map(toRequerimientoDTO);
+      const { direccionesTop, direccionesResueltasTop } = buildDashboardDirectionRankings(chartRows, 5);
 
       const candidatos = await requerimientoRepository.list({ limit: 30 }, direccionRestriccion);
-      const urgentes = candidatos.data.map(toRequerimientoDTO)
+      const urgentes = candidatos.data
+        .map(toRequerimientoDTO)
         .filter((r) => r.estado !== "completado" && r.estado !== "rechazado")
         .sort((a, b) => getTimeFromDateLike(a.fechaIngreso) - getTimeFromDateLike(b.fechaIngreso))
         .slice(0, 5);
