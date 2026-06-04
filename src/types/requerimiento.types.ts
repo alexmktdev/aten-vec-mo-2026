@@ -183,6 +183,14 @@ export interface AdminAsignadoRespuesta {
   asignadoPor: string;
 }
 
+export type FichaPdfVariant = "ingreso" | "resuelto";
+
+export interface RequerimientoFichaPdf {
+  nombreR2: string;
+  nombre: string;
+  generadoEn: Timestamp | Date | string;
+}
+
 export interface Requerimiento {
   id: string;
   numeroSeguimiento: string;
@@ -202,6 +210,8 @@ export interface Requerimiento {
   fechaIngreso: Timestamp | Date | string;
   fechaLimite: Timestamp | Date | string;
   fechaResolucion?: Timestamp | Date | string;
+  pdfFichaIngreso?: RequerimientoFichaPdf;
+  pdfFichaResuelto?: RequerimientoFichaPdf;
   creadoEn: Timestamp | Date | string;
   actualizadoEn: Timestamp | Date | string;
 }
@@ -259,6 +269,16 @@ export interface RequerimientoDTO {
   fechaIngreso: string;
   fechaLimite: string;
   fechaResolucion?: string;
+  pdfFichaIngreso?: {
+    nombreR2: string;
+    nombre: string;
+    generadoEn: string;
+  };
+  pdfFichaResuelto?: {
+    nombreR2: string;
+    nombre: string;
+    generadoEn: string;
+  };
   creadoEn: string;
   actualizadoEn: string;
   diasHabilesRestantes?: number;

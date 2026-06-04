@@ -93,6 +93,20 @@ export const r2Service = {
     return url;
   },
 
+  async putBuffer(fileKey: string, body: Buffer, contentType: string): Promise<void> {
+    const r2 = getR2Client();
+    const bucket = getR2BucketName();
+    await r2.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: fileKey,
+        Body: body,
+        ContentType: contentType,
+      })
+    );
+    logger.info({ fileKey, contentType, size: body.length }, "File uploaded to R2");
+  },
+
   async getFileBuffer(fileKey: string): Promise<Buffer> {
     const r2 = getR2Client();
     const bucket = getR2BucketName();

@@ -59,6 +59,7 @@ import {
   ModalTitle,
 } from "@/components/ui/Modal";
 import { EvidenciaResolucionForm } from "@/components/features/requerimientos/EvidenciaResolucionForm";
+import { RequerimientoFichaPdfDownload } from "@/components/features/requerimientos/RequerimientoFichaPdfDownload";
 import type { CierreRespuesta } from "@/components/features/requerimientos/RespuestaVecinoModal";
 
 const DerivacionModal = dynamic(
@@ -677,6 +678,14 @@ export default function RequerimientoDetailPage() {
           <Card>
             <CardHeader><CardTitle>Acciones</CardTitle></CardHeader>
             <CardContent className="space-y-4">
+              <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-semibold text-slate-600">Fichas PDF formales</p>
+                <RequerimientoFichaPdfDownload
+                  requerimientoId={req.id}
+                  numeroSeguimiento={req.numeroSeguimiento}
+                  estado={req.estado}
+                />
+              </div>
               {canChangeEstado && (
                 <>
                   <Textarea

@@ -19,6 +19,7 @@ import { esRolAdminPlataforma } from "@/types/usuario.types";
 import { DIRECCIONES_MUNICIPALES } from "@/constants/direcciones";
 import { getDireccionLabel } from "@/constants/direcciones";
 import { ConfirmDeleteModal } from "@/components/ui/ConfirmDeleteModal";
+import { RequerimientoFichaPdfDownload } from "@/components/features/requerimientos/RequerimientoFichaPdfDownload";
 
 const PAGE_SIZE = 8;
 const ESTADOS_INICIO_TRAMO_PLAZO = new Set(["derivado", "en_espera_1", "en_espera_2"]);
@@ -247,6 +248,19 @@ export default function RequerimientosPage() {
           </span>
         );
       },
+    },
+    {
+      key: "fichaPdf",
+      header: "Ficha PDF",
+      className: "min-w-[120px]",
+      render: (item: RequerimientoDTO) => (
+        <RequerimientoFichaPdfDownload
+          requerimientoId={item.id}
+          numeroSeguimiento={item.numeroSeguimiento}
+          estado={item.estado}
+          compact
+        />
+      ),
     },
     {
       key: "acciones",

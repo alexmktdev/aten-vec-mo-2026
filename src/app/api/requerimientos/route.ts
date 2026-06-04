@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
     const result = await requerimientoService.create(parsed.data);
 
     after(async () => {
-      await requerimientoService.afterCreate(parsed.data, result.numeroSeguimiento);
+      await requerimientoService.afterCreate(parsed.data, result.numeroSeguimiento, result.id);
     });
 
     return createSuccessResponse(result, "Requerimiento ingresado exitosamente", 201);
