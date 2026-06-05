@@ -1,8 +1,11 @@
 import { requerimientoService } from "@/services/requerimiento.service";
+import { r2Service } from "@/services/r2.service";
 import {
   buildFichaPdfFilename,
   buildRequerimientoFichaPdf,
 } from "@/lib/reportes/requerimiento-ficha-pdf";
+import { mergePdfBuffers } from "@/lib/reportes/merge-pdf";
+import logger from "@/lib/logger";
 import type { FichaPdfVariant, RequerimientoDTO } from "@/types/requerimiento.types";
 
 function isEstadoCerrado(estado: string): boolean {
@@ -19,7 +22,28 @@ export const requerimientoFichaPdfService = {
     }
 
     const pdfArrayBuffer = await buildRequerimientoFichaPdf(req, variant);
-    const buffer = Buffer.from(pdfArrayBuffer);
+    let buffer = Buffer.from(pdfArrayBuffer);
+
+    if (
+      variant === "resuelto" &&
+      req.evidenciaResolucion?.tipo === "documento" &&
+      req.evidenciaResolucion.nombreR2
+    ) {
+      try {
+        const evidenciaBuffer = await r2Service.getFileBuffer(req.evidenciaResolucion.nombreR2);
+        const merged = await mergePdfBuffers([
+          new Uint8Array(buffer),
+          new Uint8Array(evidenciaBuffer),
+        ]);
+        buffer = Buffer.from(merged);
+      } catch (error) {
+        logger.warn(
+          { error, requerimientoId: req.id, nombreR2: req.evidenciaResolucion.nombreR2 },
+          "No se pudo anexar la evidencia PDF al ficha resuelto; se entrega solo la ficha"
+        );
+      }
+    }
+
     const filename = buildFichaPdfFilename(req.numeroSeguimiento, variant);
     return { buffer, filename };
   },

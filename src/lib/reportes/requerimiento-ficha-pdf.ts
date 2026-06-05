@@ -213,10 +213,17 @@ export async function buildRequerimientoFichaPdf(
 
     if (req.evidenciaResolucion) {
       const ev = req.evidenciaResolucion;
+      const esDocumento = ev.tipo === "documento";
       y = await addKvTable(doc, y, "Evidencia de resolución", [
-        ["Tipo", ev.tipo === "link" ? "Enlace" : "Documento"],
+        ["Tipo", esDocumento ? "Documento PDF" : "Enlace"],
         ["Nombre / referencia", ev.nombre || ev.url],
         ["Fecha", ev.fecha ? formatReporteFechaYHora(ev.fecha) : "—"],
+        [
+          "Inclusión en este archivo",
+          esDocumento
+            ? "El PDF de evidencia se anexa a continuación en las páginas siguientes de este mismo documento."
+            : "La evidencia es un enlace externo; no se puede incrustar como PDF en este archivo.",
+        ],
       ]);
     }
 
