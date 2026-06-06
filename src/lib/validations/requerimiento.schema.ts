@@ -7,6 +7,7 @@ import {
   ESTADOS_REQUERIMIENTO,
 } from "@/types/requerimiento.types";
 import { DIRECCIONES_KEYS } from "@/constants/direcciones";
+import { MAX_PDF_UPLOAD_BYTES } from "@/lib/validations/upload.schema";
 
 // Vecino sub-schema
 const vecinoSchema = z.object({
@@ -105,7 +106,7 @@ export const requerimientoCreateSchema = z.object({
         nombreR2: z.string(),
         url: z.string(),
         tipo: z.string(),
-        tamanio: z.number().max(Math.floor(2.5 * 1024 * 1024), "El archivo no puede superar 2.5MB"),
+        tamanio: z.number().max(MAX_PDF_UPLOAD_BYTES, "El archivo no puede superar 1 MB"),
       })
     )
     .optional()
@@ -140,8 +141,6 @@ export const requerimientoUpdateSchema = z.object({
 
 export type RequerimientoUpdateInput = z.infer<typeof requerimientoUpdateSchema>;
 
-export const MAX_EVIDENCIA_RESPUESTA_INMEDIATA_BYTES = Math.floor(1.2 * 1024 * 1024);
-
 export const requerimientoRespuestaSchema = z.object({
   emailDestino: z.string().email("El correo electrónico no es válido"),
   asunto: z.string().min(5, "El asunto debe tener al menos 5 caracteres").max(160),
@@ -154,12 +153,7 @@ const evidenciaRespuestaInmediataSchema = z.object({
   nombre: z.string().min(1),
   nombreR2: z.string().min(1),
   url: z.string().min(1),
-  tamanio: z
-    .number()
-    .max(
-      MAX_EVIDENCIA_RESPUESTA_INMEDIATA_BYTES,
-      "El archivo PDF no puede superar 1.2 MB"
-    ),
+  tamanio: z.number().max(MAX_PDF_UPLOAD_BYTES, "El archivo PDF no puede superar 1 MB"),
 });
 
 export const requerimientoRespuestaInmediataSchema = requerimientoRespuestaSchema.extend({

@@ -9,11 +9,21 @@ interface FileUploadProps {
   error?: string;
   accept?: string;
   maxSize?: number;
+  /** Muestra el aviso de compresión con ilovepdf.com (PDF ≤ 1 MB). */
+  showCompressHint?: boolean;
   onChange: (file: File | null) => void;
   value?: File | null;
 }
 
-export function FileUpload({ label, error, accept = ".pdf", maxSize = 5 * 1024 * 1024, onChange, value }: FileUploadProps) {
+export function FileUpload({
+  label,
+  error,
+  accept = ".pdf",
+  maxSize = 5 * 1024 * 1024,
+  showCompressHint = false,
+  onChange,
+  value,
+}: FileUploadProps) {
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = React.useState(false);
 
@@ -43,7 +53,24 @@ export function FileUpload({ label, error, accept = ".pdf", maxSize = 5 * 1024 *
         >
           <Upload className="mx-auto h-8 w-8 text-slate-400 mb-2" />
           <p className="text-sm text-slate-600">Haga clic o arrastre un archivo</p>
-          <p className="text-xs text-slate-400 mt-1">Solo PDF, máximo {maxSize / (1024 * 1024)}MB</p>
+          <p className="text-xs text-slate-400 mt-1">
+            Solo PDF, máximo {maxSize / (1024 * 1024)} MB
+          </p>
+          {showCompressHint && (
+            <p className="text-xs text-slate-500 mt-2 max-w-sm mx-auto">
+              Si su archivo supera el límite de tamaño, puede reducirlo en{" "}
+              <a
+                href="https://www.ilovepdf.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-700 underline underline-offset-2 hover:text-blue-900"
+                onClick={(e) => e.stopPropagation()}
+              >
+                ilovepdf.com
+              </a>
+              .
+            </p>
+          )}
           <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={(e) => handleFile(e.target.files?.[0] || null)} />
         </div>
       ) : (

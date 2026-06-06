@@ -3,6 +3,7 @@ import { requerimientoService } from "@/services/requerimiento.service";
 import { createSuccessResponse, createErrorResponse } from "@/lib/utils/response";
 import { createRouteLogger } from "@/lib/logger";
 import { z } from "zod";
+import { MAX_PDF_UPLOAD_BYTES } from "@/lib/validations/upload.schema";
 import {
   RequerimientoRouteParams,
   requireRequerimientoWithAccess,
@@ -17,7 +18,7 @@ const evidenciaDocumentoSchema = z.object({
   nombre: z.string().min(1),
   nombreR2: z.string().min(1),
   url: z.string().min(1),
-  tamanio: z.number().max(Math.floor(2.5 * 1024 * 1024), "El archivo no puede superar 2.5 MB"),
+  tamanio: z.number().max(MAX_PDF_UPLOAD_BYTES, "El archivo no puede superar 1 MB"),
 });
 
 const evidenciaLinkSchema = z.object({

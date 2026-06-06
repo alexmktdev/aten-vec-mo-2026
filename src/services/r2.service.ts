@@ -3,7 +3,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { getR2Client, getR2BucketName } from "@/lib/r2/r2-client";
 import { v4 as uuidv4 } from "uuid";
 import logger from "@/lib/logger";
-import { getFileExtension } from "@/lib/validations/upload.schema";
+import { getFileExtension, MAX_PDF_UPLOAD_BYTES } from "@/lib/validations/upload.schema";
 
 const ALLOWED_PUBLIC_TYPES: Record<string, string> = {
   pdf: "application/pdf",
@@ -16,8 +16,7 @@ const ALLOWED_ADMIN_TYPES: Record<string, string> = {
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 };
 
-const MAX_PUBLIC_SIZE = Math.floor(2.5 * 1024 * 1024); // 2.5MB
-const MAX_ADMIN_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_ADMIN_SIZE = 10 * 1024 * 1024; // 10MB (imágenes, DOCX)
 
 export const r2Service = {
   /**
@@ -46,11 +45,11 @@ export const r2Service = {
       throw new Error("Tipo MIME inválido para la extensión del archivo");
     }
 
-    const maxSize = isAdmin ? MAX_ADMIN_SIZE : MAX_PUBLIC_SIZE;
+    const maxSize =
+      extension === "pdf" ? MAX_PDF_UPLOAD_BYTES : isAdmin ? MAX_ADMIN_SIZE : MAX_PDF_UPLOAD_BYTES;
     if (size > maxSize) {
-      throw new Error(
-        `El archivo excede el tamaño máximo de ${maxSize / (1024 * 1024)}MB`
-      );
+      const maxMb = maxSize / (1024 * 1024);
+      throw new Error(`El archivo excede el tamaño máximo de ${maxMb} MB`);
     }
 
     const r2 = getR2Client();

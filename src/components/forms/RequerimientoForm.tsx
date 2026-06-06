@@ -16,7 +16,7 @@ import { Alert } from "@/components/ui/Alert";
 import { FileUpload } from "@/components/ui/FileUpload";
 import { CheckCircle } from "lucide-react";
 
-const MAX_PDF_SIZE = Math.floor(2.5 * 1024 * 1024);
+import { MAX_PDF_UPLOAD_BYTES } from "@/lib/validations/upload.schema";
 const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "";
 
 function sanitizeUploadFileName(fileName: string): string {
@@ -148,8 +148,8 @@ export function RequerimientoForm() {
         setPdfError("Solo se permiten archivos PDF");
         return;
       }
-      if (file.size > MAX_PDF_SIZE) {
-        setPdfError("El archivo no puede superar 2.5MB");
+      if (file.size > MAX_PDF_UPLOAD_BYTES) {
+        setPdfError("El archivo no puede superar 1 MB");
         return;
       }
     }
@@ -331,9 +331,10 @@ export function RequerimientoForm() {
             </div>
             <div className="md:col-span-2">
               <FileUpload
-                label="Documento PDF (opcional)"
+                label="Documento PDF (opcional, máx. 1 MB)"
                 accept=".pdf"
-                maxSize={MAX_PDF_SIZE}
+                maxSize={MAX_PDF_UPLOAD_BYTES}
+                showCompressHint
                 value={pdfFile}
                 onChange={handlePdfChange}
                 error={pdfError}

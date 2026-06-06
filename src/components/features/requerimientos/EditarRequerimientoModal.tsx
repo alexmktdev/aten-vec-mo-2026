@@ -30,8 +30,8 @@ import {
   RequerimientoCreateInput,
   RequerimientoAdminEditFormInput,
 } from "@/lib/validations/requerimiento.schema";
+import { MAX_PDF_UPLOAD_BYTES } from "@/lib/validations/upload.schema";
 
-const MAX_PDF_SIZE = Math.floor(2.5 * 1024 * 1024);
 interface Props {
   open: boolean;
   requerimiento: RequerimientoDTO;
@@ -99,8 +99,8 @@ export function EditarRequerimientoModal({ open, requerimiento, onClose, onSubmi
         setPdfError("Solo se permiten archivos PDF");
         return;
       }
-      if (file.size > MAX_PDF_SIZE) {
-        setPdfError("El archivo no puede superar 2.5MB");
+      if (file.size > MAX_PDF_UPLOAD_BYTES) {
+        setPdfError("El archivo no puede superar 1 MB");
         return;
       }
     }
@@ -299,9 +299,10 @@ export function EditarRequerimientoModal({ open, requerimiento, onClose, onSubmi
                     )}
                   </div>
                   <FileUpload
-                    label="Agregar documento PDF"
+                    label="Agregar documento PDF (máx. 1 MB)"
                     accept=".pdf"
-                    maxSize={MAX_PDF_SIZE}
+                    maxSize={MAX_PDF_UPLOAD_BYTES}
+                    showCompressHint
                     value={pdfFile}
                     onChange={handlePdfChange}
                     error={pdfError}

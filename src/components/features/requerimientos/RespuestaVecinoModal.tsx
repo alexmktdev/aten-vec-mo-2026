@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
 import { FileUpload } from "@/components/ui/FileUpload";
 import { ConfirmDeleteModal } from "@/components/ui/ConfirmDeleteModal";
-import { MAX_EVIDENCIA_RESPUESTA_INMEDIATA_BYTES } from "@/lib/validations/requerimiento.schema";
+import { MAX_PDF_UPLOAD_BYTES } from "@/lib/validations/upload.schema";
 
 export type CierreRespuesta = "completado" | "rechazado";
 
@@ -74,8 +74,8 @@ export function RespuestaVecinoModal({
         setEvidenciaPdfError("Solo se permiten archivos PDF");
         return;
       }
-      if (file.size > MAX_EVIDENCIA_RESPUESTA_INMEDIATA_BYTES) {
-        setEvidenciaPdfError("El archivo no puede superar 1.2 MB");
+      if (file.size > MAX_PDF_UPLOAD_BYTES) {
+        setEvidenciaPdfError("El archivo no puede superar 1 MB");
         return;
       }
     }
@@ -203,9 +203,10 @@ export function RespuestaVecinoModal({
             )}
             {allowEvidenciaPdf && (
               <FileUpload
-                label="Evidencia PDF (opcional, máx. 1.2 MB)"
+                label="Evidencia PDF (opcional, máx. 1 MB)"
                 accept=".pdf"
-                maxSize={MAX_EVIDENCIA_RESPUESTA_INMEDIATA_BYTES}
+                maxSize={MAX_PDF_UPLOAD_BYTES}
+                showCompressHint
                 value={evidenciaPdf}
                 onChange={handleEvidenciaPdfChange}
                 error={evidenciaPdfError}

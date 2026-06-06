@@ -10,7 +10,7 @@ import { ConfirmDeleteModal } from "@/components/ui/ConfirmDeleteModal";
 import { useSetEvidenciaResolucion, useDeleteEvidenciaResolucion } from "@/hooks/useRequerimientos";
 import { ExternalLink, FileCheck, Trash2, Upload } from "lucide-react";
 
-const MAX_PDF_SIZE = Math.floor(2.5 * 1024 * 1024);
+import { MAX_PDF_UPLOAD_BYTES } from "@/lib/validations/upload.schema";
 
 interface Props {
   requerimientoId: string;
@@ -44,8 +44,8 @@ export function EvidenciaResolucionForm({ requerimientoId, canManage = false, ev
         setPdfError("Solo se permiten archivos PDF");
         return;
       }
-      if (file.size > MAX_PDF_SIZE) {
-        setPdfError("El archivo no puede superar 2.5 MB");
+      if (file.size > MAX_PDF_UPLOAD_BYTES) {
+        setPdfError("El archivo no puede superar 1 MB");
         return;
       }
     }
@@ -155,9 +155,10 @@ export function EvidenciaResolucionForm({ requerimientoId, canManage = false, ev
       {modo === "documento" ? (
         <div className="space-y-3">
           <FileUpload
-            label="Documento PDF (máx. 2.5 MB)"
+            label="Documento PDF (máx. 1 MB)"
             accept=".pdf"
-            maxSize={MAX_PDF_SIZE}
+            maxSize={MAX_PDF_UPLOAD_BYTES}
+            showCompressHint
             value={pdfFile}
             onChange={handlePdfChange}
             error={pdfError}
