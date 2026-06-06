@@ -3,8 +3,7 @@ import { z } from "zod";
 /** Límite único para PDF: formulario público, evidencia de director y respuesta inmediata admin. */
 export const MAX_PDF_UPLOAD_BYTES = 1024 * 1024; // 1 MB
 
-export const PDF_COMPRESS_HINT =
-  "Si su archivo supera el límite de tamaño, puede reducirlo en ilovepdf.com.";
+export const PDF_COMPRESS_URL = "https://www.ilovepdf.com/es/comprimir_pdf";
 
 const FILE_NAME_REGEX = /^[a-zA-Z0-9._\-\s]+$/;
 

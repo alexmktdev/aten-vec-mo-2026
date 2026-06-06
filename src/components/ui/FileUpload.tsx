@@ -3,13 +3,14 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { Upload, X, FileText } from "lucide-react";
+import { PDF_COMPRESS_URL } from "@/lib/validations/upload.schema";
 
 interface FileUploadProps {
   label?: string;
   error?: string;
   accept?: string;
   maxSize?: number;
-  /** Muestra el aviso de compresión con ilovepdf.com (PDF ≤ 1 MB). */
+  /** Muestra el aviso de compresión con enlace a iLovePDF (PDF ≤ 1 MB). */
   showCompressHint?: boolean;
   onChange: (file: File | null) => void;
   value?: File | null;
@@ -60,13 +61,13 @@ export function FileUpload({
             <p className="text-xs text-slate-500 mt-2 max-w-sm mx-auto">
               Si su archivo supera el límite de tamaño, puede reducirlo en{" "}
               <a
-                href="https://www.ilovepdf.com/"
+                href={PDF_COMPRESS_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-blue-700 underline underline-offset-2 hover:text-blue-900"
                 onClick={(e) => e.stopPropagation()}
               >
-                ilovepdf.com
+                iLovePDF (comprimir PDF)
               </a>
               .
             </p>
