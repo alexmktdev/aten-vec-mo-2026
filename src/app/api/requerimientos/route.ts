@@ -5,7 +5,7 @@ import { requerimientoFiltersSchema } from "@/lib/validations/requerimiento-filt
 import { requireAuth, getDireccionRestriccion } from "@/lib/auth-guard";
 import { createSuccessResponse, createErrorResponse } from "@/lib/utils/response";
 import { createRouteLogger } from "@/lib/logger";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { enforceRateLimit, RATE_LIMIT_PRESETS } from "@/lib/rate-limit";
 import { sanitizeText, sanitizeOptionalText, normalizeEmail, sanitizeMultilineText } from "@/lib/utils/sanitize";
 import { normalizeRut } from "@/lib/utils/rut";
 import { getRequerimientoListFiltersFromRequest } from "@/lib/api/requerimiento-filters-from-request";
@@ -50,10 +50,14 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const rate = await checkRateLimit(request, "requerimientos-create", 15, 60_000);
-    if (!rate.allowed) {
-      return createErrorResponse(429, `Demasiadas solicitudes. Reintente en ${rate.retryAfterSeconds}s`);
-    }
+    const rateLimited = await enforceRateLimit(
+      request,
+      "requerimientos-create",
+      RATE_LIMIT_PRESETS.requerimientosCreate.maxRequests,
+      RATE_LIMIT_PRESETS.requerimientosCreate.windowMs,
+      "Demasiados intentos de crear requerimiento."
+    );
+    if (rateLimited) return rateLimited;
 
     const body = await request.json();
     const recaptchaToken = typeof body?.recaptchaToken === "string" ? body.recaptchaToken : "";

@@ -24,6 +24,10 @@ const serverEnvSchema = z.object({
   NEXTAUTH_SECRET: z.string().min(1, "NEXTAUTH_SECRET is required"),
   NEXT_PUBLIC_APP_URL: z.string().url("NEXT_PUBLIC_APP_URL must be a valid URL"),
   RECAPTCHA_SECRET_KEY: z.string().min(1, "RECAPTCHA_SECRET_KEY is required"),
+
+  // Upstash Redis (opcional en local; recomendado en producción para rate limit global)
+  UPSTASH_REDIS_REST_URL: z.string().url().optional(),
+  UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
 });
 
 const clientEnvSchema = z.object({

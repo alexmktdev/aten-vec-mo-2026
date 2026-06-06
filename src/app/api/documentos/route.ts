@@ -2,17 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { r2Service } from "@/services/r2.service";
 import { createRouteLogger } from "@/lib/logger";
 import { createErrorResponse } from "@/lib/utils/response";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { enforceRateLimit, RATE_LIMIT_PRESETS } from "@/lib/rate-limit";
 import { requireRequerimientoByIdWithAccess } from "@/lib/api/requerimiento-route-guards";
 
 const log = createRouteLogger("/api/documentos");
 
 export async function GET(request: NextRequest) {
   try {
-    const rate = await checkRateLimit(request, "documentos", 30, 60_000);
-    if (!rate.allowed) {
-      return createErrorResponse(429, `Demasiadas solicitudes. Reintente en ${rate.retryAfterSeconds}s`);
-    }
+    const rateLimited = await enforceRateLimit(
+      request,
+      "documentos",
+      RATE_LIMIT_PRESETS.documentos.maxRequests,
+      RATE_LIMIT_PRESETS.documentos.windowMs
+    );
+    if (rateLimited) return rateLimited;
 
     const { searchParams } = new URL(request.url);
     const fileKey = searchParams.get("key");

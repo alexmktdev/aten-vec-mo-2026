@@ -5,6 +5,7 @@ import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { createErrorResponse, createSuccessResponse } from "@/lib/utils/response";
 import { createRouteLogger } from "@/lib/logger";
 import { sanitizeText } from "@/lib/utils/sanitize";
+import { enforceRateLimit, RATE_LIMIT_PRESETS } from "@/lib/rate-limit";
 
 const log = createRouteLogger("/api/auth/password-reset/confirm");
 
@@ -27,6 +28,15 @@ const bodySchema = z
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimited = await enforceRateLimit(
+      request,
+      "password-reset-confirm",
+      RATE_LIMIT_PRESETS.passwordResetConfirm.maxRequests,
+      RATE_LIMIT_PRESETS.passwordResetConfirm.windowMs,
+      "Demasiados intentos de restablecer contraseña."
+    );
+    if (rateLimited) return rateLimited;
+
     const body = await request.json();
     body.token = sanitizeText(body.token || "");
     const parsed = bodySchema.safeParse(body);

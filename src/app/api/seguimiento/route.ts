@@ -3,7 +3,7 @@ import { requerimientoService } from "@/services/requerimiento.service";
 import { seguimientoSchema } from "@/lib/validations/seguimiento.schema";
 import { createSuccessResponse, createErrorResponse } from "@/lib/utils/response";
 import { createRouteLogger } from "@/lib/logger";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { enforceRateLimit, RATE_LIMIT_PRESETS } from "@/lib/rate-limit";
 import { normalizeRut } from "@/lib/utils/rut";
 
 const log = createRouteLogger("/api/seguimiento");
@@ -14,10 +14,14 @@ const log = createRouteLogger("/api/seguimiento");
  */
 export async function GET(request: NextRequest) {
   try {
-    const rate = await checkRateLimit(request, "seguimiento", 30, 60_000);
-    if (!rate.allowed) {
-      return createErrorResponse(429, `Demasiadas consultas. Reintente en ${rate.retryAfterSeconds}s`);
-    }
+    const rateLimited = await enforceRateLimit(
+      request,
+      "seguimiento",
+      RATE_LIMIT_PRESETS.seguimiento.maxRequests,
+      RATE_LIMIT_PRESETS.seguimiento.windowMs,
+      "Demasiadas consultas de seguimiento."
+    );
+    if (rateLimited) return rateLimited;
 
     const { searchParams } = new URL(request.url);
     const numero = searchParams.get("numero") || "";

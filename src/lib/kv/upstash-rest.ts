@@ -36,6 +36,9 @@ export function isUpstashEnabled(): boolean {
   return Boolean(getUpstashConfig());
 }
 
+/** Alias para caché server-side (mismas variables que rate limit). */
+export const isUpstashRedisConfigured = isUpstashEnabled;
+
 export async function upstashGet(key: string): Promise<string | null> {
   const rows = await pipeline([["GET", key]]);
   const row = rows[0];

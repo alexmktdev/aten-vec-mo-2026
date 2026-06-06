@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/auth-guard";
 import { createSuccessResponse, createErrorResponse } from "@/lib/utils/response";
 import { createRouteLogger } from "@/lib/logger";
 import { uploadSchema, getFileExtension } from "@/lib/validations/upload.schema";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { enforceRateLimit, RATE_LIMIT_PRESETS } from "@/lib/rate-limit";
 
 const log = createRouteLogger("/api/upload");
 const PUBLIC_EXT_TO_MIME: Record<string, string> = {
@@ -23,10 +23,13 @@ const ADMIN_EXT_TO_MIME: Record<string, string> = {
  */
 export async function POST(request: NextRequest) {
   try {
-    const rate = await checkRateLimit(request, "upload", 20, 60_000);
-    if (!rate.allowed) {
-      return createErrorResponse(429, `Demasiadas solicitudes. Reintente en ${rate.retryAfterSeconds}s`);
-    }
+    const rateLimited = await enforceRateLimit(
+      request,
+      "upload",
+      RATE_LIMIT_PRESETS.upload.maxRequests,
+      RATE_LIMIT_PRESETS.upload.windowMs
+    );
+    if (rateLimited) return rateLimited;
 
     const body = await request.json();
 

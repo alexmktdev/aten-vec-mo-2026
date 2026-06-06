@@ -7,6 +7,7 @@ import { createRouteLogger } from "@/lib/logger";
 import { getRecuperacionContrasenaTemplate } from "@/lib/mail/templates/recuperacion-contrasena";
 import { createHash, randomBytes } from "crypto";
 import { normalizeEmail } from "@/lib/utils/sanitize";
+import { enforceRateLimit, RATE_LIMIT_PRESETS } from "@/lib/rate-limit";
 
 const log = createRouteLogger("/api/auth/password-reset");
 
@@ -16,6 +17,15 @@ const bodySchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimited = await enforceRateLimit(
+      request,
+      "password-reset",
+      RATE_LIMIT_PRESETS.passwordReset.maxRequests,
+      RATE_LIMIT_PRESETS.passwordReset.windowMs,
+      "Demasiadas solicitudes de recuperación de contraseña."
+    );
+    if (rateLimited) return rateLimited;
+
     const body = await request.json();
     body.email = normalizeEmail(body.email || "");
     const parsed = bodySchema.safeParse(body);

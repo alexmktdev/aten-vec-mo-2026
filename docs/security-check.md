@@ -78,5 +78,5 @@ Código de salida: `0` si todo pasa, `1` si hay fallos, `2` si el servidor no re
 
 - No prueba reCAPTCHA real ni formulario público completo.
 - No escanea dependencias (usar `npm audit` aparte).
-- Rate limit depende de Upstash o bucket en memoria del proceso Node.
+- Rate limit usa **@upstash/ratelimit** si `UPSTASH_REDIS_REST_URL` y `UPSTASH_REDIS_REST_TOKEN` están configurados; si no, bucket en memoria del proceso Node. Ver `docs/rate-limit-upstash.md`.
 - Las pruebas IDOR crean documentos `SEC-*` en Firestore si no usa `--cleanup`.

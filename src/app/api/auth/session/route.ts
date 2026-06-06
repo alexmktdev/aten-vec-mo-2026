@@ -6,6 +6,7 @@ import logger from "@/lib/logger";
 import { sanitizeText } from "@/lib/utils/sanitize";
 import { requireAuth } from "@/lib/auth-guard";
 import { usuarioRepository } from "@/repositories/usuario.repository";
+import { enforceRateLimit, RATE_LIMIT_PRESETS } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,15 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request: NextRequest) {
   try {
+    const rateLimited = await enforceRateLimit(
+      request,
+      "auth-session",
+      RATE_LIMIT_PRESETS.authSession.maxRequests,
+      RATE_LIMIT_PRESETS.authSession.windowMs,
+      "Demasiados intentos de inicio de sesión."
+    );
+    if (rateLimited) return rateLimited;
+
     const body = await request.json();
     const idToken = sanitizeText(body?.idToken || "");
 
