@@ -140,11 +140,31 @@ export const requerimientoUpdateSchema = z.object({
 
 export type RequerimientoUpdateInput = z.infer<typeof requerimientoUpdateSchema>;
 
+export const MAX_EVIDENCIA_RESPUESTA_INMEDIATA_BYTES = Math.floor(1.2 * 1024 * 1024);
+
 export const requerimientoRespuestaSchema = z.object({
   emailDestino: z.string().email("El correo electrónico no es válido"),
   asunto: z.string().min(5, "El asunto debe tener al menos 5 caracteres").max(160),
   mensaje: z.string().max(4000).optional().default(""),
   cierre: z.enum(["completado", "rechazado"]).optional(),
+});
+
+const evidenciaRespuestaInmediataSchema = z.object({
+  tipo: z.literal("documento"),
+  nombre: z.string().min(1),
+  nombreR2: z.string().min(1),
+  url: z.string().min(1),
+  tamanio: z
+    .number()
+    .max(
+      MAX_EVIDENCIA_RESPUESTA_INMEDIATA_BYTES,
+      "El archivo PDF no puede superar 1.2 MB"
+    ),
+});
+
+export const requerimientoRespuestaInmediataSchema = requerimientoRespuestaSchema.extend({
+  cierre: z.enum(["completado", "rechazado"]),
+  evidencia: evidenciaRespuestaInmediataSchema.optional(),
 });
 
 export function validateRespuestaVecinoMensaje(input: {

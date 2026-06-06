@@ -760,6 +760,131 @@ export const requerimientoService = {
     invalidateDashboardAndListCaches();
   },
 
+  async enviarRespuestaInmediata(
+    id: string,
+    input: RespuestaVecinoInput & {
+      cierre: "completado" | "rechazado";
+      evidencia?: {
+        tipo: "documento";
+        nombre: string;
+        nombreR2: string;
+        url: string;
+        tamanio: number;
+      };
+    },
+    usuario: UsuarioRegistro,
+    existing?: RequerimientoDTO
+  ): Promise<void> {
+    const raw = existing ?? (await requerimientoRepository.getById(id));
+    if (!raw) {
+      throw new Error("Requerimiento no encontrado");
+    }
+    let current: RequerimientoDTO = existing ?? toRequerimientoDTO(raw as Requerimiento);
+
+    if (current.estado !== "pendiente") {
+      throw new Error("Solo se puede responder de forma inmediata con el requerimiento en pendiente por derivación");
+    }
+    if ((current.respuestasVecino?.length || 0) > 0) {
+      throw new Error("Ya existe una respuesta enviada al vecino para este requerimiento");
+    }
+
+    const respuestaAutomaticaCompletado =
+      input.cierre === "completado" &&
+      usaRespuestaAutomaticaAdminCompletado(current.tipoRequerimiento);
+
+    const mensajeError = validateRespuestaVecinoMensaje({
+      mensaje: input.mensaje,
+      cierre: input.cierre,
+      respuestaAutomaticaCompletado,
+    });
+    if (mensajeError) {
+      throw new Error(mensajeError);
+    }
+
+    if (input.evidencia) {
+      await requerimientoRepository.update(id, {
+        evidenciaResolucion: {
+          ...input.evidencia,
+          fecha: new Date(),
+          usuarioId: usuario.uid,
+        },
+      });
+      const refreshed = await requerimientoRepository.getById(id);
+      if (refreshed) {
+        current = toRequerimientoDTO(refreshed as Requerimiento);
+      }
+    }
+
+    let asunto = input.asunto;
+    let mensaje = input.mensaje.trim();
+    if (respuestaAutomaticaCompletado) {
+      const auto = buildRespuestaAutomaticaCompletado(current);
+      asunto = auto.asunto;
+      mensaje = auto.mensaje;
+    }
+
+    let evidenciaAdjunta: { filename: string; content: Buffer } | undefined;
+    if (current.evidenciaResolucion?.tipo === "documento" && current.evidenciaResolucion.nombreR2) {
+      try {
+        const buffer = await r2Service.getFileBuffer(current.evidenciaResolucion.nombreR2);
+        evidenciaAdjunta = {
+          filename: current.evidenciaResolucion.nombre || "evidencia-resolucion.pdf",
+          content: buffer,
+        };
+      } catch (err) {
+        logger.warn({ err, id }, "Could not attach evidence PDF to immediate citizen response");
+      }
+    }
+
+    const evidenciaInfo = current.evidenciaResolucion
+      ? {
+          tipo: current.evidenciaResolucion.tipo,
+          nombre: current.evidenciaResolucion.nombre,
+          url:
+            current.evidenciaResolucion.tipo === "link"
+              ? current.evidenciaResolucion.url
+              : undefined,
+        }
+      : undefined;
+
+    await notificacionService.enviarRespuestaVecino(
+      input.emailDestino,
+      {
+        numeroSeguimiento: current.numeroSeguimiento,
+        vecino: current.vecino,
+        asunto,
+        mensaje,
+        evidencia: evidenciaInfo as { tipo: "documento" | "link"; nombre?: string; url?: string } | undefined,
+      },
+      evidenciaAdjunta
+    );
+
+    await requerimientoRepository.addRespuestaVecino(id, {
+      emailDestino: input.emailDestino,
+      asunto,
+      mensaje,
+      usuarioId: usuario.uid,
+    });
+
+    await requerimientoRepository.addEstadoToHistorial(
+      id,
+      input.cierre,
+      buildUsuarioRegistro(usuario),
+      "Respuesta inmediata al vecino sin derivar a la dirección (cierre por envío de correo)",
+      { adminAsignadoRespuesta: null }
+    );
+    await dashboardMetricsService.onEstadoChange(
+      raw as unknown as Requerimiento,
+      input.cierre
+    );
+
+    logger.info(
+      { id, usuarioId: usuario.uid, emailDestino: input.emailDestino, cierre: input.cierre },
+      "Immediate citizen response registered"
+    );
+    invalidateDashboardAndListCaches();
+  },
+
   async setEvidenciaResolucion(
     id: string,
     evidencia: { tipo: "documento" | "link"; nombre?: string; nombreR2?: string; url: string; tamanio?: number },

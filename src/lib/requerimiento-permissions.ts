@@ -13,7 +13,9 @@ import { SessionUser } from "@/types/auth.types";
  *
  * - admin / admin-municipal / admin-transparencia: NO pueden cambiar estado
  *   manualmente. La derivación pendiente → derivado se hace con «Derivar».
- *   El cierre completado/rechazado solo vía modal «Respuesta final al requerimiento».
+ *   Desde pendiente también pueden usar «Responder de forma inmediata» (sin derivar).
+ *   El cierre completado/rechazado solo vía modal «Respuesta final al requerimiento»
+ *   o respuesta inmediata desde pendiente.
  *
  * - director: opera entre derivado / en_proceso / esperas; deriva a respuesta
  *   final al admin municipal (o transparencia) desde proceso o esperas.
@@ -175,6 +177,19 @@ export function canDerivarRespuestaFinal(
     return false;
   }
   return user.rol === "superadmin" || user.rol === "director";
+}
+
+/**
+ * Admin responde al vecino de forma inmediata desde pendiente, sin derivar a dirección.
+ */
+export function canEnviarRespuestaInmediata(
+  user: SessionUser,
+  req: Pick<RequerimientoDTO, "estado" | "tipoRequerimiento" | "respuestasVecino">
+): boolean {
+  if ((req.respuestasVecino?.length ?? 0) > 0) return false;
+  if (req.estado !== "pendiente") return false;
+  if (!requiereRespuestaFinalPorAdmin(req.tipoRequerimiento)) return false;
+  return canDerivarRequerimiento(user.rol, req.tipoRequerimiento);
 }
 
 /** Admin asignado envía respuesta final al vecino en derivado_respuesta_final. */

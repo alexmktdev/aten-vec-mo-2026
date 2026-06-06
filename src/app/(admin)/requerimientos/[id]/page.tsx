@@ -10,6 +10,7 @@ import {
   useDerivarRequerimiento,
   useDeleteRequerimiento,
   useEnviarRespuestaVecino,
+  useEnviarRespuestaInmediata,
   useDeleteEvidenciaResolucion,
   useDerivarRespuestaFinal,
   useRevertirEstado,
@@ -31,13 +32,14 @@ import {
   usaRespuestaAutomaticaAdminCompletado,
 } from "@/types/requerimiento.types";
 import { RequerimientoCreateInput } from "@/lib/validations/requerimiento.schema";
-import { ArrowLeft, Loader2, Mail, Pencil, Send, Trash2, Undo2, Users } from "lucide-react";
+import { ArrowLeft, Loader2, Mail, Pencil, Send, Trash2, Undo2, Users, Zap } from "lucide-react";
 import {
   canDeleteRequerimiento,
   canDerivarRequerimiento,
   canDerivarRespuestaFinal,
   canEditRequerimientoData,
   canEnviarRespuestaFinal,
+  canEnviarRespuestaInmediata,
   canRevertirEstado,
   puedeRevertirEstadoPorDatos,
   getAllowedNextStates,
@@ -105,6 +107,7 @@ export default function RequerimientoDetailPage() {
   const derivarMutation = useDerivarRequerimiento();
   const deleteMutation = useDeleteRequerimiento();
   const respuestaMutation = useEnviarRespuestaVecino();
+  const respuestaInmediataMutation = useEnviarRespuestaInmediata();
   const deleteEvidenciaMutation = useDeleteEvidenciaResolucion();
   const derivarFinalMutation = useDerivarRespuestaFinal();
   const revertirMutation = useRevertirEstado();
@@ -115,6 +118,8 @@ export default function RequerimientoDetailPage() {
   const [showDerivar, setShowDerivar] = useState(false);
   const [showDerivarFinal, setShowDerivarFinal] = useState(false);
   const [showRespuesta, setShowRespuesta] = useState(false);
+  const [showConfirmRespuestaInmediata, setShowConfirmRespuestaInmediata] = useState(false);
+  const [showRespuestaInmediata, setShowRespuestaInmediata] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showRevertirConfirm, setShowRevertirConfirm] = useState(false);
   const [showConfirmCierreEstado, setShowConfirmCierreEstado] = useState(false);
@@ -169,6 +174,7 @@ export default function RequerimientoDetailPage() {
   const puedeDerivarFinal = !!user && !!req && canDerivarRespuestaFinal(user, req);
   const puedeDerivarFinalConEvidencia = puedeDerivarFinal && !!req?.evidenciaResolucion;
   const puedeEnviarRespuestaFinal = !!user && !!req && canEnviarRespuestaFinal(user, req);
+  const puedeEnviarRespuestaInmediata = !!user && !!req && canEnviarRespuestaInmediata(user, req);
   const puedeRevertirDatos = !!req && puedeRevertirEstadoPorDatos(req);
   const puedeRevertir = !!user && !!req && canRevertirEstado(user.rol, req);
   const esSuperadmin = user?.rol === "superadmin";
@@ -200,6 +206,7 @@ export default function RequerimientoDetailPage() {
     updateMutation.isPending ||
     derivarMutation.isPending ||
     respuestaMutation.isPending ||
+    respuestaInmediataMutation.isPending ||
     deleteMutation.isPending ||
     updateDatosMutation.isPending ||
     derivarFinalMutation.isPending ||
@@ -380,6 +387,82 @@ export default function RequerimientoDetailPage() {
     }
   };
 
+  const handleEnviarRespuestaInmediata = async (payload: {
+    emailDestino: string;
+    asunto: string;
+    mensaje: string;
+    cierre?: CierreRespuesta;
+    evidenciaPdf?: File | null;
+  }) => {
+    if (!payload.cierre) {
+      throw new Error("Debe indicar si el cierre es completado o rechazado");
+    }
+
+    setErrorMsg("");
+    try {
+      let evidencia:
+        | {
+            tipo: "documento";
+            nombre: string;
+            nombreR2: string;
+            url: string;
+            tamanio: number;
+          }
+        | undefined;
+
+      if (payload.evidenciaPdf) {
+        const pdfFile = payload.evidenciaPdf;
+        const uploadRes = await fetch("/api/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileName: pdfFile.name,
+            contentType: pdfFile.type || "application/pdf",
+            size: pdfFile.size,
+            isPublic: false,
+          }),
+        });
+        const uploadData = await uploadRes.json();
+        if (!uploadData.success) {
+          throw new Error(uploadData.error || "No fue posible preparar la carga del archivo de evidencia");
+        }
+
+        const putRes = await fetch(uploadData.data.uploadUrl, {
+          method: "PUT",
+          body: pdfFile,
+          headers: { "Content-Type": pdfFile.type || "application/pdf" },
+        });
+        if (!putRes.ok) {
+          throw new Error("No se pudo subir el archivo de evidencia. Intente nuevamente.");
+        }
+
+        evidencia = {
+          tipo: "documento",
+          nombre: pdfFile.name,
+          nombreR2: uploadData.data.fileKey,
+          url: uploadData.data.publicUrl,
+          tamanio: pdfFile.size,
+        };
+      }
+
+      await respuestaInmediataMutation.mutateAsync({
+        id,
+        payload: {
+          emailDestino: payload.emailDestino,
+          asunto: payload.asunto,
+          mensaje: payload.mensaje,
+          cierre: payload.cierre,
+          evidencia,
+        },
+      });
+      setSuccessMsg("Respuesta inmediata enviada al vecino y requerimiento cerrado");
+      setTimeout(() => setSuccessMsg(""), 4000);
+    } catch (err) {
+      setErrorMsg(getErrorMessage(err));
+      throw err;
+    }
+  };
+
   const handleConfirmCierreEstado = async () => {
     if (!req) return;
     const estadoEnviar = newEstado ? (newEstado as EstadoRequerimiento) : undefined;
@@ -479,7 +562,8 @@ export default function RequerimientoDetailPage() {
             <p className="text-sm">
               Para pasar este requerimiento a «{ESTADO_LABELS.derivado}», use el botón{" "}
               <strong>Derivar</strong> en el panel de acciones. Al derivar se enviará el correo a la
-              dirección correspondiente y el estado cambiará automáticamente.
+              dirección correspondiente y el estado cambiará automáticamente. Si el caso puede cerrarse
+              sin involucrar a la dirección, use <strong>Responder de forma inmediata</strong>.
             </p>
           </Alert>
         )}
@@ -770,6 +854,17 @@ export default function RequerimientoDetailPage() {
                   onClick={() => setShowDerivar(true)}
                 >
                   <Send className="h-4 w-4 mr-2" /> Derivar
+                </Button>
+              )}
+
+              {puedeEnviarRespuestaInmediata && (
+                <Button
+                  variant="outline"
+                  size="full"
+                  onClick={() => setShowConfirmRespuestaInmediata(true)}
+                  className="border-amber-300 text-amber-900 hover:bg-amber-50"
+                >
+                  <Zap className="h-4 w-4 mr-2" /> Responder de forma inmediata
                 </Button>
               )}
 
@@ -1119,6 +1214,33 @@ export default function RequerimientoDetailPage() {
         />
       )}
 
+      <ConfirmDeleteModal
+        open={showConfirmRespuestaInmediata}
+        onOpenChange={setShowConfirmRespuestaInmediata}
+        title="Responder de forma inmediata"
+        confirmLabel="Sí, responder sin derivar"
+        cancelLabel="No, volver"
+        danger={false}
+        description={
+          <div className="space-y-3 text-sm text-slate-600">
+            <p>
+              ¿Está seguro de que <strong>no desea derivar</strong> este requerimiento a la dirección
+              municipal y prefiere dar una <strong>respuesta inmediata</strong> al vecino?
+            </p>
+            <p>
+              Al confirmar se <strong>cancela el flujo de derivación</strong>: el requerimiento no pasará
+              por la dirección ni por los estados intermedios. Se cerrará directamente al enviar el correo
+              al vecino.
+            </p>
+            <p>Esta acción quedará registrada en el historial del requerimiento.</p>
+          </div>
+        }
+        onConfirm={() => {
+          setShowConfirmRespuestaInmediata(false);
+          setShowRespuestaInmediata(true);
+        }}
+      />
+
       {showRespuesta && (
         <RespuestaVecinoModal
           open={showRespuesta}
@@ -1129,6 +1251,20 @@ export default function RequerimientoDetailPage() {
           autoMensajeSiCompletado={autoMensajeSiCompletado}
           title="Respuesta final al requerimiento"
           onSubmit={handleEnviarRespuesta}
+        />
+      )}
+
+      {showRespuestaInmediata && (
+        <RespuestaVecinoModal
+          open={showRespuestaInmediata}
+          onClose={() => setShowRespuestaInmediata(false)}
+          defaultEmail={req.vecino.email}
+          numeroSeguimiento={req.numeroSeguimiento}
+          requireCierre
+          autoMensajeSiCompletado={!!tipo && usaRespuestaAutomaticaAdminCompletado(tipo)}
+          allowEvidenciaPdf
+          title="Respuesta inmediata al vecino"
+          onSubmit={handleEnviarRespuestaInmediata}
         />
       )}
       {showEditar && (

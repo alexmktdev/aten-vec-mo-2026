@@ -13,7 +13,9 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
+import { FileUpload } from "@/components/ui/FileUpload";
 import { ConfirmDeleteModal } from "@/components/ui/ConfirmDeleteModal";
+import { MAX_EVIDENCIA_RESPUESTA_INMEDIATA_BYTES } from "@/lib/validations/requerimiento.schema";
 
 export type CierreRespuesta = "completado" | "rechazado";
 
@@ -22,6 +24,7 @@ export interface RespuestaVecinoPayload {
   asunto: string;
   mensaje: string;
   cierre?: CierreRespuesta;
+  evidenciaPdf?: File | null;
 }
 
 interface Props {
@@ -33,6 +36,8 @@ interface Props {
   requireCierre?: boolean;
   /** Si completado, no exige mensaje manual (respuesta automática server-side). */
   autoMensajeSiCompletado?: boolean;
+  /** Permite adjuntar un PDF de evidencia (respuesta inmediata). */
+  allowEvidenciaPdf?: boolean;
   title?: string;
   onSubmit: (payload: RespuestaVecinoPayload) => Promise<void>;
 }
@@ -44,6 +49,7 @@ export function RespuestaVecinoModal({
   numeroSeguimiento,
   requireCierre = false,
   autoMensajeSiCompletado = false,
+  allowEvidenciaPdf = false,
   title = "Enviar respuesta al vecino",
   onSubmit,
 }: Props) {
@@ -51,6 +57,8 @@ export function RespuestaVecinoModal({
   const [asunto, setAsunto] = useState(`Respuesta a su requerimiento ${numeroSeguimiento}`);
   const [mensaje, setMensaje] = useState("");
   const [cierre, setCierre] = useState<CierreRespuesta | "">("");
+  const [evidenciaPdf, setEvidenciaPdf] = useState<File | null>(null);
+  const [evidenciaPdfError, setEvidenciaPdfError] = useState("");
   const [error, setError] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
@@ -58,6 +66,21 @@ export function RespuestaVecinoModal({
   const usaRespuestaAutomatica =
     autoMensajeSiCompletado && requireCierre && cierre === "completado";
   const requiereMensajeManual = !usaRespuestaAutomatica;
+
+  const handleEvidenciaPdfChange = (file: File | null) => {
+    setEvidenciaPdfError("");
+    if (file) {
+      if (file.type !== "application/pdf") {
+        setEvidenciaPdfError("Solo se permiten archivos PDF");
+        return;
+      }
+      if (file.size > MAX_EVIDENCIA_RESPUESTA_INMEDIATA_BYTES) {
+        setEvidenciaPdfError("El archivo no puede superar 1.2 MB");
+        return;
+      }
+    }
+    setEvidenciaPdf(file);
+  };
 
   const validate = (): boolean => {
     if (!emailDestino || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailDestino)) {
@@ -95,6 +118,7 @@ export function RespuestaVecinoModal({
           : asunto.trim(),
         mensaje: usaRespuestaAutomatica ? "" : mensaje.trim(),
         cierre: requireCierre && cierre ? cierre : undefined,
+        evidenciaPdf: allowEvidenciaPdf ? evidenciaPdf : undefined,
       });
       setShowConfirm(false);
       onClose();
@@ -176,6 +200,16 @@ export function RespuestaVecinoModal({
                   required
                 />
               </>
+            )}
+            {allowEvidenciaPdf && (
+              <FileUpload
+                label="Evidencia PDF (opcional, máx. 1.2 MB)"
+                accept=".pdf"
+                maxSize={MAX_EVIDENCIA_RESPUESTA_INMEDIATA_BYTES}
+                value={evidenciaPdf}
+                onChange={handleEvidenciaPdfChange}
+                error={evidenciaPdfError}
+              />
             )}
             {error && (
               <p className="text-sm text-red-600" role="alert">

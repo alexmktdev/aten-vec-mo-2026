@@ -404,6 +404,39 @@ export function useEnviarRespuestaVecino() {
   });
 }
 
+export function useEnviarRespuestaInmediata() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: RespuestaVecinoInput & {
+        cierre: "completado" | "rechazado";
+        evidencia?: {
+          tipo: "documento";
+          nombre: string;
+          nombreR2: string;
+          url: string;
+          tamanio: number;
+        };
+      };
+    }) => {
+      return fetchJson(`/api/requerimientos/${id}/respuesta-inmediata`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["requerimiento", variables.id] });
+      queryClient.invalidateQueries({ queryKey: ["requerimientos"] });
+      invalidateDashboardQueries(queryClient);
+    },
+  });
+}
+
 export function useSetEvidenciaResolucion() {
   const queryClient = useQueryClient();
   return useMutation({
