@@ -3,6 +3,7 @@ import { usuarioRepository } from "@/repositories/usuario.repository";
 import { Usuario, UsuarioDTO, UsuarioCreateInput, RolUsuario, PaginatedUsuariosResponse } from "@/types/usuario.types";
 import { UsuarioSetActivoInput, UsuarioUpdateInput } from "@/lib/validations/usuario.schema";
 import { getDireccionLabel } from "@/constants/direcciones";
+import { getDireccionesAsignadasUsuario, ROLES_RESPONSABLE_DIRECCION } from "@/lib/director-direccion";
 import logger from "@/lib/logger";
 import { Timestamp } from "firebase-admin/firestore";
 import { invalidateCacheByPrefix } from "@/lib/server-cache";
@@ -50,36 +51,38 @@ export class UsuarioConflictError extends Error {
 }
 
 /**
- * Verifica que las direcciones asignadas a un director no tengan ya otro
- * director activo. Lanza UsuarioConflictError si hay conflicto.
+ * Verifica que las direcciones no estén ya asignadas a otro responsable activo
+ * (director o administradora-municipal). Lanza UsuarioConflictError si hay conflicto.
  *
  * @param excludeUid Para edición: uid del usuario que se está actualizando.
  */
-async function ensureSoloDirectorPorDireccion(
+async function ensureDireccionUnicaPorResponsable(
   rol: string,
   direcciones: string[],
   activo: boolean,
   excludeUid?: string
 ): Promise<void> {
-  if (rol !== "director" || !activo || direcciones.length === 0) return;
+  if (!ROLES_RESPONSABLE_DIRECCION.includes(rol as (typeof ROLES_RESPONSABLE_DIRECCION)[number]) || !activo || direcciones.length === 0) {
+    return;
+  }
 
-  const existentes = await usuarioRepository.getDirectoresActivosByDirecciones(direcciones);
+  const existentes = await usuarioRepository.getResponsablesActivosByDirecciones(direcciones);
   const conflictos = existentes
     .filter((u) => u.id !== excludeUid)
     .flatMap((u) =>
-      (u.direccionAsignadas ?? (u.direccionAsignada ? [u.direccionAsignada] : []))
+      getDireccionesAsignadasUsuario(u)
         .filter((d) => direcciones.includes(d))
-        .map((d) => ({ direccion: d, director: u.nombre, email: u.email }))
+        .map((d) => ({ direccion: d, nombre: u.nombre }))
     );
 
   if (conflictos.length > 0) {
     const detalle = conflictos
-      .map((c) => `${getDireccionLabel(c.direccion)} (ya asignada a ${c.director})`)
-      .join(", ");
-    throw new UsuarioConflictError(
-      `Cada dirección puede tener un único director activo. Conflictos: ${detalle}`,
-      conflictos
-    );
+      .map(
+        (c) =>
+          `La dirección ${getDireccionLabel(c.direccion)} ya la tiene el usuario ${c.nombre}. Elija otra dirección.`
+      )
+      .join(" ");
+    throw new UsuarioConflictError(detalle, conflictos);
   }
 }
 
@@ -94,7 +97,7 @@ export const usuarioService = {
         ? [input.direccionAsignada]
         : [];
 
-    await ensureSoloDirectorPorDireccion(input.rol, direccionesInput, true);
+    await ensureDireccionUnicaPorResponsable(input.rol, direccionesInput, true);
 
     // 1. Create Firebase Auth user
     const authUser = await adminAuth.createUser({
@@ -218,7 +221,7 @@ export const usuarioService = {
         : [];
 
     const seraActivo = existing.activo !== false;
-    await ensureSoloDirectorPorDireccion(input.rol, direcciones, seraActivo, uid);
+    await ensureDireccionUnicaPorResponsable(input.rol, direcciones, seraActivo, uid);
     const claims: Record<string, unknown> = { rol: input.rol };
     if (direcciones.length > 0) {
       claims.direccionAsignada = direcciones[0];
@@ -259,7 +262,7 @@ export const usuarioService = {
           : [];
 
     if (input.activo) {
-      await ensureSoloDirectorPorDireccion(existing.rol, direcciones, true, uid);
+      await ensureDireccionUnicaPorResponsable(existing.rol, direcciones, true, uid);
     }
 
     await adminAuth.updateUser(uid, { disabled: !input.activo });

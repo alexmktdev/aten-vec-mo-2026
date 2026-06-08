@@ -6,6 +6,7 @@ import { createSuccessResponse, createErrorResponse } from "@/lib/utils/response
 import { createRouteLogger } from "@/lib/logger";
 import { sanitizeText, normalizeEmail } from "@/lib/utils/sanitize";
 import { canDerivarRespuestaFinal } from "@/lib/requerimiento-permissions";
+import { aplicaFlujoDirectorEnRequerimiento } from "@/lib/director-direccion";
 import { esRolAdminPlataforma } from "@/types/usuario.types";
 import { rolAdminParaTipo } from "@/types/requerimiento.types";
 import {
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest, routeParams: RequerimientoRoute
       return createErrorResponse(400, "Datos inválidos", parsed.error.issues);
     }
 
-    if (user.rol === "director" && !parsed.data.nota?.trim()) {
+    if (aplicaFlujoDirectorEnRequerimiento(user, existing) && !parsed.data.nota?.trim()) {
       return createErrorResponse(400, MENSAJE_DIRECTOR_NOTA_OBLIGATORIA);
     }
 

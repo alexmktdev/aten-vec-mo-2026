@@ -7,6 +7,7 @@ import {
 } from "@/types/requerimiento.types";
 import { RolUsuario, esRolAdminPlataforma } from "@/types/usuario.types";
 import { SessionUser } from "@/types/auth.types";
+import { actuaComoDirectorEnRequerimiento } from "@/lib/director-direccion";
 
 /**
  * Matriz de transiciones por rol.
@@ -112,6 +113,25 @@ export interface EstadoTransitionContext {
   hasRespuestaVecino?: boolean;
   estadoAnteriorReapertura?: EstadoRequerimiento;
   tipoRequerimiento?: string;
+  /** Administradora municipal operando como directora en su dirección. */
+  actuaComoDirector?: boolean;
+}
+
+function getDirectorNextStates(
+  currentEstado: EstadoRequerimiento,
+  context?: EstadoTransitionContext
+): EstadoRequerimiento[] {
+  let next = [...DIRECTOR_STATUS_TRANSITIONS[currentEstado]];
+  const directorNoCierraManualPorAdmin =
+    !!context?.tipoRequerimiento &&
+    requiereRespuestaFinalPorAdmin(context.tipoRequerimiento) &&
+    (currentEstado === "en_proceso" ||
+      currentEstado === "en_espera_1" ||
+      currentEstado === "en_espera_2");
+  if (directorNoCierraManualPorAdmin) {
+    next = next.filter((s) => s !== "completado" && s !== "rechazado");
+  }
+  return next;
 }
 
 export function getAllowedNextStates(
@@ -128,6 +148,9 @@ export function getAllowedNextStates(
       }
       return [];
     }
+    if (rol === "administradora-municipal" && context?.actuaComoDirector) {
+      return getDirectorNextStates(currentEstado, context);
+    }
     return FULL_STATUS_TRANSITIONS[currentEstado];
   }
 
@@ -136,17 +159,7 @@ export function getAllowedNextStates(
   }
 
   if (rol === "director") {
-    let next = [...DIRECTOR_STATUS_TRANSITIONS[currentEstado]];
-    const directorNoCierraManualPorAdmin =
-      !!context?.tipoRequerimiento &&
-      requiereRespuestaFinalPorAdmin(context.tipoRequerimiento) &&
-      (currentEstado === "en_proceso" ||
-        currentEstado === "en_espera_1" ||
-        currentEstado === "en_espera_2");
-    if (directorNoCierraManualPorAdmin) {
-      next = next.filter((s) => s !== "completado" && s !== "rechazado");
-    }
-    return next;
+    return getDirectorNextStates(currentEstado, context);
   }
 
   return [];
@@ -165,7 +178,10 @@ export function canTransitionEstado(
 /** Derivar al admin para respuesta final: desde en_proceso o esperas. */
 export function canDerivarRespuestaFinal(
   user: SessionUser,
-  req: Pick<RequerimientoDTO, "estado" | "tipoRequerimiento" | "respuestasVecino">
+  req: Pick<
+    RequerimientoDTO,
+    "estado" | "tipoRequerimiento" | "respuestasVecino" | "direccionMunicipal"
+  >
 ): boolean {
   if ((req.respuestasVecino?.length ?? 0) > 0) return false;
   if (!requiereRespuestaFinalPorAdmin(req.tipoRequerimiento)) return false;
@@ -176,7 +192,8 @@ export function canDerivarRespuestaFinal(
   ) {
     return false;
   }
-  return user.rol === "superadmin" || user.rol === "director";
+  if (user.rol === "superadmin" || user.rol === "director") return true;
+  return actuaComoDirectorEnRequerimiento(user, req);
 }
 
 /**

@@ -5,6 +5,7 @@ import { createSuccessResponse, createErrorResponse } from "@/lib/utils/response
 import { createRouteLogger } from "@/lib/logger";
 import { sanitizeText } from "@/lib/utils/sanitize";
 import { canDeleteRequerimiento, canTransitionEstado } from "@/lib/requerimiento-permissions";
+import { actuaComoDirectorEnRequerimiento, aplicaFlujoDirectorEnRequerimiento } from "@/lib/director-direccion";
 import {
   directorDebeAgregarNotaAntesDeCambiarEstado,
   directorIntentaGuardarSoloNota,
@@ -70,6 +71,10 @@ export async function PATCH(request: NextRequest, routeParams: RequerimientoRout
       hasRespuestaVecino: (existing.respuestasVecino?.length ?? 0) > 0,
       estadoAnteriorReapertura,
       tipoRequerimiento: existing.tipoRequerimiento,
+      actuaComoDirector: actuaComoDirectorEnRequerimiento(user, {
+        direccionMunicipal: existing.direccionMunicipal,
+        estado: existing.estado as EstadoRequerimiento,
+      }),
     };
     const nextEstado = parsed.data.estado as EstadoRequerimiento | undefined;
     if (
@@ -81,8 +86,11 @@ export async function PATCH(request: NextRequest, routeParams: RequerimientoRout
 
     if (
       directorDebeAgregarNotaAntesDeCambiarEstado(
-        user.rol,
-        existing.estado as EstadoRequerimiento,
+        user,
+        {
+          direccionMunicipal: existing.direccionMunicipal,
+          estado: existing.estado as EstadoRequerimiento,
+        },
         nextEstado,
         parsed.data.nota
       )
@@ -92,8 +100,11 @@ export async function PATCH(request: NextRequest, routeParams: RequerimientoRout
 
     if (
       directorIntentaGuardarSoloNota(
-        user.rol,
-        existing.estado as EstadoRequerimiento,
+        user,
+        {
+          direccionMunicipal: existing.direccionMunicipal,
+          estado: existing.estado as EstadoRequerimiento,
+        },
         nextEstado,
         parsed.data.nota
       )
@@ -142,7 +153,10 @@ export async function PATCH(request: NextRequest, routeParams: RequerimientoRout
     if (
       parsed.data.nota &&
       (!parsed.data.estado || parsed.data.estado === existing.estado) &&
-      user.rol !== "director"
+      !aplicaFlujoDirectorEnRequerimiento(user, {
+        direccionMunicipal: existing.direccionMunicipal,
+        estado: existing.estado as EstadoRequerimiento,
+      })
     ) {
       await requerimientoService.addNota(id, parsed.data.nota, user);
     }

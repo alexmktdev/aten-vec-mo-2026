@@ -111,60 +111,96 @@ export const usuarioRepository = {
   },
 
   /**
-   * Devuelve los directores activos que tienen alguna de las direcciones
-   * indicadas asignadas (campo escalar o campo array). Útil para validar que
-   * cada dirección tenga un único director activo.
+   * Responsable activo de una dirección: director o administradora-municipal
+   * (array o campo escalar legacy). Prioriza director si hubiera ambos (no debería
+   * ocurrir con la validación de unicidad).
    */
-  /**
-   * Director activo asignado a una dirección (array o campo escalar legacy).
-   */
-  async getDirectorActivoPorDireccion(direccion: string): Promise<Usuario | null> {
-    const byArray = await collection()
-      .where("rol", "==", "director")
-      .where("activo", "==", true)
-      .where("direccionAsignadas", "array-contains", direccion)
-      .limit(1)
-      .get();
+  async getResponsableActivoPorDireccion(direccion: string): Promise<Usuario | null> {
+    const roles: RolUsuario[] = ["director", "administradora-municipal"];
 
-    if (!byArray.empty) {
-      const doc = byArray.docs[0];
-      return { id: doc.id, ...doc.data() } as Usuario;
+    for (const rol of roles) {
+      const byArray = await collection()
+        .where("rol", "==", rol)
+        .where("activo", "==", true)
+        .where("direccionAsignadas", "array-contains", direccion)
+        .limit(1)
+        .get();
+
+      if (!byArray.empty) {
+        const doc = byArray.docs[0];
+        return { id: doc.id, ...doc.data() } as Usuario;
+      }
+
+      const byScalar = await collection()
+        .where("rol", "==", rol)
+        .where("activo", "==", true)
+        .where("direccionAsignada", "==", direccion)
+        .limit(1)
+        .get();
+
+      if (!byScalar.empty) {
+        const doc = byScalar.docs[0];
+        return { id: doc.id, ...doc.data() } as Usuario;
+      }
     }
 
-    const byScalar = await collection()
-      .where("rol", "==", "director")
-      .where("activo", "==", true)
-      .where("direccionAsignada", "==", direccion)
-      .limit(1)
-      .get();
-
-    if (byScalar.empty) return null;
-    const doc = byScalar.docs[0];
-    return { id: doc.id, ...doc.data() } as Usuario;
+    return null;
   },
 
-  async getDirectoresActivosByDirecciones(direcciones: string[]): Promise<Usuario[]> {
+  /** @deprecated Use getResponsableActivoPorDireccion */
+  async getDirectorActivoPorDireccion(direccion: string): Promise<Usuario | null> {
+    return this.getResponsableActivoPorDireccion(direccion);
+  },
+
+  /**
+   * Directores y administradoras municipales activos con alguna de las direcciones indicadas.
+   */
+  async getResponsablesActivosByDirecciones(direcciones: string[]): Promise<Usuario[]> {
     const unique = Array.from(new Set(direcciones.filter(Boolean)));
     if (unique.length === 0) return [];
 
-    const queries = unique.map((dir) =>
-      collection()
-        .where("rol", "==", "director")
-        .where("activo", "==", true)
-        .where("direccionAsignadas", "array-contains", dir)
-        .get()
-    );
-
-    const snapshots = await Promise.all(queries);
+    const roles: RolUsuario[] = ["director", "administradora-municipal"];
     const map = new Map<string, Usuario>();
-    snapshots.forEach((snap) => {
-      snap.docs.forEach((doc) => {
-        if (!map.has(doc.id)) {
-          map.set(doc.id, { id: doc.id, ...doc.data() } as Usuario);
-        }
+
+    for (const rol of roles) {
+      const queries = unique.map((dir) =>
+        collection()
+          .where("rol", "==", rol)
+          .where("activo", "==", true)
+          .where("direccionAsignadas", "array-contains", dir)
+          .get()
+      );
+
+      const snapshots = await Promise.all(queries);
+      snapshots.forEach((snap) => {
+        snap.docs.forEach((doc) => {
+          if (!map.has(doc.id)) {
+            map.set(doc.id, { id: doc.id, ...doc.data() } as Usuario);
+          }
+        });
       });
-    });
+
+      for (const dir of unique) {
+        const byScalar = await collection()
+          .where("rol", "==", rol)
+          .where("activo", "==", true)
+          .where("direccionAsignada", "==", dir)
+          .get();
+
+        byScalar.docs.forEach((doc) => {
+          if (!map.has(doc.id)) {
+            map.set(doc.id, { id: doc.id, ...doc.data() } as Usuario);
+          }
+        });
+      }
+    }
+
     return Array.from(map.values());
+  },
+
+  async getDirectoresActivosByDirecciones(direcciones: string[]): Promise<Usuario[]> {
+    const responsables = await this.getResponsablesActivosByDirecciones(direcciones);
+    return responsables.filter((u) => u.rol === "director");
   },
 
   /**

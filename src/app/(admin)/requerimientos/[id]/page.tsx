@@ -51,6 +51,10 @@ import {
   MENSAJE_DIRECTOR_CAMBIO_ESTADO_OBLIGATORIO,
   MENSAJE_DIRECTOR_NOTA_OBLIGATORIA,
 } from "@/lib/director-estado-nota";
+import {
+  actuaComoDirectorEnRequerimiento,
+  puedeGestionarEvidenciaResolucion,
+} from "@/lib/director-direccion";
 import { ConfirmDeleteModal } from "@/components/ui/ConfirmDeleteModal";
 import {
   Modal,
@@ -146,10 +150,18 @@ export default function RequerimientoDetailPage() {
     (req.historialEstados?.length ?? 0) >= 2
       ? (req.historialEstados[req.historialEstados.length - 2]!.estado as EstadoRequerimiento)
       : undefined;
+  const actuaComoDirectorEnEsteReq =
+    !!user &&
+    !!req &&
+    actuaComoDirectorEnRequerimiento(user, {
+      direccionMunicipal: req.direccionMunicipal,
+      estado: req.estado,
+    });
   const estadoTransitionContext = {
     hasRespuestaVecino,
     estadoAnteriorReapertura,
     tipoRequerimiento: req?.tipoRequerimiento,
+    actuaComoDirector: actuaComoDirectorEnEsteReq,
   };
   const tipo = req?.tipoRequerimiento;
   const esTipoRespuestaAdmin = !!tipo && requiereRespuestaFinalPorAdmin(tipo);
@@ -178,13 +190,17 @@ export default function RequerimientoDetailPage() {
   const puedeRevertirDatos = !!req && puedeRevertirEstadoPorDatos(req);
   const puedeRevertir = !!user && !!req && canRevertirEstado(user.rol, req);
   const esSuperadmin = user?.rol === "superadmin";
-  const esDirector = user?.rol === "director";
+  const esDirectorEnUI = user?.rol === "director" || actuaComoDirectorEnEsteReq;
 
   const directorFaltaNotaParaEstado = (estadoDestino?: string) =>
+    !!user &&
     !!req &&
     directorDebeAgregarNotaAntesDeCambiarEstado(
-      user?.rol,
-      req.estado,
+      user,
+      {
+        direccionMunicipal: req.direccionMunicipal,
+        estado: req.estado,
+      },
       estadoDestino as EstadoRequerimiento | undefined,
       nota
     );
@@ -200,7 +216,13 @@ export default function RequerimientoDetailPage() {
   const evidenciaPermitida =
     !!req && ESTADOS_PERMITEN_EVIDENCIA.includes(req.estado);
   const evidenciaPuedeGestionar =
-    !!user && evidenciaPermitida && (user.rol === "director" || user.rol === "superadmin");
+    !!user &&
+    !!req &&
+    evidenciaPermitida &&
+    puedeGestionarEvidenciaResolucion(user, {
+      direccionMunicipal: req.direccionMunicipal,
+      estado: req.estado,
+    });
 
   const isProcessingAction =
     updateMutation.isPending ||
@@ -271,7 +293,7 @@ export default function RequerimientoDetailPage() {
   const handleUpdateEstado = async () => {
     if (!req) return;
 
-    if (esDirector) {
+    if (esDirectorEnUI) {
       if (!nota.trim()) {
         setShowDirectorNotaModal(true);
         return;
@@ -773,19 +795,19 @@ export default function RequerimientoDetailPage() {
               {canChangeEstado && (
                 <>
                   <Textarea
-                    label={esDirector ? "Nota (obligatoria para cambiar estado)" : "Nota (opcional)"}
+                    label={esDirectorEnUI ? "Nota (obligatoria para cambiar estado)" : "Nota (opcional)"}
                     rows={3}
                     maxLength={1000}
                     value={nota}
                     onChange={(e) => setNota(e.target.value)}
                     placeholder={
-                      esDirector
+                      esDirectorEnUI
                         ? "Escriba la nota; al guardar elegirá el nuevo estado en el siguiente paso..."
                         : "Agregar nota al cambio..."
                     }
-                    required={esDirector}
+                    required={esDirectorEnUI}
                   />
-                  {!esDirector && (
+                  {!esDirectorEnUI && (
                     <Select
                       label="Cambiar estado"
                       options={estadoOptions}
@@ -794,7 +816,7 @@ export default function RequerimientoDetailPage() {
                       placeholder="Seleccione nuevo estado"
                     />
                   )}
-                  {esDirector && (
+                  {esDirectorEnUI && (
                     <p className="text-xs text-slate-500">
                       Al pulsar «Guardar cambios» podrá elegir el nuevo estado. La nota y el cambio se registran
                       juntos en el historial con su nombre y rol.
@@ -806,7 +828,7 @@ export default function RequerimientoDetailPage() {
                     loading={updateMutation.isPending}
                     disabled={
                       updateMutation.isPending ||
-                      (esDirector
+                      (esDirectorEnUI
                         ? !nota.trim()
                         : !nota.trim() && (!newEstado || newEstado === req.estado))
                     }
@@ -1210,7 +1232,7 @@ export default function RequerimientoDetailPage() {
           onClose={() => setShowDerivarFinal(false)}
           onSubmit={handleDerivarRespuestaFinal}
           tipoRequerimiento={req.tipoRequerimiento}
-          notaObligatoria={esDirector}
+          notaObligatoria={esDirectorEnUI}
         />
       )}
 

@@ -8,6 +8,7 @@ import {
   RequerimientoRouteParams,
   requireRequerimientoWithAccess,
 } from "@/lib/api/requerimiento-route-guards";
+import { puedeGestionarEvidenciaResolucion } from "@/lib/director-direccion";
 
 const log = createRouteLogger("/api/requerimientos/[id]/evidencia");
 
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest, routeParams: RequerimientoRoute
     });
     if (access.error) return access.error;
 
-    if (access.user.rol !== "superadmin" && access.user.rol !== "director") {
+    if (!puedeGestionarEvidenciaResolucion(access.user, access.requerimiento)) {
       return createErrorResponse(403, "Solo el director o superadmin pueden adjuntar evidencia de resolución");
     }
 
@@ -95,11 +96,7 @@ export async function DELETE(_request: NextRequest, routeParams: RequerimientoRo
     });
     if (access.error) return access.error;
 
-    if (
-      access.user.rol !== "superadmin" &&
-      access.user.rol !== "director" &&
-      access.user.rol !== "administradora-municipal"
-    ) {
+    if (!puedeGestionarEvidenciaResolucion(access.user, access.requerimiento)) {
       return createErrorResponse(403, "No tiene permisos para eliminar la evidencia de resolución");
     }
 
