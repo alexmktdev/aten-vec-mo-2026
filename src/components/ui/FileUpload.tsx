@@ -29,11 +29,6 @@ export function FileUpload({
   const [dragActive, setDragActive] = React.useState(false);
 
   const handleFile = (file: File | null) => {
-    if (!file) { onChange(null); return; }
-    if (accept === ".pdf" && file.type !== "application/pdf") {
-      return;
-    }
-    if (file.size > maxSize) { return; }
     onChange(file);
   };
 
