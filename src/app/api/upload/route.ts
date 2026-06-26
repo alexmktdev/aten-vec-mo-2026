@@ -5,6 +5,7 @@ import { createSuccessResponse, createErrorResponse } from "@/lib/utils/response
 import { createRouteLogger } from "@/lib/logger";
 import { uploadSchema, getFileExtension } from "@/lib/validations/upload.schema";
 import { enforceRateLimit, RATE_LIMIT_PRESETS } from "@/lib/rate-limit";
+import { sanitizeUploadFileName } from "@/lib/utils/upload-filename";
 
 const log = createRouteLogger("/api/upload");
 const PUBLIC_EXT_TO_MIME: Record<string, string> = {
@@ -32,6 +33,19 @@ export async function POST(request: NextRequest) {
     if (rateLimited) return rateLimited;
 
     const body = await request.json();
+
+    if (typeof body?.fileName === "string") {
+      body.fileName = sanitizeUploadFileName(body.fileName);
+    }
+    const extForMime = typeof body?.fileName === "string" ? getFileExtension(body.fileName) : "";
+    if (
+      extForMime === "pdf" &&
+      (typeof body?.contentType !== "string" ||
+        !body.contentType.trim() ||
+        body.contentType === "application/octet-stream")
+    ) {
+      body.contentType = "application/pdf";
+    }
 
     const parsed = uploadSchema.safeParse(body);
     if (!parsed.success) {

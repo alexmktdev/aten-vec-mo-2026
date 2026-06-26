@@ -17,15 +17,8 @@ import { FileUpload } from "@/components/ui/FileUpload";
 import { CheckCircle } from "lucide-react";
 
 import { MAX_PDF_UPLOAD_BYTES } from "@/lib/validations/upload.schema";
+import { resolvePdfContentType, sanitizeUploadFileName } from "@/lib/utils/upload-filename";
 const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "";
-
-function sanitizeUploadFileName(fileName: string): string {
-  const normalized = fileName
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9._\-\s]/g, "_");
-  return normalized || "documento.pdf";
-}
 
 declare global {
   interface Window {
@@ -174,7 +167,7 @@ export function RequerimientoForm() {
         setSubmitStatus("Subiendo documento adjunto...");
         setSubmitProgress(45);
         const safeFileName = sanitizeUploadFileName(pdfFile.name);
-        const safeContentType = pdfFile.type || "application/pdf";
+        const safeContentType = resolvePdfContentType(pdfFile);
         const uploadRes = await fetch("/api/upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

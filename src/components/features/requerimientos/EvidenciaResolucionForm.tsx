@@ -8,9 +8,16 @@ import { Alert } from "@/components/ui/Alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { ConfirmDeleteModal } from "@/components/ui/ConfirmDeleteModal";
 import { useSetEvidenciaResolucion, useDeleteEvidenciaResolucion } from "@/hooks/useRequerimientos";
+import { ApiClientError } from "@/lib/api/fetch-json";
 import { ExternalLink, FileCheck, Trash2, Upload } from "lucide-react";
 
 import { MAX_PDF_UPLOAD_BYTES } from "@/lib/validations/upload.schema";
+import {
+  firstValidationError,
+  isPdfFile,
+  resolvePdfContentType,
+  sanitizeUploadFileName,
+} from "@/lib/utils/upload-filename";
 
 interface Props {
   requerimientoId: string;
@@ -40,7 +47,7 @@ export function EvidenciaResolucionForm({ requerimientoId, canManage = false, ev
   const handlePdfChange = (file: File | null) => {
     setPdfError("");
     if (file) {
-      if (file.type !== "application/pdf") {
+      if (!isPdfFile(file)) {
         setPdfError("Solo se permiten archivos PDF");
         return;
       }
@@ -58,25 +65,26 @@ export function EvidenciaResolucionForm({ requerimientoId, canManage = false, ev
     setSuccess("");
 
     try {
+      const contentType = resolvePdfContentType(pdfFile);
       const uploadRes = await fetch("/api/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fileName: pdfFile.name,
-          contentType: pdfFile.type,
+          fileName: sanitizeUploadFileName(pdfFile.name),
+          contentType,
           size: pdfFile.size,
           isPublic: false,
         }),
       });
       const uploadData = await uploadRes.json();
       if (!uploadData.success) {
-        throw new Error(uploadData.error || "No fue posible preparar la carga del archivo");
+        throw new Error(firstValidationError(uploadData));
       }
 
       await fetch(uploadData.data.uploadUrl, {
         method: "PUT",
         body: pdfFile,
-        headers: { "Content-Type": pdfFile.type },
+        headers: { "Content-Type": contentType },
       });
 
       await mutation.mutateAsync({
@@ -92,7 +100,11 @@ export function EvidenciaResolucionForm({ requerimientoId, canManage = false, ev
       setPdfFile(null);
       setTimeout(() => setSuccess(""), 4000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al subir la evidencia");
+      if (err instanceof ApiClientError) {
+        setError(firstValidationError({ error: err.message, details: err.details as Array<{ message?: string }> }));
+      } else {
+        setError(err instanceof Error ? err.message : "Error al subir la evidencia");
+      }
     }
   };
 
